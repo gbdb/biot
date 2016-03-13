@@ -26,6 +26,8 @@ Voici la liste des pieces utilisé pour la version 1.0
     https://www.adafruit.com/products/374
   Adafruit est un site pratique car ils aident beaucoup.. 
     mais il existe aussi d'autre site chinois vendent moins cher... 
+-lecteur d'humidité
+  https://www.adafruit.com/products/386
 -Fer a souder
 -boitier de projet type hammond manufacturing [je ne trouve plus le # de modèle]
   les gens chez Abra Electronique ont en inventaire plusieurs boite de ce type
