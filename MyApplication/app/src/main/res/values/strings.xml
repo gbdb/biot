@@ -1,0 +1,20 @@
+<resources>
+    <string name="app_name">Mon Jardin</string>
+    <string name="action_settings">Settings</string>
+    <string name="section_format">Hello World from section: %1$d</string>
+
+    <string name="section_conditions">Conditions</string>
+    <string name="section_control">Contrôle</string>
+    <string name="section_alerts">Alertes</string>
+
+    <string name="title_temp">Températures</string>
+    <string name="title_temp_out">Ambiante</string>
+    <string name="title_temp_water">Eau</string>
+
+    <string name="humidity">Humidité</string>
+
+    <string name="sensor_1">Capteur principal</string>
+
+    <!--Control related terms-->
+    <string name="title_control">Centre de contrôle</string>
+</resources>

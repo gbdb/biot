@@ -1,0 +1,89 @@
+<TableLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:paddingLeft="@dimen/activity_horizontal_margin"
+    android:paddingRight="@dimen/activity_horizontal_margin"
+    android:paddingTop="@dimen/activity_vertical_margin"
+    android:paddingBottom="@dimen/activity_vertical_margin">
+
+
+
+
+    <TableRow
+            android:layout_width="match_parent"
+            android:layout_height="fill_parent"
+            android:layout_gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/label_tempTitle"
+                android:text="@string/title_temp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="24dp"
+                android:textStyle="bold" />
+        </TableRow>
+
+        <TableRow
+            android:layout_width="match_parent"
+            android:layout_height="fill_parent"
+            android:layout_marginTop="10dp">
+
+            <ImageView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:id="@+id/imageView"
+                android:src="@drawable/wall_thermometer"
+                android:layout_gravity="left"
+                android:layout_weight="0.1" />
+
+            <TextView
+                android:id="@+id/label_tempOut"
+                android:text="@string/title_temp_out"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_gravity="left|center_vertical|right"
+                android:layout_weight="0.6" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:text="30°"
+                android:id="@+id/label_temp_out"
+                android:layout_gravity="center_vertical"
+                android:layout_span="0"
+                android:layout_weight="0.2" />
+
+        </TableRow>
+
+    <TableRow
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginTop="7.5dp">
+
+            <ImageView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:id="@+id/imageView2"
+                android:src="@drawable/three_drops"
+                android:layout_gravity="left"
+                android:layout_weight="0.1" />
+
+            <TextView
+                android:id="@+id/label_tempWater"
+                android:text="@string/title_temp_water"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:layout_weight="0.6" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:text="24°"
+                android:id="@+id/label_temp_water"
+                android:layout_weight="0.2" />
+
+    </TableRow>
+</TableLayout>
+

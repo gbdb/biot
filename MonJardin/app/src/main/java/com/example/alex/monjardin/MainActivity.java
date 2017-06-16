@@ -6,6 +6,7 @@ import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.app.Fragment;
+import android.util.Log;
 import android.view.View;
 import android.support.design.widget.NavigationView;
 import android.support.v4.view.GravityCompat;
@@ -26,6 +27,16 @@ public class MainActivity extends AppCompatActivity
                     FragmentTemperature.OnFragmentInteractionListener,
                     FragmentCentreControle.OnFragmentInteractionListener{
 
+    Socket mSocket;
+    {
+        try {
+            mSocket = IO.socket("http://raspberrypi:5000");
+            mSocket.connect();
+            mSocket.emit("connect", "TABARNAK");
+        } catch (URISyntaxException e) {}
+    }
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -33,10 +44,12 @@ public class MainActivity extends AppCompatActivity
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
+
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                poke();
                 Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
                         .setAction("Action", null).show();
             }
@@ -53,17 +66,14 @@ public class MainActivity extends AppCompatActivity
 
         navigationView.setCheckedItem(R.id.nav_home);
 
-        Socket mSocket;
-        {
-            try {
-                mSocket = IO.socket("http://192.168.0.108");
-                mSocket.connect();
-                mSocket.emit("lol", "TABARNAK");
-            } catch (URISyntaxException e) {}
-        }
 
         startCentreControleFragment();
 
+    }
+
+    public void poke() {
+        Log.d("YOOO-->",  "SENDING NUDES");
+        mSocket.emit("togglePower", "Toggling power");
     }
 
     @Override
