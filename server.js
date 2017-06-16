@@ -4,6 +4,22 @@ var http = require('http').Server(app);
 var io = require('socket.io')(http);
 var port = process.env.PORT || 3000;
 
+var MongoClient = require('mongodb').MongoClient;
+var url = 'mongodb://localhost:27017/Jardin';
+var db;
+
+MongoClient.connect(url, function(err, ourBD) {
+  console.log("connected");
+  db = ourBD;
+});
+
+var fetchAllRelays = function(cb) {
+   var relays = db.collection('relays');
+   relays.find().toArray(function(err,doc) {
+   	cb(doc);
+    });
+};
+
 app.get('/', function(req, res){
   res.sendFile(__dirname + '/index.html');
 });
@@ -14,6 +30,9 @@ io.on('connection', function(socket){
 
     switch(msg.type){
     	case "TOGGLE_PUMP":
+    		fetchAllRelays(function(data) {
+    			console.log(data);
+    		});
     		var relay = relays[msg.args.id];
     		if(relay != undefined)
     			relay.toggle();
