@@ -19,10 +19,6 @@ public class MainActivity extends AppCompatActivity {
     private SectionsPagerAdapter mSectionsPagerAdapter;
     private ViewPager mViewPager;
 
-    private ConditionsFragment conditionsFragment;
-    private ControlFragment controlFragment;
-    private AlertsFragment alertsFragment;
-
     private List<String> sectionNames;
     private List<Fragment> _fragments;
 
@@ -30,14 +26,11 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        conditionsFragment = new ConditionsFragment();
-        controlFragment = new ControlFragment();
-        alertsFragment = new AlertsFragment();
 
         _fragments = new ArrayList<>();
-        _fragments.add(conditionsFragment);
-        _fragments.add(controlFragment);
-        _fragments.add(alertsFragment);
+        _fragments.add(new ConditionsFragment());
+        _fragments.add(new ControlFragment());
+        _fragments.add(new AlertsFragment());
 
         sectionNames = new ArrayList<>();
         sectionNames.add(getString(R.string.section_conditions));

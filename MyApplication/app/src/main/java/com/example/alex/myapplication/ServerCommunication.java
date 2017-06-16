@@ -1,7 +1,17 @@
 package com.example.alex.myapplication;
 
+import android.content.Context;
+import android.widget.Toast;
+
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.JsonArrayRequest;
+import com.android.volley.toolbox.Volley;
 import com.github.nkzawa.socketio.client.IO;
 import com.github.nkzawa.socketio.client.Socket;
+
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import java.net.URISyntaxException;
@@ -28,7 +38,7 @@ public class ServerCommunication {
         }
     }
 
-    public void sendEvent(String message, HashMap<String,Object> args) {
+    public void sendEvent(String message, Map<String,Object> args) {
         JSONObject data = new JSONObject();
         JSONObject argumentsToProvide = new JSONObject();
 
@@ -42,5 +52,24 @@ public class ServerCommunication {
         }
         socket.connect();
         socket.emit("event", data);
+    }
+
+    public void request(final Context context, Map<String,Object> args, final DataCallBack dataCallBack) {
+        RequestQueue queue = Volley.newRequestQueue(context);
+        String url = (String)args.get("url");
+        JsonArrayRequest jsObjRequest = new JsonArrayRequest(url, new Response.Listener<JSONArray>() {
+            @Override
+            public void onResponse(JSONArray response) {
+                Toast.makeText(context, response.toString(), Toast.LENGTH_SHORT).show();
+                dataCallBack.onSuccess(response);
+            }
+        }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+                Toast.makeText(context, "ServerComm Error!", Toast.LENGTH_SHORT).show();
+                dataCallBack.onFailure();
+            }
+        });
+        queue.add(jsObjRequest);
     }
 }

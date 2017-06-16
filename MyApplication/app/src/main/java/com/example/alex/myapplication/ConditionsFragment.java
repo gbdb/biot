@@ -9,7 +9,6 @@ import android.view.ViewGroup;
 public class ConditionsFragment extends Fragment {
 
     public ConditionsFragment() {
-
     }
 
     @Override

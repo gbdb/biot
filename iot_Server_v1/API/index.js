@@ -5,7 +5,7 @@ var SensorDAO = require('../DAO/SensorDAO.js');
 var CycleDAO = require('../DAO/CycleDAO.js');
 var RelayDAO = require('../DAO/RelayDAO.js');
 
-var relays = new SensorDAO();
+var relays = new RelayDAO();
 var cycles = new CycleDAO();
 var sensors = new SensorDAO();
 
