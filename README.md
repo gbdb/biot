@@ -32,3 +32,8 @@ Voici la liste des pieces utilisé pour la version 1.0
 -boitier de projet type hammond manufacturing [je ne trouve plus le # de modèle]
   les gens chez Abra Electronique ont en inventaire plusieurs boite de ce type
     il faut que la boite choisi puisse prendre toute les composante choisi et etre assez étanche. Je suggere une boite de plastique.
+
+
+v2:
+
+todo
