@@ -4,25 +4,14 @@
     android:layout_width="fill_parent">
 
     <PreferenceCategory
-        android:title="Section djole">
-
-        <CheckBoxPreference
-            android:key="checkbox_preference"
-            android:title="Normally on"
-            android:defaultValue="True"/>
+        android:title="Network">
 
         <EditTextPreference
-            android:key="edittext_preference"
-            android:title="Adresse IP"
-            android:summary="FORMAT IPV4"
-            android:dialogTitle="BONJOUR CONNARD, MET TON ADRESSE SI NON JE TE TUE"
-            android:dependency="checkbox_preference" />
+            android:defaultValue="192.168.0.113:3000"
+            android:key="ip_pref"
+            android:title="IP Adress"
+            android:summary="Edit IP Adress"
+            android:dialogTitle="Please input IP Adress ( 1.2.3.4:0000 )" />
 
     </PreferenceCategory>
-
-    <CheckBoxPreference
-        android:key="pref_sync"
-        android:title="Allo"
-        android:summary="Tabarnak"
-        android:defaultValue="true" />
 </PreferenceScreen>

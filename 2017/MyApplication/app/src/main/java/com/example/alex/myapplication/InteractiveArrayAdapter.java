@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.Map;
 
 import android.app.Activity;
+import android.content.SharedPreferences;
+import android.preference.PreferenceManager;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -12,6 +14,7 @@ import android.widget.ArrayAdapter;
 import android.widget.CompoundButton;
 import android.widget.Switch;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -26,12 +29,16 @@ public class InteractiveArrayAdapter extends ArrayAdapter<Pump> implements DataC
         super(context, R.layout.pompe_item, list);
         this.context = context;
         this.dataSet = list;
-
+        String endPoint = "http://";
+        SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(context);
+        String ip = sharedPref.getString("ip_pref", "");
+        endPoint += ( ip + "/API/relays");
         Map<String,Object> args1 = new HashMap<>();
-        args1.put("url", "http://192.168.0.113:3000/API/relays");
+        args1.put("url", endPoint);
         ServerCommunication.getInstance().request(context, args1, this);
     }
 
+    //// TODO: 6/16/17 code cleanup
     @Override
     public void onSuccess(Object result) {
         JSONArray receivedDataSet = (JSONArray)result;
@@ -41,6 +48,7 @@ public class InteractiveArrayAdapter extends ArrayAdapter<Pump> implements DataC
                 Pump pump = dataSet.get(i);
                 JSONObject object = (JSONObject)receivedDataSet.get(i);
                 pump.setName((String)object.get("name"));
+                pump.setId((String)object.get("_id"));
             }
 
         } catch (JSONException e) {
@@ -52,7 +60,7 @@ public class InteractiveArrayAdapter extends ArrayAdapter<Pump> implements DataC
 
     @Override
     public void onFailure() {
-
+        Toast.makeText(context, "ServerComm issue.", Toast.LENGTH_SHORT).show();
     }
 
     static class ViewHolder {
