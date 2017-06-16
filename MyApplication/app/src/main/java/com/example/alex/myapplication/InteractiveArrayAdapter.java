@@ -11,7 +11,6 @@ import android.widget.ArrayAdapter;
 import android.widget.CompoundButton;
 import android.widget.Switch;
 import android.widget.TextView;
-import android.widget.Toast;
 
 public class InteractiveArrayAdapter extends ArrayAdapter<Pump> {
 

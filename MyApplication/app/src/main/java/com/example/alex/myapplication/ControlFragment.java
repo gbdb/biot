@@ -2,17 +2,12 @@ package com.example.alex.myapplication;
 
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ListView;
 
-import java.net.URISyntaxException;
 import java.util.ArrayList;
-
-import com.github.nkzawa.socketio.client.IO;
-import com.github.nkzawa.socketio.client.Socket;
 
 public class ControlFragment extends Fragment {
 
