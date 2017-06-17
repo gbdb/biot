@@ -5,7 +5,10 @@ import android.support.v4.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
 import android.widget.ListView;
+import android.widget.Spinner;
 
 import java.util.ArrayList;
 
@@ -18,7 +21,9 @@ public class ControlFragment extends Fragment {
     private InteractiveArrayAdapter myAdapter;
 
     private ArrayList<Pump> pumps;
+    private ArrayAdapter cyclesAdapter;
 
+    private Spinner cyclesSpinner;
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -28,6 +33,16 @@ public class ControlFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         View rootView = inflater.inflate(R.layout.fragment_control, container, false);
+
+        cyclesSpinner = (Spinner)rootView.findViewById(R.id.spinner);
+
+
+
+
+        ArrayList<String> cycles = new ArrayList<>();
+        cycles.add("Regular 12/12");
+        cyclesAdapter = new ArrayAdapter(getActivity(), R.layout.support_simple_spinner_dropdown_item, cycles);
+        cyclesSpinner.setAdapter(cyclesAdapter);
 
         pumps = new ArrayList<>();
         pumps.add(new Pump("Pompe principale de marde",  "Relay-7"));

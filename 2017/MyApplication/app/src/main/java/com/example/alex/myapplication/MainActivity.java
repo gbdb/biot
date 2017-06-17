@@ -10,9 +10,13 @@ import android.support.v4.view.ViewPager;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import com.getbase.floatingactionbutton.FloatingActionButton;
+import com.getbase.floatingactionbutton.FloatingActionsMenu;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -21,6 +25,8 @@ public class MainActivity extends AppCompatActivity {
 
     private List<String> sectionNames;
     private List<Fragment> _fragments;
+
+    private FloatingActionButton fb;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -31,6 +37,15 @@ public class MainActivity extends AppCompatActivity {
         _fragments.add(new ConditionsFragment());
         _fragments.add(new ControlFragment());
         _fragments.add(new AlertsFragment());
+
+        fb = (FloatingActionButton)findViewById(R.id.fab_action_cycle);
+        fb.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(MainActivity.this, CreateCycleActivity.class);
+                startActivity(intent);
+            }
+        });
 
         sectionNames = new ArrayList<>();
         sectionNames.add(getString(R.string.section_conditions));
