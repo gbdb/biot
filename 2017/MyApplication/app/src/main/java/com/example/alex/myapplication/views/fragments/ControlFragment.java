@@ -39,9 +39,6 @@ public class ControlFragment extends Fragment {
 
         cyclesSpinner = (Spinner)rootView.findViewById(R.id.spinner);
 
-
-
-
         ArrayList<String> cycles = new ArrayList<>();
         cycles.add("Regular 12/12");
         cyclesAdapter = new ArrayAdapter(getActivity(), R.layout.support_simple_spinner_dropdown_item, cycles);

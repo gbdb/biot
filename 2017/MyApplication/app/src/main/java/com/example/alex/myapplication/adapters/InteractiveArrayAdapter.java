@@ -40,7 +40,10 @@ public class InteractiveArrayAdapter extends ArrayAdapter<Pump> implements DataC
         endPoint += ( ip + "/API/relays");
         Map<String,Object> args1 = new HashMap<>();
         args1.put("url", endPoint);
-        ServerCommunication.getInstance().request(context, args1, this);
+        ServerCommunication.getInstance(context).request(context, args1, this);
+
+
+        //ServerCommunication.getInstance(context).subscribeToNewTemperature(context,this);
     }
 
     //// TODO: 6/16/17 code cleanup
@@ -98,7 +101,7 @@ public class InteractiveArrayAdapter extends ArrayAdapter<Pump> implements DataC
                             args.put("name", element.getName());
                             args.put("status", element.isStatus());
 
-                            ServerCommunication.getInstance().sendEvent("TOGGLE_PUMP", args);
+                            ServerCommunication.getInstance(context).sendEvent("TOGGLE_PUMP", args);
                         }
                     });
             view.setTag(viewHolder);

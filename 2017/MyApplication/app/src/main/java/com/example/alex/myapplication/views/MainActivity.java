@@ -11,17 +11,20 @@ import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.List;
 
+
+import com.example.alex.myapplication.util.DataCallBack;
 import com.example.alex.myapplication.views.fragments.AlertsFragment;
 import com.example.alex.myapplication.views.fragments.ConditionsFragment;
 import com.example.alex.myapplication.views.fragments.ControlFragment;
 import com.example.alex.myapplication.R;
 import com.getbase.floatingactionbutton.FloatingActionButton;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements DataCallBack {
 
     private SectionsPagerAdapter mSectionsPagerAdapter;
     private ViewPager mViewPager;
@@ -80,6 +83,16 @@ public class MainActivity extends AppCompatActivity {
         }
 
         return super.onOptionsItemSelected(item);
+    }
+
+    @Override
+    public void onSuccess(Object result) {
+        Toast.makeText(MainActivity.this, "NiggaACtivity", Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    public void onFailure() {
+
     }
 
     public class SectionsPagerAdapter extends FragmentPagerAdapter {
