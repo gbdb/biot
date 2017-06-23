@@ -38,7 +38,7 @@ io.on('connection', function(socket) {
 
 var board = new five.Board();
 var config = { cycleDelay:0, nextDeviceDelay:5000 };
-var onewiretemps = new owts.obj(board, 2, {cycleDelay:100});
+var onewiretemps = new owts.obj(board, 9, {cycleDelay:100});
 
 board.on("ready", function() {
 
@@ -65,10 +65,15 @@ board.on("ready", function() {
 
 setInterval(onewiretemps.getTemperatures,5000, owts.unit_celcius, function(temps, lastUpdates){
     console.log(temps);
-    var temperatures = { "temp1" :temps[0], "temp2": temps[1]};
+
+    var temperatures = { "temp1" :round(temps[0]), "temp2": round(temps[1]) };
     if(temps != undefined)
       io.emit("newTemp", temperatures);
 });
+
+function round(number) {
+      return Math.round(number * 100) / 100;
+}
 
 //to change
 function initRelays(five) {

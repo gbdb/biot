@@ -37,18 +37,24 @@ public class ControlFragment extends Fragment {
                              Bundle savedInstanceState) {
         View rootView = inflater.inflate(R.layout.fragment_control, container, false);
 
-        cyclesSpinner = (Spinner)rootView.findViewById(R.id.spinner);
+        //cyclesSpinner = (Spinner)rootView.findViewById(R.id.spinner);
 
         ArrayList<String> cycles = new ArrayList<>();
         cycles.add("Regular 12/12");
-        cyclesAdapter = new ArrayAdapter(getActivity(), R.layout.support_simple_spinner_dropdown_item, cycles);
-        cyclesSpinner.setAdapter(cyclesAdapter);
+        //cyclesAdapter = new ArrayAdapter(getActivity(), R.layout.support_simple_spinner_dropdown_item, cycles);
+        //cyclesSpinner.setAdapter(cyclesAdapter);
 
         pumps = new ArrayList<>();
         pumps.add(new Pump("Pompe principale de marde",  "Relay-7"));
         pumps.add(new Pump("Ma criss de pompe", "420"));
         pumps.add(new Pump("Ma tabarnak de pompe", "3"));
         pumps.add(new Pump("Mon osti de ciboire de pompe", "4"));
+        pumps.add(new Pump("Ma ciboire de saint-calisse de pompe", "4"));
+        pumps.add(new Pump("Ma pompe ortho en criss", "4"));
+        pumps.add(new Pump("Osti d'orthophonie de pompe a marde en", "4"));
+        pumps.add(new Pump("Ah ben", "4"));
+        pumps.add(new Pump("Caliss", "4"));
+        pumps.add(new Pump("De tabarnak", "4"));
         myAdapter = new InteractiveArrayAdapter(getActivity(), pumps);
         listView = (ListView)rootView.findViewById(R.id.pump_listView);
         listView.setAdapter(myAdapter);

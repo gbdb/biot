@@ -81,7 +81,7 @@ public class InteractiveArrayAdapter extends ArrayAdapter<Pump> implements DataC
         View view = null;
         if (convertView == null) {
             LayoutInflater inflator = context.getLayoutInflater();
-            view = inflator.inflate(R.layout.pompe_item, null);
+            view = inflator.inflate(R.layout.pompe_item_v2, null);
             final ViewHolder viewHolder = new ViewHolder();
             viewHolder.text = (TextView) view.findViewById(R.id.pump_name);
             viewHolder.checkbox = (Switch) view.findViewById(R.id.pump_switch);

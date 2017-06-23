@@ -7,7 +7,7 @@
         android:title="Network">
 
         <EditTextPreference
-            android:defaultValue="192.168.0.107:3000"
+            android:defaultValue="192.168.43.120:3000"
             android:key="ip_pref"
             android:title="IP Address"
             android:summary="Edit IP Address"

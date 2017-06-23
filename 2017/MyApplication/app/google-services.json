@@ -1,0 +1,42 @@
+{
+  "project_info": {
+    "project_number": "131912119976",
+    "firebase_url": "https://jardiniot.firebaseio.com",
+    "project_id": "jardiniot",
+    "storage_bucket": "jardiniot.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:131912119976:android:161dd73da7dc476d",
+        "android_client_info": {
+          "package_name": "com.example.alex.myapplication"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "131912119976-nr6mgco4na5h1sdl9lbr61mgokf2b11f.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAIfFTl0MbSIRZW4olH4dlPcKEOpE8S5BI"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 1,
+          "other_platform_oauth_client": []
+        },
+        "ads_service": {
+          "status": 2
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

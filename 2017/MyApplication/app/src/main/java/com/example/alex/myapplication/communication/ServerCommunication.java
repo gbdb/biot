@@ -36,7 +36,7 @@ public class ServerCommunication {
             SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(context);
             String ip = sharedPref.getString("ip_pref", "");
             endPoint += ip;
-            socket = IO.socket("http://192.168.0.107:3000");
+            socket = IO.socket("http://192.168.43.120:3000");
         } catch (URISyntaxException e) {
 
         }
