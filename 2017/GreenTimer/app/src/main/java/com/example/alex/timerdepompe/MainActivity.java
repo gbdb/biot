@@ -21,7 +21,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.UUID;
 
-public class MainActivity extends AppCompatActivity implements View.OnClickListener, DataCallBack {
+public class MainActivity extends AppCompatActivity implements DataCallBack {
 
     private TimePicker timePickerOff;
     private TimePicker timePickerOn;
@@ -54,8 +54,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         timePickerOff = (TimePicker)findViewById(R.id.timePickerOFF);
         timePickerOn = (TimePicker)findViewById(R.id.timePickerON);
-        textView_timeOff = (TextView)findViewById(R.id.lblTimeOff);
-        textView_timeOn = (TextView)findViewById(R.id.lblTimeOn);
 
 
         button = (Button)findViewById(R.id.button);
@@ -77,6 +75,22 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         timePickerOn.setCurrentMinute(Integer.valueOf(timeOn));
         timePickerOff.setCurrentMinute(Integer.valueOf(timeOff));
 
+        button.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mConnectedThread.write(formatMessageToSend());
+
+                String tempsOff = String.valueOf(timePickerOff.getCurrentMinute());
+                String tempsOn = String.valueOf(timePickerOn.getCurrentMinute());
+
+                SharedPreferences sharedPref = getPreferences(Context.MODE_PRIVATE);
+                SharedPreferences.Editor editor = sharedPref.edit();
+                editor.putString("timeOn", tempsOn);
+                editor.putString("timeOff", tempsOff);
+                editor.commit();
+            }
+        });
+
 
         button.setOnLongClickListener(new View.OnLongClickListener() {
             @Override
@@ -97,7 +111,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
                 newTemps = tempsOff + "," + tempsOn;
                 Toast.makeText(MainActivity.this, newTemps, Toast.LENGTH_SHORT).show();
-                mConnectedThread.write(newTemps);
+                //mConnectedThread.write(newTemps);
                 FireHackDialog fireHackDialog = new FireHackDialog();
                 fireHackDialog.show(getFragmentManager(), "YO");
                 fireHackDialog.setDataCallBack(MainActivity.this);
@@ -112,6 +126,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     recDataString.append(readMessage);      								//keep appending to string until ~
                     int endOfLineIndex = recDataString.indexOf("~");                    // determine the end-of-line
                     if (endOfLineIndex > 0) {                                           // make sure there data before ~
+                        String values[] = readMessage.split(",");
+                        textView_timeOff.setText(values[1]);
+                        textView_timeOn.setText(values[0]);
+                        /*
                         String dataInPrint = recDataString.substring(0, endOfLineIndex);    // extract string
                         textView_timeOff.setText("Data Received = " + dataInPrint);
                         int dataLength = dataInPrint.length();							//get length of data received
@@ -124,21 +142,34 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                             String sensor2 = recDataString.substring(11, 15);
                             String sensor3 = recDataString.substring(16, 20);
 
-                            /*sensorView0.setText(" Sensor 0 Voltage = " + sensor0 + "V");	//update the textviews with sensor values
+                            sensorView0.setText(" Sensor 0 Voltage = " + sensor0 + "V");	//update the textviews with sensor values
                             sensorView1.setText(" Sensor 1 Voltage = " + sensor1 + "V");
                             sensorView2.setText(" Sensor 2 Voltage = " + sensor2 + "V");
-                            sensorView3.setText(" Sensor 3 Voltage = " + sensor3 + "V");*/
+                            sensorView3.setText(" Sensor 3 Voltage = " + sensor3 + "V");
+                        */
                         }
                         recDataString.delete(0, recDataString.length()); 					//clear all string data
                         // strIncom =" ";
-                        dataInPrint = " ";
+                        //dataInPrint = " ";
                     }
                 }
-            }
+            //}
         };
 
         btAdapter = BluetoothAdapter.getDefaultAdapter();       // get Bluetooth adapter
         checkBTState();
+    }
+
+    public String formatMessageToSend() {
+
+        String newTemps = "";
+        String tempsOff = String.valueOf(timePickerOff.getCurrentMinute() * 60);
+        String tempsOn = String.valueOf(timePickerOn.getCurrentMinute() * 60);
+        newTemps = tempsOn + "," + tempsOff;
+        Toast.makeText(MainActivity.this, newTemps, Toast.LENGTH_SHORT).show();
+
+        return newTemps;
+
     }
 
 
@@ -155,7 +186,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         super.onPause();
         try
         {
-            //Don't leave Bluetooth sockets open when leaving activity
             btSocket.close();
         } catch (IOException e2) {
             //insert code to deal with this
@@ -165,7 +195,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private void checkBTState() {
 
         if(btAdapter==null) {
-            Toast.makeText(getBaseContext(), "Device does not support bluetooth", Toast.LENGTH_LONG).show();
+            Toast.makeText(getBaseContext(), "Activez Bluetooth svp", Toast.LENGTH_LONG).show();
         } else {
             if (btAdapter.isEnabled()) {
             } else {
@@ -188,30 +218,18 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         address = "20:17:02:15:33:27";
         BluetoothDevice device = btAdapter.getRemoteDevice(address);
 
-        try {
+        try{
             btSocket = createBluetoothSocket(device);
-        } catch (IOException e) {
-            Toast.makeText(getBaseContext(), "Socket creation failed", Toast.LENGTH_LONG).show();
-        }
-        // Establish the Bluetooth socket connection.
-        try
-        {
             btSocket.connect();
-        } catch (IOException e) {
-            try
-            {
-                btSocket.close();
-            } catch (IOException e2)
-            {
-                //insert code to deal with this
-            }
-        }
-        mConnectedThread = new ConnectedThread(btSocket);
-        mConnectedThread.start();
 
-        //I send a character when resuming.beginning transmission to check device is connected
-        //If it is not an exception will be thrown in the write method and finish() will be called
-        mConnectedThread.write("x");
+            mConnectedThread = new ConnectedThread(btSocket);
+            mConnectedThread.start();
+            mConnectedThread.write("x");
+            Toast.makeText(MainActivity.this, "Connecté avec succès", Toast.LENGTH_SHORT).show();
+        }
+        catch (IOException e) {
+            Toast.makeText(MainActivity.this, "Problème de connection", Toast.LENGTH_SHORT).show();
+        }
     }
 
     @Override
@@ -220,18 +238,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         mConnectedThread.write((String)result);
     }
 
-
-
     @Override
     public void onFailure() {
 
-    }
-
-
-
-    @Override
-    public void onClick(View v) {
-        Toast.makeText(MainActivity.this, "Osti", Toast.LENGTH_SHORT).show();
     }
 
 

@@ -15,7 +15,7 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
-public class FireHackDialog extends DialogFragment implements View.OnClickListener {
+public class FireHackDialog extends DialogFragment {
 
     private DataCallBack dataCallBack;
     private EditText textView;
@@ -52,30 +52,4 @@ public class FireHackDialog extends DialogFragment implements View.OnClickListen
         builder.setView(view);
         return builder.create();
     }
-
-
-    @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-        /*View view = inflater.inflate(R.layout.dialog_hack,container, false);
-        textView = (TextView)view.findViewById(R.id.tempsOff);
-        textView1 = (TextView)view.findViewById(R.id.tempsOn);
-        hackyDialogButton = (Button)view.findViewById(R.id.button2);
-        hackyDialogButton.setOnClickListener(this);
-        return view;*/
-        return super.onCreateView(inflater, container, savedInstanceState);
-    }
-
-    /*@Nullable
-    @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-        return super.onCreateView(inflater, container, savedInstanceState);
-    }*/
-
-    @Override
-    public void onClick(View v) {
-        Toast.makeText(getActivity(), "NIG", Toast.LENGTH_SHORT).show();
-
-    }
-
-
 }

@@ -86,9 +86,7 @@ public class MainActivity extends AppCompatActivity implements DataCallBack {
     }
 
     @Override
-    public void onSuccess(Object result) {
-        Toast.makeText(MainActivity.this, "NiggaACtivity", Toast.LENGTH_SHORT).show();
-    }
+    public void onSuccess(Object result) {}
 
     @Override
     public void onFailure() {

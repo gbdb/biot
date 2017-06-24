@@ -7,8 +7,8 @@ RTC_DS1307 RTC;
 bool PumpOn = true;
 time_t lastCycleCycle;
 
-int TEMPS_OFF = 5;
-int TEMPS_ON = 20;
+int TEMPS_OFF = 600;
+int TEMPS_ON = 300;
 
 int Cycle[2] = { TEMPS_ON , TEMPS_OFF }; //en secondes; 5sec ON / 10sec OFF
 int CurrentCycleIndex = 0;
@@ -44,7 +44,7 @@ void loop() {
 
    //Serial.print("VOILA LA READ STRING: ");
    //Serial.println(readString);
-   if(readString != ""){
+   if(readString != "" && readString != "x"){
      int new_temps_off = getValue(readString, ',', 0);
      int new_temps_on = getValue(readString, ',', 1);
      Serial.print("NOUVEAU TEMPS OFF: ");
@@ -109,3 +109,13 @@ int getValue(String data, char separator, int index)
     return newValue.toInt();
 }
 
+void SendValues()
+ {
+  Serial.print('#');
+  String values = Cycle[0] + "," + Cycle[1];
+  Serial.print(values);
+  Serial.print("");
+ Serial.print('~'); //used as an end of transmission character - used in app for string length
+ Serial.println();
+ delay(10);        //added a delay to eliminate missed transmissions
+}
