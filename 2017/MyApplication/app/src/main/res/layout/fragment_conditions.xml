@@ -64,7 +64,6 @@
             <ImageView
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:id="@+id/imageView2"
                 android:src="@drawable/three_drops"
                 android:layout_gravity="left"
                 android:layout_weight="0.1" />
@@ -82,8 +81,54 @@
                 android:layout_height="wrap_content"
                 android:text="24°"
                 android:id="@+id/label_temp_water"
-                android:layout_weight="0.2" />
+                android:layout_weight="0.2"
+                android:layout_gravity="center_vertical" />
 
+    </TableRow>
+
+    <TableRow
+        android:layout_width="match_parent"
+        android:layout_height="fill_parent"
+        android:layout_gravity="center_vertical"
+        android:layout_marginTop="12dp">
+
+        <TextView
+            android:id="@+id/textView"
+            android:text="@string/title_misc"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="24dp"
+            android:textStyle="bold" />
+    </TableRow>
+
+    <TableRow
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginTop="7.5dp">
+
+        <ImageView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:src="@drawable/ic_cup_water_black_24dp"
+            android:layout_gravity="left"
+            android:layout_weight="0.1" />
+
+        <TextView
+            android:id="@+id/label_waterLevel"
+            android:text="@string/title_water_level"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_vertical"
+            android:layout_weight="0.6" />
+
+        <ProgressBar
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id="@+id/progressBar"
+            android:layout_column="16"
+            style="@android:style/Widget.ProgressBar.Horizontal"
+            android:layout_weight="0.2"
+            android:progressTint="@color/peter_river"/>
     </TableRow>
 </TableLayout>
 

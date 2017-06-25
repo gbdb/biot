@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 
+import com.example.alex.myapplication.communication.ServerCommunication;
 import com.example.alex.myapplication.util.DataCallBack;
 import com.example.alex.myapplication.views.fragments.AlertsFragment;
 import com.example.alex.myapplication.views.fragments.ConditionsFragment;
@@ -64,6 +65,8 @@ public class MainActivity extends AppCompatActivity implements DataCallBack {
         mSectionsPagerAdapter = new SectionsPagerAdapter(getSupportFragmentManager());
         mViewPager = (ViewPager) findViewById(R.id.container);
         mViewPager.setAdapter(mSectionsPagerAdapter);
+
+        ServerCommunication.getInstance(this).registerToToastAlerts(this, this);
     }
 
     @Override
@@ -86,7 +89,9 @@ public class MainActivity extends AppCompatActivity implements DataCallBack {
     }
 
     @Override
-    public void onSuccess(Object result) {}
+    public void onSuccess(Object result, String context) {
+        Toast.makeText(MainActivity.this, (String)result, Toast.LENGTH_SHORT).show();
+    }
 
     @Override
     public void onFailure() {

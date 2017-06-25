@@ -4,14 +4,13 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.preference.PreferenceManager;
-import android.util.Log;
-import android.widget.Toast;
 
 import com.android.volley.RequestQueue;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.JsonArrayRequest;
 import com.android.volley.toolbox.Volley;
+import com.example.alex.myapplication.R;
 import com.example.alex.myapplication.util.DataCallBack;
 import com.github.nkzawa.emitter.Emitter;
 import com.github.nkzawa.socketio.client.IO;
@@ -34,9 +33,9 @@ public class ServerCommunication {
         try {
             endPoint = "http://";
             SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(context);
-            String ip = sharedPref.getString("ip_pref", "");
+            String ip = sharedPref.getString("ip_pref", context.getString(R.string.default_ip));
             endPoint += ip;
-            socket = IO.socket("http://192.168.43.120:3000");
+            socket = IO.socket(endPoint);
         } catch (URISyntaxException e) {
 
         }
@@ -49,6 +48,12 @@ public class ServerCommunication {
         else{
             return serverComm;
         }
+    }
+
+    public void subscribeToWaterLevelChanges(Activity activity, DataCallBack dataCallBack) {
+        OnNewWaterLevel onNewWaterLevel = new OnNewWaterLevel(activity,dataCallBack);
+        socket.connect();
+        socket.on("newWaterLevel", onNewWaterLevel);
     }
 
     public void subscribeToNewTemperature(Activity activity, DataCallBack dataCallBack) {
@@ -80,7 +85,7 @@ public class ServerCommunication {
         JsonArrayRequest jsObjRequest = new JsonArrayRequest(url, new Response.Listener<JSONArray>() {
             @Override
             public void onResponse(JSONArray response) {
-                dataCallBack.onSuccess(response);
+                dataCallBack.onSuccess(response,"" );
             }
         }, new Response.ErrorListener() {
             @Override
@@ -89,6 +94,68 @@ public class ServerCommunication {
             }
         });
         queue.add(jsObjRequest);
+    }
+
+    public void registerToToastAlerts(Activity activity, DataCallBack dataCallBack) {
+        OnNewAlert onNewAlert = new OnNewAlert(activity, dataCallBack);
+        socket.connect();
+        socket.on("event", onNewAlert);
+    }
+
+    private class OnNewAlert implements Emitter.Listener {
+
+        private Activity activity;
+        private DataCallBack dataCallBack;
+
+        public OnNewAlert(Activity activity, DataCallBack dataCallBack) {
+            this.activity = activity;
+            this.dataCallBack = dataCallBack;
+        }
+
+        @Override
+        public void call(final Object... args) {
+            activity.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    JSONObject data = (JSONObject) args[0];
+                    String message;
+                    try {
+                        message = data.getString("message");
+                        dataCallBack.onSuccess(message, "" );
+                    } catch (JSONException e) {
+                        return;
+                    }
+                }
+            });
+        }
+    }
+
+    private class OnNewWaterLevel implements Emitter.Listener {
+
+        private Activity activity;
+        private DataCallBack dataCallBack;
+
+        public OnNewWaterLevel(Activity activity, DataCallBack dataCallBack) {
+            this.activity = activity;
+            this.dataCallBack = dataCallBack;
+        }
+
+        @Override
+        public void call(final Object... args) {
+            activity.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    JSONObject data = (JSONObject) args[0];
+                    String newWaterLevel;
+                    try {
+                        newWaterLevel = data.getString("waterLevel");
+                        dataCallBack.onSuccess(newWaterLevel,"newWaterLevel" );
+                    } catch (JSONException e) {
+                        return;
+                    }
+                }
+            });
+        }
     }
 
     private class OnNewTemperatureListener implements Emitter.Listener {
@@ -112,7 +179,7 @@ public class ServerCommunication {
                     try {
                         temperatureAmbiante = data.getString("temp1");
                         temperatureEau = data.getString("temp2");
-                        dataCallBack.onSuccess(temperatureAmbiante + "," + temperatureEau);
+                        dataCallBack.onSuccess(temperatureAmbiante + "," + temperatureEau,"newTemp" );
                     } catch (JSONException e) {
                         return;
                     }

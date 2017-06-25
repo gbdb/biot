@@ -45,13 +45,13 @@ public class ControlFragment extends Fragment {
         //cyclesSpinner.setAdapter(cyclesAdapter);
 
         pumps = new ArrayList<>();
-        pumps.add(new Pump("Pompe principale de marde",  "Relay-7"));
+        /*pumps.add(new Pump("Pompe principale de marde",  "Relay-7"));
         pumps.add(new Pump("Ma criss de pompe", "420"));
         pumps.add(new Pump("Ma tabarnak de pompe", "3"));
         pumps.add(new Pump("Mon osti de ciboire de pompe", "4"));
         pumps.add(new Pump("Ma ciboire de saint-calisse de pompe", "4"));
         pumps.add(new Pump("Ma pompe ortho en criss", "4"));
-        pumps.add(new Pump("Osti d'orthophonie de pompe a marde en", "4"));
+        pumps.add(new Pump("Osti d'orthophonie de pompe a marde en", "4"));*/
         pumps.add(new Pump("Ah ben", "4"));
         pumps.add(new Pump("Caliss", "4"));
         pumps.add(new Pump("De tabarnak", "4"));

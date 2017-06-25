@@ -36,7 +36,7 @@ public class InteractiveArrayAdapter extends ArrayAdapter<Pump> implements DataC
         this.dataSet = list;
         String endPoint = "http://";
         SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(context);
-        String ip = sharedPref.getString("ip_pref", "");
+        String ip = sharedPref.getString("ip_pref", context.getString(R.string.default_ip));
         endPoint += ( ip + "/API/relays");
         Map<String,Object> args1 = new HashMap<>();
         args1.put("url", endPoint);
@@ -48,15 +48,17 @@ public class InteractiveArrayAdapter extends ArrayAdapter<Pump> implements DataC
 
     //// TODO: 6/16/17 code cleanup
     @Override
-    public void onSuccess(Object result) {
+    public void onSuccess(Object result, String context) {
         JSONArray receivedDataSet = (JSONArray)result;
 
         try {
+            dataSet.clear();
             for(int i = 0; i< receivedDataSet.length(); i++) {
-                Pump pump = dataSet.get(i);
                 JSONObject object = (JSONObject)receivedDataSet.get(i);
-                pump.setName((String)object.get("name"));
-                pump.setId((String)object.get("_id"));
+                String name = (String)object.get("name");
+                String id = (String)object.get("_id");
+                Pump pump = new Pump(name, id);
+                dataSet.add(pump);
             }
 
         } catch (JSONException e) {
@@ -68,7 +70,7 @@ public class InteractiveArrayAdapter extends ArrayAdapter<Pump> implements DataC
 
     @Override
     public void onFailure() {
-        Toast.makeText(context, "ServerComm issue.", Toast.LENGTH_SHORT).show();
+        Toast.makeText(context, "Connexion au serveur impossible", Toast.LENGTH_SHORT).show();
     }
 
     static class ViewHolder {
