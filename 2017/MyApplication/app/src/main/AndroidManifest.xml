@@ -31,7 +31,7 @@
 
         <activity
             android:name=".views.CreateCycleActivity"
-            android:label="Create Cycle"
+            android:label="Créer un cycle"
             android:parentActivityName=".views.SettingsActivity">
             <meta-data
                 android:name="android.support.PARENT_ACTIVITY"

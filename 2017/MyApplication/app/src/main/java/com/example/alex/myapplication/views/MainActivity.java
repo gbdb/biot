@@ -24,6 +24,7 @@ import com.example.alex.myapplication.views.fragments.ConditionsFragment;
 import com.example.alex.myapplication.views.fragments.ControlFragment;
 import com.example.alex.myapplication.R;
 import com.getbase.floatingactionbutton.FloatingActionButton;
+import com.getbase.floatingactionbutton.FloatingActionsMenu;
 
 public class MainActivity extends AppCompatActivity implements DataCallBack {
 
@@ -34,6 +35,7 @@ public class MainActivity extends AppCompatActivity implements DataCallBack {
     private List<Fragment> _fragments;
 
     private FloatingActionButton fb;
+    private FloatingActionsMenu menu;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -45,14 +47,18 @@ public class MainActivity extends AppCompatActivity implements DataCallBack {
         _fragments.add(new ControlFragment());
         _fragments.add(new AlertsFragment());
 
+        menu = (FloatingActionsMenu)findViewById(R.id.multiple_actions);
         fb = (FloatingActionButton)findViewById(R.id.fab_action_cycle);
         fb.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 Intent intent = new Intent(MainActivity.this, CreateCycleActivity.class);
+                menu.collapseImmediately();
                 startActivity(intent);
             }
         });
+
+        fb.setIcon(R.drawable.ic_timer_black_24dp);
 
         sectionNames = new ArrayList<>();
         sectionNames.add(getString(R.string.section_conditions));

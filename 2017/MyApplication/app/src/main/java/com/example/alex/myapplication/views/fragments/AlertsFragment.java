@@ -25,7 +25,7 @@ public class AlertsFragment extends Fragment {
         View rootView = inflater.inflate(R.layout.fragment_alerts, container, false);
 
         recyclerView = (RecyclerView)rootView.findViewById(R.id.alertsRecyclerView);
-        mAdapter = new CardItemAdapter(new String[] { "", "", "", "" }, getActivity());
+        mAdapter = new CardItemAdapter(new String[] { "Ark", "Ca pue, changer les poubelles", "Moi je peux botcher a terre", "Nettoyer la salle de bain", "Passer la balayeuse", "Nettoyer le fridge" }, getActivity());
         mLayoutManager = new LinearLayoutManager(getActivity());
         recyclerView.setLayoutManager(mLayoutManager);
 
@@ -34,8 +34,4 @@ public class AlertsFragment extends Fragment {
 
         return rootView;
     }
-
-
-
-
 }
