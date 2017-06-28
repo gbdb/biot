@@ -13,27 +13,34 @@ import android.widget.ProgressBar;
 
 import com.example.alex.myapplication.R;
 import com.example.alex.myapplication.adapters.SwitchItemAdapter;
-import com.example.alex.myapplication.communication.RelayDAO;
-import com.example.alex.myapplication.communication.RelayListener;
+import com.example.alex.myapplication.communication.BiotDAO;
+import com.example.alex.myapplication.communication.BiotDataCallback;
+import com.example.alex.myapplication.models.Cycle;
 import com.example.alex.myapplication.models.Relay;
+import com.example.alex.myapplication.parsers.RelayParser;
 
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 
 
-public class ControlFragment extends Fragment implements RelayListener {
+public class ControlFragment extends Fragment{
 
     public ControlFragment() {}
 
+    private ProgressBar progressBar;
     private ListView listView;
+    private SwipeRefreshLayout swipeRefreshLayout;
     private SwitchItemAdapter myAdapter;
 
-    private ArrayList<Relay> relays;
 
-    private ProgressBar progressBar;
 
-    private SwipeRefreshLayout swipeRefreshLayout;
-    private RelayDAO relayDAO;
+    private List<Relay> relays;
+    private List<Cycle> cycles;
+
+
+    private BiotDAO relayDAO;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -42,10 +49,8 @@ public class ControlFragment extends Fragment implements RelayListener {
         SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(getActivity());
         String ip = sharedPref.getString("ip_pref", getActivity().getString(R.string.default_ip));
 
-        relayDAO = new RelayDAO(ip, getContext());
-
-        relayDAO.setRelayListener(this);
-        relayDAO.fetchAll();
+        relayDAO = new BiotDAO(ip,"relays", getContext());
+        cycles = new ArrayList<>();
     }
 
     @Override
@@ -59,9 +64,7 @@ public class ControlFragment extends Fragment implements RelayListener {
         swipeRefreshLayout.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
             @Override
             public void onRefresh() {
-                relays.clear();
-                relayDAO.fetchAll();
-                swipeRefreshLayout.setRefreshing(false);
+                refreshView();
             }
         });
 
@@ -72,15 +75,22 @@ public class ControlFragment extends Fragment implements RelayListener {
         return rootView;
     }
 
-    @Override
-    public void onResume() {
-        super.onResume();
+    private void refreshView() {
+        relayDAO.fetchAll(new BiotDataCallback() {
+            @Override
+            public void onDataReceived(Object object) {
+                relays.clear();
+                relays.addAll((Collection<? extends Relay>) object);
+                myAdapter.notifyDataSetChanged();
+                swipeRefreshLayout.setRefreshing(false);
+                progressBar.setVisibility(View.INVISIBLE);
+            }
+        }, new RelayParser());
     }
 
     @Override
-    public void onNewRelay(Relay relay) {
-        relays.add(relay);
-        myAdapter.notifyDataSetChanged();
-        progressBar.setVisibility(View.INVISIBLE);
+    public void onResume() {
+        super.onResume();
+        refreshView();
     }
 }

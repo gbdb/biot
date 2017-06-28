@@ -1,6 +1,8 @@
 package com.example.alex.myapplication.views;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.preference.PreferenceManager;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.support.v4.app.Fragment;
@@ -45,6 +47,11 @@ public class MainActivity extends AppCompatActivity implements DataCallBack {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(this);
+        String ip = sharedPref.getString("ip_pref", getString(R.string.default_ip));
+        ip = "http://" + ip;
+        ServerCommunication.URI = ip;
 
         _fragments = new ArrayList<>();
         _fragments.add(new ConditionsFragment());

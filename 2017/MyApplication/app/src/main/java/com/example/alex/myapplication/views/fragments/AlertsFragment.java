@@ -13,14 +13,16 @@ import android.view.ViewGroup;
 
 import com.example.alex.myapplication.adapters.AlertItemAdapter;
 import com.example.alex.myapplication.R;
-import com.example.alex.myapplication.communication.AlertDAO;
-import com.example.alex.myapplication.communication.AlertListener;
+import com.example.alex.myapplication.communication.BiotDAO;
+import com.example.alex.myapplication.communication.BiotDataCallback;
 import com.example.alex.myapplication.models.Alert;
+import com.example.alex.myapplication.parsers.AlertParser;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
-public class AlertsFragment extends Fragment implements AlertListener {
+public class AlertsFragment extends Fragment {
 
     public AlertsFragment() {}
 
@@ -28,7 +30,7 @@ public class AlertsFragment extends Fragment implements AlertListener {
     private RecyclerView.Adapter adapter;
     private RecyclerView.LayoutManager layoutManager;
     private List<Alert> alerts;
-    private AlertDAO alertDAO;
+    private BiotDAO alertsDAO;
     private SwipeRefreshLayout swipeRefreshLayout;
 
     @Override
@@ -38,28 +40,16 @@ public class AlertsFragment extends Fragment implements AlertListener {
         recyclerView = (RecyclerView)rootView.findViewById(R.id.alertsRecyclerView);
 
         swipeRefreshLayout = (SwipeRefreshLayout)rootView.findViewById(R.id.swipeRefresh);
-
         swipeRefreshLayout.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
             @Override
             public void onRefresh() {
-                alertDAO.fetchAll();
-                swipeRefreshLayout.setRefreshing(false);
+                refreshView();
             }
         });
 
-
         alerts = new ArrayList<>();
-        SharedPreferences sharedPref =
-                PreferenceManager.getDefaultSharedPreferences(getActivity());
-        String ip =
-                sharedPref.getString("ip_pref", getActivity().getString(R.string.default_ip));
 
-        alertDAO = new AlertDAO(ip, getContext());
-        alertDAO.setAlertListener(this);
-        alertDAO.fetchAll();
-
-
-        adapter = new AlertItemAdapter(alerts, getActivity());
+        adapter = new AlertItemAdapter(alerts);
         layoutManager = new LinearLayoutManager(getActivity());
         recyclerView.setLayoutManager(layoutManager);
         recyclerView.setAdapter(adapter);
@@ -68,15 +58,30 @@ public class AlertsFragment extends Fragment implements AlertListener {
     }
 
     @Override
-    public void onResume() {
-        super.onResume();
-
-        //alertDAO.fetchAll();
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        SharedPreferences sharedPref =
+                PreferenceManager.getDefaultSharedPreferences(getActivity());
+        String ip =
+                sharedPref.getString("ip_pref", getActivity().getString(R.string.default_ip));
+        alertsDAO = new BiotDAO(ip, "alerts", getContext());
     }
 
     @Override
-    public void onNewAlert(Alert alert) {
-        alerts.add(alert);
-        adapter.notifyDataSetChanged();
+    public void onResume() {
+        super.onResume();
+        refreshView();
+    }
+
+    private void refreshView() {
+        alertsDAO.fetchAll(new BiotDataCallback() {
+            @Override
+            public void onDataReceived(Object object) {
+                alerts.clear();
+                alerts.addAll((Collection<? extends Alert>) object);
+                adapter.notifyDataSetChanged();
+                swipeRefreshLayout.setRefreshing(false);
+            }
+        }, new AlertParser());
     }
 }

@@ -50,6 +50,8 @@ function notifySysReady() {
 });
 }
 
+notifySysReady();
+
 
 
 io.on('connection', function(socket) {
@@ -70,6 +72,9 @@ io.on('connection', function(socket) {
         //cyclesDAO.insertInterval(time_off,time_on);
         break;
     }
+  });
+  socket.on('disconnect', function() {
+    console.log("Android User disconnected");
   });
 });
 

@@ -1,7 +1,7 @@
 package com.example.alex.myapplication.models;
 
 
-public class Cycle extends IOEnty {
+public class Cycle extends Biot {
 
     public int temps;
 

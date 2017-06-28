@@ -41,7 +41,7 @@ public class ConditionsFragment extends Fragment implements DataCallBack {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        ServerCommunication.getInstance(getActivity()).subscribeToNewTemperature(getActivity(), this);
+        ServerCommunication.getInstance().subscribeToNewTemperature(getActivity(), this);
     }
 
     @Override
@@ -85,7 +85,6 @@ public class ConditionsFragment extends Fragment implements DataCallBack {
 
     @Override
     public void onFailure() {
-
     }
 
     private class ProgressBarAnimation extends Animation {

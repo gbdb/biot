@@ -1,7 +1,7 @@
 package com.example.alex.myapplication.models;
 
 
-public class Relay extends IOEnty {
+public class Relay extends Biot {
 
     private String name;
     private boolean status;

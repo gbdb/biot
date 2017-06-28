@@ -27,7 +27,8 @@ public class ServerCommunication {
 
     private static ServerCommunication serverComm;
     private Socket socket;
-    
+    public static String URI;
+
     private ServerCommunication(Context context) {
         String endPoint = "";
         try {
@@ -41,6 +42,13 @@ public class ServerCommunication {
         }
     }
 
+    private ServerCommunication() {
+        try {
+            socket = IO.socket(URI);
+        } catch (URISyntaxException e) {
+        }
+    }
+
     public static ServerCommunication getInstance (Context context) {
         if(serverComm == null) {
             return new ServerCommunication(context);
@@ -50,11 +58,20 @@ public class ServerCommunication {
         }
     }
 
-    public void subscribeToWaterLevelChanges(Activity activity, DataCallBack dataCallBack) {
-        OnNewWaterLevel onNewWaterLevel = new OnNewWaterLevel(activity,dataCallBack);
-        socket.connect();
-        socket.on("newWaterLevel", onNewWaterLevel);
+    public static ServerCommunication getInstance () {
+        if(serverComm == null) {
+            serverComm = new ServerCommunication();
+            return serverComm;
+        }
+        else
+            return serverComm;
     }
+
+
+    public Socket getSocket() {
+        return socket;
+    }
+
 
     public void subscribeToNewTemperature(Activity activity, DataCallBack dataCallBack) {
         OnNewTemperatureListener onNewTemperature = new OnNewTemperatureListener(activity, dataCallBack);
@@ -77,24 +94,6 @@ public class ServerCommunication {
         }
         socket.connect();
         socket.emit("event", data);
-    }
-
-    public void request(final Context context, Map<String,Object> args, final DataCallBack dataCallBack) {
-        RequestQueue queue = Volley.newRequestQueue(context);
-        String url = (String)args.get("url");
-        JsonArrayRequest jsObjRequest = new JsonArrayRequest(url, new Response.Listener<JSONArray>() {
-            @Override
-            public void onResponse(JSONArray response) {
-                dataCallBack.onSuccess(response,"" );
-            }
-        }, new Response.ErrorListener() {
-            @Override
-            public void onErrorResponse(VolleyError error) {
-                dataCallBack.onFailure();
-            }
-        });
-        //jsObjRequest.setRetryPolicy(new DefaultRetryPolicy(20 * 1000, 10, 1.0f));
-        queue.add(jsObjRequest);
     }
 
     public void registerToToastAlerts(Activity activity, DataCallBack dataCallBack) {
@@ -123,34 +122,6 @@ public class ServerCommunication {
                     try {
                         message = data.getString("message");
                         dataCallBack.onSuccess(message, "" );
-                    } catch (JSONException e) {
-                        return;
-                    }
-                }
-            });
-        }
-    }
-
-    private class OnNewWaterLevel implements Emitter.Listener {
-
-        private Activity activity;
-        private DataCallBack dataCallBack;
-
-        public OnNewWaterLevel(Activity activity, DataCallBack dataCallBack) {
-            this.activity = activity;
-            this.dataCallBack = dataCallBack;
-        }
-
-        @Override
-        public void call(final Object... args) {
-            activity.runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    JSONObject data = (JSONObject) args[0];
-                    String newWaterLevel;
-                    try {
-                        newWaterLevel = data.getString("waterLevel");
-                        dataCallBack.onSuccess(newWaterLevel,"newWaterLevel" );
                     } catch (JSONException e) {
                         return;
                     }

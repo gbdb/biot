@@ -39,7 +39,7 @@
         </activity>
 
         <service
-            android:name=".communication.NoficationService">
+            android:name=".communication.NotificationService">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT"/>
             </intent-filter>

@@ -1,6 +1,6 @@
 package com.example.alex.myapplication.models;
 
-public class Alert extends IOEnty {
+public class Alert extends Biot {
 
     private String message;
 

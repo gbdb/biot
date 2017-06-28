@@ -15,13 +15,10 @@ import java.util.List;
 
 
 public class AlertItemAdapter extends RecyclerView.Adapter<AlertItemAdapter.ViewHolder> {
-    private String[] mDataset;
-    private Context context;
 
     private List<Alert> alerts;
 
-    public AlertItemAdapter(List<Alert> alerts, Context context) {
-        this.context = context;
+    public AlertItemAdapter(List<Alert> alerts) {
         this.alerts = alerts;
     }
 
