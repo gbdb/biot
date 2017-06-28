@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.preference.PreferenceManager;
 
+import com.android.volley.DefaultRetryPolicy;
 import com.android.volley.RequestQueue;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
@@ -26,8 +27,7 @@ public class ServerCommunication {
 
     private static ServerCommunication serverComm;
     private Socket socket;
-
-
+    
     private ServerCommunication(Context context) {
         String endPoint = "";
         try {
@@ -71,7 +71,7 @@ public class ServerCommunication {
             data.put("type", message);
             data.put("args", argumentsToProvide);
             for(Map.Entry<String, Object> entry : args.entrySet())
-                    argumentsToProvide.put(entry.getKey(), entry.getValue());
+                argumentsToProvide.put(entry.getKey(), entry.getValue());
         } catch (JSONException e) {
             e.printStackTrace();
         }
@@ -93,6 +93,7 @@ public class ServerCommunication {
                 dataCallBack.onFailure();
             }
         });
+        //jsObjRequest.setRetryPolicy(new DefaultRetryPolicy(20 * 1000, 10, 1.0f));
         queue.add(jsObjRequest);
     }
 

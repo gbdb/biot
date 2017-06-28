@@ -19,6 +19,5 @@ public class SettingsActivity extends AppCompatActivity {
         fragmentManager.beginTransaction()
                 .replace(R.id.main_content, fragment)
                 .commit();
-
     }
 }

@@ -1,35 +1,51 @@
 package com.example.alex.myapplication.views.fragments;
 
+import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.support.v4.app.Fragment;
+import android.support.v4.widget.SwipeRefreshLayout;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ArrayAdapter;
 import android.widget.ListView;
-import android.widget.Spinner;
+import android.widget.ProgressBar;
 
 import com.example.alex.myapplication.R;
-import com.example.alex.myapplication.adapters.InteractiveArrayAdapter;
-import com.example.alex.myapplication.models.Pump;
+import com.example.alex.myapplication.adapters.SwitchItemAdapter;
+import com.example.alex.myapplication.communication.RelayDAO;
+import com.example.alex.myapplication.communication.RelayListener;
+import com.example.alex.myapplication.models.Relay;
+
 
 import java.util.ArrayList;
 
 
-public class ControlFragment extends Fragment {
+public class ControlFragment extends Fragment implements RelayListener {
 
     public ControlFragment() {}
 
     private ListView listView;
-    private InteractiveArrayAdapter myAdapter;
+    private SwitchItemAdapter myAdapter;
 
-    private ArrayList<Pump> pumps;
-    private ArrayAdapter cyclesAdapter;
+    private ArrayList<Relay> relays;
 
-    private Spinner cyclesSpinner;
+    private ProgressBar progressBar;
+
+    private SwipeRefreshLayout swipeRefreshLayout;
+    private RelayDAO relayDAO;
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
+
         super.onCreate(savedInstanceState);
+        SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(getActivity());
+        String ip = sharedPref.getString("ip_pref", getActivity().getString(R.string.default_ip));
+
+        relayDAO = new RelayDAO(ip, getContext());
+
+        relayDAO.setRelayListener(this);
+        relayDAO.fetchAll();
     }
 
     @Override
@@ -37,27 +53,34 @@ public class ControlFragment extends Fragment {
                              Bundle savedInstanceState) {
         View rootView = inflater.inflate(R.layout.fragment_control, container, false);
 
-        //cyclesSpinner = (Spinner)rootView.findViewById(R.id.spinner);
+        progressBar = (ProgressBar)rootView.findViewById(R.id.progressBar);
+        swipeRefreshLayout = (SwipeRefreshLayout)rootView.findViewById(R.id.swipeRefresh);
 
-        ArrayList<String> cycles = new ArrayList<>();
-        cycles.add("Regular 12/12");
-        //cyclesAdapter = new ArrayAdapter(getActivity(), R.layout.support_simple_spinner_dropdown_item, cycles);
-        //cyclesSpinner.setAdapter(cyclesAdapter);
+        swipeRefreshLayout.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
+            @Override
+            public void onRefresh() {
+                relays.clear();
+                relayDAO.fetchAll();
+                swipeRefreshLayout.setRefreshing(false);
+            }
+        });
 
-        pumps = new ArrayList<>();
-        /*pumps.add(new Pump("Pompe principale de marde",  "Relay-7"));
-        pumps.add(new Pump("Ma criss de pompe", "420"));
-        pumps.add(new Pump("Ma tabarnak de pompe", "3"));
-        pumps.add(new Pump("Mon osti de ciboire de pompe", "4"));
-        pumps.add(new Pump("Ma ciboire de saint-calisse de pompe", "4"));
-        pumps.add(new Pump("Ma pompe ortho en criss", "4"));
-        pumps.add(new Pump("Osti d'orthophonie de pompe a marde en", "4"));*/
-        pumps.add(new Pump("Ah ben", "4"));
-        pumps.add(new Pump("Caliss", "4"));
-        pumps.add(new Pump("De tabarnak", "4"));
-        myAdapter = new InteractiveArrayAdapter(getActivity(), pumps);
+        relays = new ArrayList<>();
+        myAdapter = new SwitchItemAdapter(getActivity(), relays);
         listView = (ListView)rootView.findViewById(R.id.pump_listView);
         listView.setAdapter(myAdapter);
         return rootView;
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+    }
+
+    @Override
+    public void onNewRelay(Relay relay) {
+        relays.add(relay);
+        myAdapter.notifyDataSetChanged();
+        progressBar.setVisibility(View.INVISIBLE);
     }
 }

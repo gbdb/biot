@@ -1,8 +1,12 @@
 package com.example.alex.myapplication.models;
 
-public class Alerte {
+public class Alert extends IOEnty {
 
     private String message;
+
+    public Alert(String message) {
+        this.message = message;
+    }
 
     public String getMessage() {
         return message;

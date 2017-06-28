@@ -8,6 +8,7 @@ import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentPagerAdapter;
 import android.support.v4.view.ViewPager;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -25,6 +26,9 @@ import com.example.alex.myapplication.views.fragments.ControlFragment;
 import com.example.alex.myapplication.R;
 import com.getbase.floatingactionbutton.FloatingActionButton;
 import com.getbase.floatingactionbutton.FloatingActionsMenu;
+import com.google.firebase.messaging.FirebaseMessaging;
+import com.google.firebase.messaging.FirebaseMessagingService;
+import com.google.firebase.messaging.RemoteMessage;
 
 public class MainActivity extends AppCompatActivity implements DataCallBack {
 
@@ -46,6 +50,8 @@ public class MainActivity extends AppCompatActivity implements DataCallBack {
         _fragments.add(new ConditionsFragment());
         _fragments.add(new ControlFragment());
         _fragments.add(new AlertsFragment());
+
+
 
         menu = (FloatingActionsMenu)findViewById(R.id.multiple_actions);
         fb = (FloatingActionButton)findViewById(R.id.fab_action_cycle);
@@ -71,8 +77,10 @@ public class MainActivity extends AppCompatActivity implements DataCallBack {
         mSectionsPagerAdapter = new SectionsPagerAdapter(getSupportFragmentManager());
         mViewPager = (ViewPager) findViewById(R.id.container);
         mViewPager.setAdapter(mSectionsPagerAdapter);
+        mViewPager.setOffscreenPageLimit(3);
 
         ServerCommunication.getInstance(this).registerToToastAlerts(this, this);
+        FirebaseMessaging.getInstance().subscribeToTopic("events");
     }
 
     @Override
@@ -90,7 +98,6 @@ public class MainActivity extends AppCompatActivity implements DataCallBack {
             startActivity(intent);
             return true;
         }
-
         return super.onOptionsItemSelected(item);
     }
 

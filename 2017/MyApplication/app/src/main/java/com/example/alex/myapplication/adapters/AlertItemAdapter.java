@@ -9,15 +9,20 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 
 import com.example.alex.myapplication.R;
+import com.example.alex.myapplication.models.Alert;
+
+import java.util.List;
 
 
-public class CardItemAdapter extends RecyclerView.Adapter<CardItemAdapter.ViewHolder> {
+public class AlertItemAdapter extends RecyclerView.Adapter<AlertItemAdapter.ViewHolder> {
     private String[] mDataset;
     private Context context;
 
-    public CardItemAdapter(String[] myDataset, Context context) {
+    private List<Alert> alerts;
+
+    public AlertItemAdapter(List<Alert> alerts, Context context) {
         this.context = context;
-        mDataset = myDataset;
+        this.alerts = alerts;
     }
 
     public static class ViewHolder extends RecyclerView.ViewHolder {
@@ -31,8 +36,8 @@ public class CardItemAdapter extends RecyclerView.Adapter<CardItemAdapter.ViewHo
     }
 
     @Override
-    public CardItemAdapter.ViewHolder onCreateViewHolder(ViewGroup parent,
-                                                   int viewType) {
+    public AlertItemAdapter.ViewHolder onCreateViewHolder(ViewGroup parent,
+                                                          int viewType) {
         View v = LayoutInflater.from(parent.getContext()).inflate(R.layout.alert_item, parent, false);
         ViewHolder viewHolder = new ViewHolder(v);
         return viewHolder;
@@ -40,12 +45,12 @@ public class CardItemAdapter extends RecyclerView.Adapter<CardItemAdapter.ViewHo
 
     @Override
     public void onBindViewHolder(ViewHolder holder, int position) {
-        holder.textView.setText(mDataset[position]);
+        holder.textView.setText(alerts.get(position).getMessage());
     }
 
     @Override
     public int getItemCount() {
-        return mDataset.length;
+        return alerts.size();
     }
 
     @Override

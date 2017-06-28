@@ -5,15 +5,9 @@ import android.app.FragmentManager;
 import android.os.Bundle;
 import android.app.Fragment;
 import android.support.v7.app.AppCompatActivity;
-import android.view.View;
-import android.widget.Button;
-import android.widget.EditText;
 
-import com.example.alex.myapplication.communication.ServerCommunication;
 import com.example.alex.myapplication.views.fragments.CreateCycleFragment;
 import com.example.alex.myapplication.R;
-
-import java.util.HashMap;
 
 public class CreateCycleActivity extends AppCompatActivity {
 

@@ -1,13 +1,12 @@
 package com.example.alex.myapplication.views.fragments;
 
-import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.Animation;
-import android.view.animation.DecelerateInterpolator;
 import android.view.animation.Transformation;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -43,6 +42,28 @@ public class ConditionsFragment extends Fragment implements DataCallBack {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         ServerCommunication.getInstance(getActivity()).subscribeToNewTemperature(getActivity(), this);
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+
+        startCountAnimation();
+        ProgressBarAnimation anim = new ProgressBarAnimation(progressBar, 15, 80);
+        anim.setDuration(1000);
+        progressBar.startAnimation(anim);
+    }
+
+    private void startCountAnimation() {
+        ValueAnimator animator = ValueAnimator.ofInt(0, 26);
+        animator.setDuration(870);
+        animator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            public void onAnimationUpdate(ValueAnimator animation) {
+                temp1.setText(animation.getAnimatedValue().toString() + "°");
+                temp2.setText(animation.getAnimatedValue().toString() + "°");
+            }
+        });
+        animator.start();
     }
 
     @Override

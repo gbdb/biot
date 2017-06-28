@@ -4,13 +4,23 @@
     android:layout_height="match_parent"
     android:layout_marginRight="16dp"
     android:layout_marginLeft="16dp">
-
-    <ListView
+    <ProgressBar
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:id="@+id/pump_listView"
-        android:headerDividersEnabled="false"
-        android:divider="@null"/>
+        android:layout_gravity="center_vertical"
+        android:id="@+id/progressBar"/>
+    <android.support.v4.widget.SwipeRefreshLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:id="@+id/swipeRefresh">
+        <ListView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:id="@+id/pump_listView"
+            android:headerDividersEnabled="false"
+            android:divider="@null"/>
+    </android.support.v4.widget.SwipeRefreshLayout>
+
 </FrameLayout>
 
 

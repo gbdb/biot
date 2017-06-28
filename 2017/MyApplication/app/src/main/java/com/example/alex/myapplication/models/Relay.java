@@ -1,15 +1,16 @@
 package com.example.alex.myapplication.models;
 
 
-public class Pump {
+public class Relay extends IOEnty {
 
     private String name;
     private boolean status;
     private String id;
 
-    public Pump(String name, String id) {
+    public Relay(String name, String id, boolean status) {
         this.name = name;
         this.id = id;
+        this.status = status;
     }
 
     public boolean isStatus() {

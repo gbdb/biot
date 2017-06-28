@@ -1,9 +1,7 @@
 package com.example.alex.myapplication.models;
 
-/**
- * Created by alex on 6/16/17.
- */
-public class Cycle {
+
+public class Cycle extends IOEnty {
 
     public int temps;
 

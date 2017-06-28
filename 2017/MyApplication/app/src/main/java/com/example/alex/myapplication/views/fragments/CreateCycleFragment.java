@@ -10,7 +10,6 @@ import android.widget.EditText;
 
 import com.example.alex.myapplication.R;
 import com.example.alex.myapplication.communication.ServerCommunication;
-import com.example.alex.myapplication.views.CreateCycleActivity;
 
 import java.util.HashMap;
 
