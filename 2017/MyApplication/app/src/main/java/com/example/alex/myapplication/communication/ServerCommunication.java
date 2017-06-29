@@ -1,23 +1,13 @@
 package com.example.alex.myapplication.communication;
 
 import android.app.Activity;
-import android.content.Context;
-import android.content.SharedPreferences;
-import android.preference.PreferenceManager;
+import android.util.Log;
 
-import com.android.volley.DefaultRetryPolicy;
-import com.android.volley.RequestQueue;
-import com.android.volley.Response;
-import com.android.volley.VolleyError;
-import com.android.volley.toolbox.JsonArrayRequest;
-import com.android.volley.toolbox.Volley;
-import com.example.alex.myapplication.R;
 import com.example.alex.myapplication.util.DataCallBack;
 import com.github.nkzawa.emitter.Emitter;
 import com.github.nkzawa.socketio.client.IO;
 import com.github.nkzawa.socketio.client.Socket;
 
-import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import java.net.URISyntaxException;
@@ -29,37 +19,17 @@ public class ServerCommunication {
     private Socket socket;
     public static String URI;
 
-    private ServerCommunication(Context context) {
-        String endPoint = "";
-        try {
-            endPoint = "http://";
-            SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(context);
-            String ip = sharedPref.getString("ip_pref", context.getString(R.string.default_ip));
-            endPoint += ip;
-            socket = IO.socket(endPoint);
-        } catch (URISyntaxException e) {
-
-        }
-    }
-
     private ServerCommunication() {
         try {
             socket = IO.socket(URI);
+            //socket.connect();
         } catch (URISyntaxException e) {
-        }
-    }
-
-    public static ServerCommunication getInstance (Context context) {
-        if(serverComm == null) {
-            return new ServerCommunication(context);
-        }
-        else{
-            return serverComm;
         }
     }
 
     public static ServerCommunication getInstance () {
         if(serverComm == null) {
+            Log.i("ServerCommunication", "JE SUIS NUL!");
             serverComm = new ServerCommunication();
             return serverComm;
         }
@@ -67,16 +37,14 @@ public class ServerCommunication {
             return serverComm;
     }
 
-
     public Socket getSocket() {
         return socket;
     }
 
-
     public void subscribeToNewTemperature(Activity activity, DataCallBack dataCallBack) {
         OnNewTemperatureListener onNewTemperature = new OnNewTemperatureListener(activity, dataCallBack);
-        socket.connect();
-        socket.on("newTemp", onNewTemperature);
+        //socket.connect();
+        //socket.on("newTemp", onNewTemperature);
         //socket.emit("test,", "");
     }
 
@@ -98,8 +66,8 @@ public class ServerCommunication {
 
     public void registerToToastAlerts(Activity activity, DataCallBack dataCallBack) {
         OnNewAlert onNewAlert = new OnNewAlert(activity, dataCallBack);
-        socket.connect();
-        socket.on("event", onNewAlert);
+        //socket.connect();
+        //socket.on("event", onNewAlert);
     }
 
     private class OnNewAlert implements Emitter.Listener {

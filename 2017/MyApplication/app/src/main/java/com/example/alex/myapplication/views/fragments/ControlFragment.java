@@ -9,11 +9,10 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ListView;
-import android.widget.ProgressBar;
 
 import com.example.alex.myapplication.R;
 import com.example.alex.myapplication.adapters.SwitchItemAdapter;
-import com.example.alex.myapplication.communication.BiotDAO;
+import com.example.alex.myapplication.communication.BaseBiotDAO;
 import com.example.alex.myapplication.communication.BiotDataCallback;
 import com.example.alex.myapplication.models.Cycle;
 import com.example.alex.myapplication.models.Relay;
@@ -29,18 +28,15 @@ public class ControlFragment extends Fragment{
 
     public ControlFragment() {}
 
-    private ProgressBar progressBar;
     private ListView listView;
     private SwipeRefreshLayout swipeRefreshLayout;
     private SwitchItemAdapter myAdapter;
-
-
 
     private List<Relay> relays;
     private List<Cycle> cycles;
 
 
-    private BiotDAO relayDAO;
+    private BaseBiotDAO relayDAO;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -49,7 +45,7 @@ public class ControlFragment extends Fragment{
         SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(getActivity());
         String ip = sharedPref.getString("ip_pref", getActivity().getString(R.string.default_ip));
 
-        relayDAO = new BiotDAO(ip,"relays", getContext());
+        relayDAO = new BaseBiotDAO(ip,"relays", getContext());
         cycles = new ArrayList<>();
     }
 
@@ -58,7 +54,6 @@ public class ControlFragment extends Fragment{
                              Bundle savedInstanceState) {
         View rootView = inflater.inflate(R.layout.fragment_control, container, false);
 
-        progressBar = (ProgressBar)rootView.findViewById(R.id.progressBar);
         swipeRefreshLayout = (SwipeRefreshLayout)rootView.findViewById(R.id.swipeRefresh);
 
         swipeRefreshLayout.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
@@ -83,7 +78,6 @@ public class ControlFragment extends Fragment{
                 relays.addAll((Collection<? extends Relay>) object);
                 myAdapter.notifyDataSetChanged();
                 swipeRefreshLayout.setRefreshing(false);
-                progressBar.setVisibility(View.INVISIBLE);
             }
         }, new RelayParser());
     }

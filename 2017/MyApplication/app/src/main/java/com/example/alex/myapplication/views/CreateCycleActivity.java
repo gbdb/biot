@@ -5,6 +5,7 @@ import android.app.FragmentManager;
 import android.os.Bundle;
 import android.app.Fragment;
 import android.support.v7.app.AppCompatActivity;
+import android.view.Menu;
 
 import com.example.alex.myapplication.views.fragments.CreateCycleFragment;
 import com.example.alex.myapplication.R;
@@ -25,5 +26,11 @@ public class CreateCycleActivity extends AppCompatActivity {
                 .commit();
 
 
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_create_cycle, menu);
+        return true;
     }
 }

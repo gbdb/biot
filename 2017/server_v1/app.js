@@ -52,18 +52,18 @@ function notifySysReady() {
 
 notifySysReady();
 
-
-
 io.on('connection', function(socket) {
-  clientSocket = socket;
   console.log("Android User connected");
   socket.on('event', function(event) {
     switch (event.type) {
       case "TOGGLE_PUMP":
         console.log(event);
+        relaysDAO.updateOne(event.args.id, event.args.status);
         var relay = relays[event.args.id];
-        if (relay != undefined)
+        if (relay != undefined){
           relay.toggle();
+          //relaysDAO.updateOne(event.args.id, relay.isOn);
+        }
         break;
       case "NEW_INTERVAL":
         time_off = event.args.tempsOff * 60 * 1000;

@@ -3,6 +3,8 @@ package com.example.alex.myapplication.views.fragments;
 import android.animation.ValueAnimator;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
+import android.support.v4.widget.SwipeRefreshLayout;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -17,13 +19,14 @@ import com.example.alex.myapplication.util.DataCallBack;
 
 public class ConditionsFragment extends Fragment implements DataCallBack {
 
-    public ConditionsFragment() {
-    }
+    public ConditionsFragment() {}
 
     private TextView temp1;
     private TextView temp2;
 
     private ProgressBar progressBar;
+
+    private SwipeRefreshLayout swipeRefreshLayout;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
@@ -34,6 +37,16 @@ public class ConditionsFragment extends Fragment implements DataCallBack {
         temp2 = (TextView)rootView.findViewById(R.id.label_temp_water);
         progressBar = (ProgressBar)rootView.findViewById(R.id.progressBar);
 
+        swipeRefreshLayout = (SwipeRefreshLayout)rootView.findViewById(R.id.swipeRefresh);
+
+        swipeRefreshLayout.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
+            @Override
+            public void onRefresh() {
+                //pour linstant
+                swipeRefreshLayout.setRefreshing(false);
+            }
+        });
+
         progressBar.setProgress(70);
         return rootView;
     }
@@ -41,6 +54,7 @@ public class ConditionsFragment extends Fragment implements DataCallBack {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Log.i("ConditionsFragment", ServerCommunication.getInstance().getSocket().toString());
         ServerCommunication.getInstance().subscribeToNewTemperature(getActivity(), this);
     }
 
@@ -59,8 +73,10 @@ public class ConditionsFragment extends Fragment implements DataCallBack {
         animator.setDuration(870);
         animator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
             public void onAnimationUpdate(ValueAnimator animation) {
-                temp1.setText(animation.getAnimatedValue().toString() + "°");
-                temp2.setText(animation.getAnimatedValue().toString() + "°");
+                String temp1s = animation.getAnimatedValue().toString() + "°";
+                String temp2s = animation.getAnimatedValue().toString() + "°";
+                temp1.setText(temp1s);
+                temp2.setText(temp2s);
             }
         });
         animator.start();

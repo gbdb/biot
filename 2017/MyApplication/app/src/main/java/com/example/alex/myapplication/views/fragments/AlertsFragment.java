@@ -13,7 +13,7 @@ import android.view.ViewGroup;
 
 import com.example.alex.myapplication.adapters.AlertItemAdapter;
 import com.example.alex.myapplication.R;
-import com.example.alex.myapplication.communication.BiotDAO;
+import com.example.alex.myapplication.communication.BaseBiotDAO;
 import com.example.alex.myapplication.communication.BiotDataCallback;
 import com.example.alex.myapplication.models.Alert;
 import com.example.alex.myapplication.parsers.AlertParser;
@@ -30,7 +30,7 @@ public class AlertsFragment extends Fragment {
     private RecyclerView.Adapter adapter;
     private RecyclerView.LayoutManager layoutManager;
     private List<Alert> alerts;
-    private BiotDAO alertsDAO;
+    private BaseBiotDAO alertsDAO;
     private SwipeRefreshLayout swipeRefreshLayout;
 
     @Override
@@ -64,7 +64,7 @@ public class AlertsFragment extends Fragment {
                 PreferenceManager.getDefaultSharedPreferences(getActivity());
         String ip =
                 sharedPref.getString("ip_pref", getActivity().getString(R.string.default_ip));
-        alertsDAO = new BiotDAO(ip, "alerts", getContext());
+        alertsDAO = new BaseBiotDAO(ip, "alerts", getContext());
     }
 
     @Override

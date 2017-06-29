@@ -58,8 +58,6 @@ public class MainActivity extends AppCompatActivity implements DataCallBack {
         _fragments.add(new ControlFragment());
         _fragments.add(new AlertsFragment());
 
-
-
         menu = (FloatingActionsMenu)findViewById(R.id.multiple_actions);
         fb = (FloatingActionButton)findViewById(R.id.fab_action_cycle);
         fb.setOnClickListener(new View.OnClickListener() {
@@ -85,8 +83,8 @@ public class MainActivity extends AppCompatActivity implements DataCallBack {
         mViewPager = (ViewPager) findViewById(R.id.container);
         mViewPager.setAdapter(mSectionsPagerAdapter);
         mViewPager.setOffscreenPageLimit(3);
-
-        ServerCommunication.getInstance(this).registerToToastAlerts(this, this);
+        Log.i("MainActivity", ServerCommunication.getInstance().getSocket().toString());
+        ServerCommunication.getInstance().registerToToastAlerts(this, this);
         FirebaseMessaging.getInstance().subscribeToTopic("events");
     }
 

@@ -1,8 +1,12 @@
 package com.example.alex.myapplication.communication;
 
 import android.content.Context;
+import android.util.Log;
+import android.widget.Toast;
 
 import com.android.volley.Response;
+import com.android.volley.RetryPolicy;
+import com.android.volley.TimeoutError;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.JsonArrayRequest;
 import com.example.alex.myapplication.models.Biot;
@@ -15,10 +19,12 @@ import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.List;
 
+import static java.security.AccessController.getContext;
 
-public class BiotDAO extends DAO {
 
-    public BiotDAO(String entityName, String url, Context context) {
+public class BaseBiotDAO extends DAO {
+
+    public BaseBiotDAO(String entityName, String url, Context context) {
         super(entityName, url, context);
     }
 
@@ -40,7 +46,31 @@ public class BiotDAO extends DAO {
             }
         }, new Response.ErrorListener() {
             @Override
-            public void onErrorResponse(VolleyError error) {}
+            public void onErrorResponse(VolleyError error) {
+                Log.i("BaseBiotDAO", "Getting an error");
+                Log.i("BaseBiotDAO", "Heres the error " + error.getMessage());
+                if (error.networkResponse == null) {
+                    if (error.getClass().equals(TimeoutError.class)) {
+                        Log.i("BaseBiotDAO", error.getMessage());
+                    }
+                }
+            }
+        });
+        request.setRetryPolicy(new RetryPolicy() {
+            @Override
+            public int getCurrentTimeout() {
+                return 3*1000;
+            }
+
+            @Override
+            public int getCurrentRetryCount() {
+                return 2;
+            }
+
+            @Override
+            public void retry(VolleyError error) throws VolleyError {
+
+            }
         });
         queue.add(request);
     }
