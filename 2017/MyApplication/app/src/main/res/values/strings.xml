@@ -23,7 +23,7 @@
 
     <string name="title_misc">Divers</string>
 
-    <string name="title_water_level">Niveau d eau</string>
+    <string name="title_water_level">Niveau d\'eau</string>
     <string name="label_water_level_value">10</string>
 
     <string name="default_ip">localhost</string>

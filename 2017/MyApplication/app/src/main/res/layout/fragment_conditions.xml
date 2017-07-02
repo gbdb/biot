@@ -133,7 +133,7 @@ android:layout_height="match_parent">
             android:layout_column="16"
             style="@android:style/Widget.ProgressBar.Horizontal"
             android:layout_weight="0.2"
-            android:progressTint="@color/peter_river"/>
+            android:progressDrawable="@drawable/progress"/>
     </TableRow>
 </TableLayout>
 

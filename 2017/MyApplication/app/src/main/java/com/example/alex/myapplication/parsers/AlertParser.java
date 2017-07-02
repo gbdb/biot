@@ -1,11 +1,12 @@
 package com.example.alex.myapplication.parsers;
 
-
 import com.example.alex.myapplication.models.Alert;
 import com.example.alex.myapplication.models.Biot;
 
 import org.json.JSONException;
 import org.json.JSONObject;
+
+import java.util.Map;
 
 public class AlertParser implements BiotEntityParser {
     @Override
@@ -14,4 +15,11 @@ public class AlertParser implements BiotEntityParser {
         Biot biot = new Alert(message);
         return biot;
     }
+
+    @Override
+    public JSONObject parse(Biot data) {
+        return null;
+    }
+
+
 }

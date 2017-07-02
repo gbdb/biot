@@ -6,6 +6,8 @@ import com.example.alex.myapplication.models.Relay;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.Map;
+
 
 public class RelayParser implements BiotEntityParser {
     @Override
@@ -20,5 +22,10 @@ public class RelayParser implements BiotEntityParser {
             e.printStackTrace();
         }
         return biot;
+    }
+
+    @Override
+    public JSONObject parse(Biot data) {
+        return null;
     }
 }

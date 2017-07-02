@@ -9,7 +9,6 @@ import android.widget.ArrayAdapter;
 import android.widget.CompoundButton;
 import android.widget.Switch;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.example.alex.myapplication.R;
 import com.example.alex.myapplication.communication.ServerCommunication;

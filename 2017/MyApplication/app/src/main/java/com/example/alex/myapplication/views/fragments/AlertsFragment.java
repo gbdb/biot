@@ -1,8 +1,7 @@
 package com.example.alex.myapplication.views.fragments;
 
-import android.content.SharedPreferences;
+
 import android.os.Bundle;
-import android.preference.PreferenceManager;
 import android.support.v4.app.Fragment;
 import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.widget.LinearLayoutManager;
@@ -47,6 +46,7 @@ public class AlertsFragment extends Fragment {
             }
         });
 
+
         alerts = new ArrayList<>();
 
         adapter = new AlertItemAdapter(alerts);
@@ -60,11 +60,7 @@ public class AlertsFragment extends Fragment {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        SharedPreferences sharedPref =
-                PreferenceManager.getDefaultSharedPreferences(getActivity());
-        String ip =
-                sharedPref.getString("ip_pref", getActivity().getString(R.string.default_ip));
-        alertsDAO = new BaseBiotDAO(ip, "alerts", getContext());
+        alertsDAO = new BaseBiotDAO("alerts", getContext());
     }
 
     @Override

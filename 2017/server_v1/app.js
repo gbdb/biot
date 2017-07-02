@@ -1,5 +1,6 @@
 var five = require("johnny-five"), board;
-var app = require('express')();
+var express = require('express');
+var app = express();
 var http = require('http').Server(app);
 var io = require('socket.io')(http);
 var port = process.env.PORT || 3000;
@@ -9,6 +10,8 @@ var RelayDAO = require('./DAO/RelayDAO.js');
 var AlertsDAO = require('./DAO/AlertsDAO.js')
 var owts = require('one-wire-temps');
 var admin = require("firebase-admin");
+var Cycle = require("./Cycle.js");
+
 
 var serviceAccount = require("./jardiniot-firebase-adminsdk-p1ya9-cf6f3bf45b.json");
 
@@ -21,40 +24,39 @@ var relaysDAO = new RelayDAO();
 var cyclesDAO = new CycleDAO();
 var sensorsDAO = new SensorDAO();
 
+
+var Cycle1 = new Cycle(5,10);
+
 var relays = {};
 
-app.get('/', function(req, res) {});
 
+app.get('/', function(req, res) {});
 app.use('/', require('./API'));
 
-var time_off = 5000;
-var time_on = 3000;
-clientSocket = "";
 
-var payload = {
-  data: {
-    message: "Jardin prêt"
-  }
-};
 
-function notifySysReady() {
+function sendNotification(message) {
+  var payload = {
+    data: {
+      message: message
+    }
+  };
 
-  admin.messaging().sendToTopic("events", payload)
+admin.messaging().sendToTopic("events", payload)
   .then(function(response) {
     // See the MessagingTopicResponse reference documentation for the
     // contents of response.
     console.log("Successfully sent message:", response);
-  })
+    })
   .catch(function(error) {
     console.log("Error sending message:", error);
-});
+  });
 }
-
-notifySysReady();
 
 io.on('connection', function(socket) {
   console.log("Android User connected");
   socket.on('event', function(event) {
+    console.log("yo");
     switch (event.type) {
       case "TOGGLE_PUMP":
         console.log(event);
@@ -64,12 +66,6 @@ io.on('connection', function(socket) {
           relay.toggle();
           //relaysDAO.updateOne(event.args.id, relay.isOn);
         }
-        break;
-      case "NEW_INTERVAL":
-        time_off = event.args.tempsOff * 60 * 1000;
-        time_on = event.args.tempsOn * 60 * 1000;
-        console.log(time_off + " " + time_on);
-        //cyclesDAO.insertInterval(time_off,time_on);
         break;
     }
   });
@@ -86,10 +82,11 @@ board.on("ready", function() {
 
 
     initRelays(five, function() {
-      start();
+      sendNotification("Jardin pret!");
+      Cycle1.start(relays["595524c051a6a6683f6d5619"]);
     });
 
-    notifySysReady();
+    
     //---------------------WATER LEVEL---------------------
     var bottom = 10;
     var middle = 11;
@@ -98,30 +95,49 @@ board.on("ready", function() {
     this.pinMode(middle, five.Pin.INPUT);
     this.pinMode(top, five.Pin.INPUT);
 
-/*
+    var bottomWater = true;
+    var middleWater = true;
+    var topWater = true;
+
+    this.loop(500, function() {
+      /*
+      if(!bottomWater)
+        sendNotification("TABARNAK, PU D'EAU, LA POMPE VA BRISER!");
+      else if(!middleWater)
+        sendNotification("Moins que la moitié de l'eau!!");
+      else if(!bottomWater)
+        sendNotification("On ferme la pompe!");
+      */
+    });
+
+
     this.digitalRead(bottom, function(value) {
       console.log("BOTTOM: " + value);
+      if(value == 0)
+        bottomWater = true;
+      else
+        bottomWater = false;
 
-      if(value == 1)
-        io.emit("event","On est dans marde en tabarnak!!! Niveau d'eau super bas");
-    });*/
+    });
 
-  
-    //////////////////////////////////////////////////
     this.digitalRead(middle, function(value) {
       console.log("MIDDLE: " + value);
 
-      //if(value == 1)
-        //io.emit("event", {message:"Attention! Le niveau d'eau est à moins de 50%!"})
+      if(value == 0)
+        middleWater = true;
+      else
+        middleWater = false;
     });
 
     this.digitalRead(top, function(value) {
       console.log("TOP: " + value);
 
-      //if(value == 1)
-        //io.emit("event", {message:"Attention! Le niveau d'eau est à moins de 50%!"})
+      if(value == 0)
+        topWater = true;
+      else
+        topWater = false;
+
     });
-    ///////////////////////////////////////////////////
 
     this.repl.inject({
       io:io
@@ -149,29 +165,6 @@ function initRelays(five,cb) {
     cb();
   });
 };
-
-function start() {
-  var relay = relays[Object.keys(relays)[0]];
-  onInterval(relay);
-}
-
-function offInterval(relay) {
-  io.emit("event", {message:"OFF"});
-  relay.toggle();
-  setTimeout(function() {
-    onInterval(relay);
-  }, time_off);
-  
-}
-
-function onInterval(relay) {
-  //io.emit("event", {message:"ON"});
-  relay.toggle();
-  setTimeout(function() {
-    offInterval(relay);
-  }, time_on);
-  console.log("ON");
-}
 
 http.listen(port, function() {
   console.log("J'ecoute sur:" + port);

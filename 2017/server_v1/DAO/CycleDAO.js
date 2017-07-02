@@ -13,8 +13,8 @@ CycleDAO.prototype.fetchAll = function(cb) {
 	});
 }
 
-CycleDAO.prototype.insertInterval = function(off,on) {
-	DBClient.collection("cycles").insert({name:"main", on:on, off:off});
+CycleDAO.prototype.insertInterval = function(interval) {
+	DBClient.collection("cycles").insert({name:interval.name, on:interval.on, off:interval.off});
 }
 
 module.exports = CycleDAO;

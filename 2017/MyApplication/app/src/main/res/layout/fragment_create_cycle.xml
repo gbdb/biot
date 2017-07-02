@@ -100,18 +100,29 @@
         android:inputType="text"
         android:hint="Nom du cycle"/>
 
-    <CheckBox
-        android:id="@+id/checkboxApplyCycleOnCreation"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:text="Appliquer ce cycle lors sa création"/>
 
-    <Spinner
-        android:id="@+id/relayToCycleSpinner"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:visibility="invisible"/>
+        android:orientation="vertical"
+        android:id="@+id/transition_container">
+
+        <CheckBox
+            android:id="@+id/checkboxApplyCycleOnCreation"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Appliquer ce cycle lors sa création" />
+
+        <Spinner
+            android:id="@+id/relayToCycleSpinner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="invisible" />
+
+    </LinearLayout>
+
+
 
 
 </LinearLayout>

@@ -45,7 +45,7 @@ public class ControlFragment extends Fragment{
         SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(getActivity());
         String ip = sharedPref.getString("ip_pref", getActivity().getString(R.string.default_ip));
 
-        relayDAO = new BaseBiotDAO(ip,"relays", getContext());
+        relayDAO = new BaseBiotDAO("relays", getContext());
         cycles = new ArrayList<>();
     }
 

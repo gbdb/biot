@@ -5,9 +5,9 @@
     tools:context=".views.CreateCycleActivity" >
 
     <item
-        android:id="@+id/action_favorite"
+        android:id="@+id/confirmCycleCreation"
         android:icon="@drawable/ic_check_white_24dp"
         app:showAsAction="ifRoom"
-        android:title="Save"/>
+        android:title="Save" />
 
 </menu>

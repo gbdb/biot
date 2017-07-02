@@ -1,6 +1,8 @@
 package com.example.alex.myapplication.views.fragments;
 
 import android.animation.ValueAnimator;
+import android.graphics.Color;
+import android.graphics.PorterDuff;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.support.v4.widget.SwipeRefreshLayout;
@@ -37,6 +39,8 @@ public class ConditionsFragment extends Fragment implements DataCallBack {
         temp2 = (TextView)rootView.findViewById(R.id.label_temp_water);
         progressBar = (ProgressBar)rootView.findViewById(R.id.progressBar);
 
+        progressBar.getIndeterminateDrawable().setColorFilter(Color.RED, PorterDuff.Mode.MULTIPLY);
+
         swipeRefreshLayout = (SwipeRefreshLayout)rootView.findViewById(R.id.swipeRefresh);
 
         swipeRefreshLayout.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
@@ -55,7 +59,7 @@ public class ConditionsFragment extends Fragment implements DataCallBack {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Log.i("ConditionsFragment", ServerCommunication.getInstance().getSocket().toString());
-        ServerCommunication.getInstance().subscribeToNewTemperature(getActivity(), this);
+        //ServerCommunication.getInstance().subscribeToNewTemperature(getActivity(), this);
     }
 
     @Override
@@ -63,6 +67,8 @@ public class ConditionsFragment extends Fragment implements DataCallBack {
         super.onResume();
 
         startCountAnimation();
+
+
         ProgressBarAnimation anim = new ProgressBarAnimation(progressBar, 15, 80);
         anim.setDuration(1000);
         progressBar.startAnimation(anim);
