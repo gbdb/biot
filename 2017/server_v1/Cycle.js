@@ -21,6 +21,7 @@ var Cycle = function(timeOn, timeOff){
 		//relay.toggle();
 		//console.log(self.nextCycle);
 		console.log("OFF");
+		console.log(new Date(new Date().getTime()));
 	  }, function () {
 	  	self.nextCycle = new Date(new Date().getTime() + self.timeOff*60000);
 	  	//console.log(self.nextCycle);
@@ -35,6 +36,7 @@ var Cycle = function(timeOn, timeOff){
 		self.cycleOff.stop();
 		//relay.toggle();
 		console.log("ON");
+		console.log(new Date(new Date().getTime()));
 	  }, function () {
 	    self.nextCycle = new Date(new Date().getTime() + self.timeOn*60000);
 	  	self.cycleOn.cronTime.source = moment(self.nextCycle);

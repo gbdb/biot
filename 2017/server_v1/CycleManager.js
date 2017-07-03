@@ -11,6 +11,11 @@ function add(relayId,cycleId){
 	});
 }
 
+function init(cycle) {
+	cycles[cycle.relay_id] = new Cycle(cycle.on,cycle.off);
+	return cycles[cycle.relay_id];
+}
+
 function putCycle(cycle) {
 	cycles[cycle.relay_id] = new Cycle(cycle.on,cycle.off);
 }
@@ -29,3 +34,4 @@ module.exports.add = add;
 module.exports.get = get;
 module.exports.printAll = printAll;
 module.exports.putCycle = putCycle;
+module.exports.init = init;

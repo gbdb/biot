@@ -134,16 +134,21 @@ function round(number) {
 function initRelays(/*five,*/cb) {
   relaysDAO.fetchAll(function(data){
     data.forEach(function(item){
-      //console.log(item);
-      //console.log(item._id, item.currentCycle_id);
-      if(item.currentCycle_id != undefined)
-        CycleManager.add(item._id,item.currentCycle_id);
-      //cycles.push(new Cycle(0.06,0.06));
+
+      //relays[item._id] = new five.Relay(item.pin);
+      //var j5_relay = relays[item._id];
+      if(item.currentCycle != undefined){
+        var cycle = CycleManager.init(item.currentCycle);
+        cycle.start()
+        
+        //cycle.start(relays[item._id])
+      }
+        
+      });
       //relays[item._id] = new five.Relay(item.pin);
 
     });
     //cb();
-  });
 };
 
 http.listen(port, function() {
