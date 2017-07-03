@@ -43,9 +43,8 @@ public class ServerCommunication {
 
     public void subscribeToNewTemperature(Activity activity, DataCallBack dataCallBack) {
         OnNewTemperatureListener onNewTemperature = new OnNewTemperatureListener(activity, dataCallBack);
-        //socket.connect();
-        //socket.on("newTemp", onNewTemperature);
-        //socket.emit("test,", "");
+        socket.connect();
+        socket.on("newTemp", onNewTemperature);
     }
 
     public void sendEvent(String message, Map<String,Object> args) {

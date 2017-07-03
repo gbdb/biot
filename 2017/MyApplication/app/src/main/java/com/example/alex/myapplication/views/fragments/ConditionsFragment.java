@@ -59,7 +59,7 @@ public class ConditionsFragment extends Fragment implements DataCallBack {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Log.i("ConditionsFragment", ServerCommunication.getInstance().getSocket().toString());
-        //ServerCommunication.getInstance().subscribeToNewTemperature(getActivity(), this);
+        ServerCommunication.getInstance().subscribeToNewTemperature(getActivity(), this);
     }
 
     @Override
@@ -96,12 +96,12 @@ public class ConditionsFragment extends Fragment implements DataCallBack {
             temp2.setText(temps[1] += "°");
             ProgressBarAnimation anim = new ProgressBarAnimation(progressBar, 0, 80);
             anim.setDuration(1000);
-            progressBar.startAnimation(anim);
+            //progressBar.startAnimation(anim);
         }
         else if(context.equals("newWaterLevel")) {
             ProgressBarAnimation anim = new ProgressBarAnimation(progressBar, 15, 80);
             anim.setDuration(1000);
-            progressBar.startAnimation(anim);
+            //progressBar.startAnimation(anim);
         }
     }
 

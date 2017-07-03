@@ -3,10 +3,19 @@ package com.example.alex.myapplication.models;
 
 public class Cycle extends Biot {
 
+    private String relayId;
+
     public Cycle(String name, int tempsOff, int tempsOn) {
         this.name = name;
         this.tempsOff = tempsOff;
         this.tempsOn = tempsOn;
+    }
+
+    public Cycle(String name, int tempsOff, int tempsOn, String relayId) {
+        this.name = name;
+        this.tempsOff = tempsOff;
+        this.tempsOn = tempsOn;
+        this.relayId = relayId;
     }
 
     private String name;
@@ -39,5 +48,13 @@ public class Cycle extends Biot {
 
     public String toString() {
         return "Name: " + name + "\nTemps off: " + tempsOff + "\nTemps on: " + tempsOn;
+    }
+
+    public String getRelayId() {
+        return relayId;
+    }
+
+    public void setRelayId(String relayId) {
+        this.relayId = relayId;
     }
 }

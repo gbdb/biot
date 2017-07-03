@@ -43,10 +43,7 @@ public class CreateCycleActivity extends AppCompatActivity {
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
         if (id == R.id.confirmCycleCreation) {
-            Toast.makeText(this, createCycleFragment.getBitch(), Toast.LENGTH_SHORT).show();
-            Log.i("CreateCycleActivity", createCycleFragment.getCycle().toString());
-            new BaseBiotDAO("cycles/", this ).update(createCycleFragment.getCycle(),
-                    new CycleParser());
+            createCycleFragment.sendCycle();
             return true;
         }
         return super.onOptionsItemSelected(item);

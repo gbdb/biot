@@ -26,6 +26,16 @@ public class RelayParser implements BiotEntityParser {
 
     @Override
     public JSONObject parse(Biot data) {
-        return null;
+        JSONObject jsonObject = new JSONObject();
+        Relay relay = (Relay) data;
+        try {
+            jsonObject.put("name", relay.getCurrentCycleId());
+            jsonObject.put("_id", relay._id);
+            jsonObject.put("status", relay.isStatus());
+            jsonObject.put("cycle", new CycleParser().parse(relay.getCycle()));
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        return jsonObject;
     }
 }

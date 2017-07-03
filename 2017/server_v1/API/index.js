@@ -27,11 +27,11 @@ router.get('/API/relays', function(req, res, next) {
 	});
 });
 
-/*router.get('/API/cycles', function(req, res, next) {
-	relays.fetchAll(function(data) {
+router.get('/API/cycles', function(req, res, next) {
+	cycles.fetchAll(function(data) {
 		res.json(data);
 	});
-});*/
+});
 
 router.get('/API/alerts', function(req, res, next) {
 	alerts.fetchAll(function(data) {
@@ -39,14 +39,19 @@ router.get('/API/alerts', function(req, res, next) {
 	});
 });
 
-router.put('/API/cycles/:id', function(req, res, next) {
-	console.log(req.params);
-	console.log(req.body);
+router.put('/API/cycles/', function(req, res, next) {
 	var cycle = req.body;
-	cycles.insertInterval(cycle);
-	res.json({message:"Perfecto!"});
+	//console.log(cycle);
+	//console.log(cycle.relay_id);
+	cycles.insertInterval(cycle, function(cycleId) {
+		if(cycle.relay_id != undefined){
+			relays.updateOne(cycle.relay_id,{currentCycle_id:cycleId});
+			
+		}
+		res.json({message:"Perfecto!"});
+		console.log("CYCLE SAVED");
+		console.log("------------");
+	});
 });
-
-//todo: CREATE/UPDATE/DELETE routes with user defined params
 
 module.exports = router;

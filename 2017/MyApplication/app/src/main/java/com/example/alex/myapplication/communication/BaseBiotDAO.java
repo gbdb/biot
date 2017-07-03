@@ -33,6 +33,8 @@ public class BaseBiotDAO extends DAO {
     protected RequestQueue queue;
     protected String apiEndPoint;
 
+
+
     public BaseBiotDAO(String entityName, Context context) {
         super(context);
         String URI = ServerCommunication.URI;
@@ -40,6 +42,15 @@ public class BaseBiotDAO extends DAO {
         this.entityName = entityName;
         socket = ServerCommunication.getInstance().getSocket();
         socket.connect();
+        queue = Volley.newRequestQueue(context);
+    }
+
+    public BaseBiotDAO(Map<String,String> args, Context context) {
+        super(context);
+        String entity = args.get("route");
+        String URI = ServerCommunication.URI;
+        apiEndPoint = URI + entity;
+        Log.i("BaseBiotDAO", apiEndPoint);
         queue = Volley.newRequestQueue(context);
     }
 
@@ -94,15 +105,14 @@ public class BaseBiotDAO extends DAO {
     }
 
     @Override
-    public void update(final Biot biot, final BiotEntityParser entityParser){
-        String putEndPoint = apiEndPoint + "0/";
-        Log.i("BaseBiotDAO", putEndPoint);
-        StringRequest putRequest = new StringRequest(Request.Method.PUT, putEndPoint,
+    public void update(final Biot biot, final BiotEntityParser entityParser, final BiotDataCallback biotDataCallback){
+        StringRequest putRequest = new StringRequest(Request.Method.PUT, apiEndPoint,
                 new Response.Listener<String>()
                 {
                     @Override
                     public void onResponse(String response) {
                         Log.i("Volley-onResponse", response);
+                        biotDataCallback.onDataReceived(response);
                     }
                 },
                 new Response.ErrorListener()

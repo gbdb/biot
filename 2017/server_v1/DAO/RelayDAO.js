@@ -15,8 +15,21 @@ RelayDAO.prototype.fetchAll = function(cb) {
 	});
 }
 
-RelayDAO.prototype.updateOne = function(id,status) {
-	DBClient.collection('relays').updateOne({_id:new ObjectID(id)},{ $set: {status:status}}, function(err, res) {
+RelayDAO.prototype.findOne = function(id,cb) {
+	console.log("RELAY ID: " + id);
+	var object = new ObjectID(id);
+	console.log(object);
+	DBClient.collection('relays').findOne({_id:object}, function(err,doc) {
+		if(err)
+			console.log(err);
+		else{
+			cb(doc);
+		}
+	});
+}
+
+RelayDAO.prototype.updateOne = function(id,values) {
+	DBClient.collection('relays').updateOne({_id:new ObjectID(id)},{ $set: values }, function(err, res) {
     	if (err) throw err;
     	console.log("1 record updated");
   });

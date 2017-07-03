@@ -8,5 +8,5 @@ import java.util.Map;
 public interface Operation {
     void fetchAll(BiotDataCallback biotDataCallback, BiotEntityParser parser);
     boolean insert(Biot biot);
-    void update(Biot biot, BiotEntityParser parser);
+    void update(Biot biot, BiotEntityParser parser, BiotDataCallback biotDataCallback);
 }

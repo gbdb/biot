@@ -69,7 +69,7 @@ public class MQTTBiotDAO extends DAO {
     }
 
     @Override
-    public void update(Biot biot, BiotEntityParser parser) {
+    public void update(Biot biot, BiotEntityParser parser, BiotDataCallback biotDataCallback) {
 
     }
 

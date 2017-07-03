@@ -9,49 +9,23 @@ var CycleDAO = require('./DAO/CycleDAO.js');
 var RelayDAO = require('./DAO/RelayDAO.js');
 var AlertsDAO = require('./DAO/AlertsDAO.js')
 var owts = require('one-wire-temps');
-var admin = require("firebase-admin");
 var Cycle = require("./Cycle.js");
-
-
-var serviceAccount = require("./jardiniot-firebase-adminsdk-p1ya9-cf6f3bf45b.json");
-
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-  databaseURL: "https://jardiniot.firebaseio.com"
-});
-
 var relaysDAO = new RelayDAO();
 var cyclesDAO = new CycleDAO();
 var sensorsDAO = new SensorDAO();
 
+var CycleManager = require("./CycleManager.js");
 
-var Cycle1 = new Cycle(5,10);
 
 var relays = {};
 
 
-app.get('/', function(req, res) {});
-app.use('/', require('./API'));
+//var cycles = [];
 
 
-
-function sendNotification(message) {
-  var payload = {
-    data: {
-      message: message
-    }
-  };
-
-admin.messaging().sendToTopic("events", payload)
-  .then(function(response) {
-    // See the MessagingTopicResponse reference documentation for the
-    // contents of response.
-    console.log("Successfully sent message:", response);
-    })
-  .catch(function(error) {
-    console.log("Error sending message:", error);
-  });
-}
+app.get('/', function(req, res) {res.send("home")});
+app.use('/', require('./API/index'));
+app.use('/', require('./API/action'));
 
 io.on('connection', function(socket) {
   console.log("Android User connected");
@@ -59,8 +33,9 @@ io.on('connection', function(socket) {
     console.log("yo");
     switch (event.type) {
       case "TOGGLE_PUMP":
-        console.log(event);
-        relaysDAO.updateOne(event.args.id, event.args.status);
+        //console.log(event);
+        //Cycle1.stop();
+        CycleManager.printAll();
         var relay = relays[event.args.id];
         if (relay != undefined){
           relay.toggle();
@@ -71,6 +46,7 @@ io.on('connection', function(socket) {
   });
   socket.on('disconnect', function() {
     console.log("Android User disconnected");
+    initRelays();
   });
 });
 
@@ -82,7 +58,6 @@ board.on("ready", function() {
 
 
     initRelays(five, function() {
-      sendNotification("Jardin pret!");
       Cycle1.start(relays["595524c051a6a6683f6d5619"]);
     });
 
@@ -109,7 +84,6 @@ board.on("ready", function() {
         sendNotification("On ferme la pompe!");
       */
     });
-
 
     this.digitalRead(bottom, function(value) {
       console.log("BOTTOM: " + value);
@@ -144,7 +118,7 @@ board.on("ready", function() {
     });
 });
 
-setInterval(onewiretemps.getTemperatures,2000000, owts.unit_celcius, function(temps, lastUpdates){
+setInterval(onewiretemps.getTemperatures,5000000, owts.unit_celcius, function(temps, lastUpdates){
     console.log(temps);
 
     var temperatures = { "temp1" :round(temps[0]), "temp2": round(temps[1]) };
@@ -157,12 +131,18 @@ function round(number) {
 }
 
 //to change
-function initRelays(five,cb) {
+function initRelays(/*five,*/cb) {
   relaysDAO.fetchAll(function(data){
     data.forEach(function(item){
-      relays[item._id] = new five.Relay(item.pin);
+      //console.log(item);
+      //console.log(item._id, item.currentCycle_id);
+      if(item.currentCycle_id != undefined)
+        CycleManager.add(item._id,item.currentCycle_id);
+      //cycles.push(new Cycle(0.06,0.06));
+      //relays[item._id] = new five.Relay(item.pin);
+
     });
-    cb();
+    //cb();
   });
 };
 

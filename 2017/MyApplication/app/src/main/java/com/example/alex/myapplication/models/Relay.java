@@ -7,6 +7,12 @@ public class Relay extends Biot {
     private boolean status;
     private String id;
 
+    private Cycle cycle;
+
+    private String currentCycleId;
+
+    public String getCurrentCycleId() {return currentCycleId;}
+
     public Relay(String name, String id, boolean status) {
         this.name = name;
         this.id = id;
@@ -35,5 +41,13 @@ public class Relay extends Biot {
 
     public void setId(String id) {
         this.id = id;
+    }
+
+    public Cycle getCycle() {
+        return cycle;
+    }
+
+    public void setCycle(Cycle cycle) {
+        this.cycle = cycle;
     }
 }
