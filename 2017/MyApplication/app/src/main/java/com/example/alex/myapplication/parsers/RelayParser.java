@@ -1,6 +1,9 @@
 package com.example.alex.myapplication.parsers;
 
+import android.util.Log;
+
 import com.example.alex.myapplication.models.Biot;
+import com.example.alex.myapplication.models.Cycle;
 import com.example.alex.myapplication.models.Relay;
 
 import org.json.JSONException;
@@ -17,7 +20,11 @@ public class RelayParser implements BiotEntityParser {
             String name = (String)data.get("name");
             String _id = (String)data.get("_id");
             boolean status = (boolean)data.get("status");
-            biot = new Relay(name,_id,status);
+            JSONObject cycle = (JSONObject)data.get("currentCycle");
+            Cycle parsedCycle = new Cycle(cycle.getString("name"),
+                    cycle.getInt("off"), cycle.getInt("on"));
+            Log.i("Parser", parsedCycle.toString());
+            biot = new Relay(name,_id,status, parsedCycle);
         } catch (JSONException e) {
             e.printStackTrace();
         }

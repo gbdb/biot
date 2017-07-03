@@ -3,6 +3,8 @@ package com.example.alex.myapplication.views.fragments;
 import android.os.Bundle;
 import android.app.Fragment;
 import android.support.annotation.Nullable;
+import android.support.design.widget.Snackbar;
+import android.telecom.Call;
 import android.transition.TransitionManager;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -16,6 +18,7 @@ import android.widget.EditText;
 import android.widget.SeekBar;
 import android.widget.Spinner;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.example.alex.myapplication.R;
 import com.example.alex.myapplication.communication.BaseBiotDAO;
@@ -150,8 +153,6 @@ public class CreateCycleFragment extends Fragment {
         public void onStopTrackingTouch(SeekBar seekBar) {}
     }
 
-    public String getBitch(){return "Osti de bitch";}
-
     public void sendCycle() {
         new BaseBiotDAO("cycles/", getActivity()).update(getCycle(),
                 new CycleParser(), new BiotDataCallback() {
@@ -173,15 +174,12 @@ public class CreateCycleFragment extends Fragment {
                             new BaseBiotDAO(args, getActivity()).update(relayToApplyCycleOn, new RelayParser(), new BiotDataCallback() {
                                 @Override
                                 public void onDataReceived(Object object) {
-
+                                    Toast.makeText(getActivity(), "Cycle créé et appliqué avec succès!", Toast.LENGTH_LONG).show();
+                                    getActivity().finish();
                                 }
                             });
                         }
                     }
                 });
-
-
-
-
     }
 }

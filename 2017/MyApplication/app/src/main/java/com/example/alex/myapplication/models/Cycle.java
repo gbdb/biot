@@ -47,7 +47,7 @@ public class Cycle extends Biot {
     }
 
     public String toString() {
-        return "Name: " + name + "\nTemps off: " + tempsOff + "\nTemps on: " + tempsOn;
+        return "Cycle: " + name + " off: " + tempsOff + " on: " + tempsOn;
     }
 
     public String getRelayId() {

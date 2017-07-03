@@ -19,6 +19,13 @@ public class Relay extends Biot {
         this.status = status;
     }
 
+    public Relay(String name, String id, boolean status, Cycle cycle) {
+        this.name = name;
+        this.id = id;
+        this.cycle = cycle;
+        this.status = status;
+    }
+
     public boolean isStatus() {
         return status;
     }

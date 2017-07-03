@@ -32,6 +32,7 @@ public class SwitchItemAdapter extends ArrayAdapter<Relay> {
     static class ViewHolder {
         protected TextView text;
         protected Switch aSwitch;
+        protected TextView currentCycleLabel;
     }
 
     @Override
@@ -43,6 +44,7 @@ public class SwitchItemAdapter extends ArrayAdapter<Relay> {
             view = inflator.inflate(R.layout.pompe_item_v2, null);
             final ViewHolder viewHolder = new ViewHolder();
             viewHolder.text = (TextView) view.findViewById(R.id.pump_name);
+            viewHolder.currentCycleLabel = (TextView)view.findViewById(R.id.currentCycle);
             viewHolder.aSwitch = (Switch) view.findViewById(R.id.pump_switch);
 
             listner = new CompoundButton.OnCheckedChangeListener() {
@@ -72,6 +74,7 @@ public class SwitchItemAdapter extends ArrayAdapter<Relay> {
         }
         ViewHolder holder = (ViewHolder) view.getTag();
         holder.text.setText(dataSet.get(position).getName());
+        holder.currentCycleLabel.setText(dataSet.get(position).getCycle().toString());
         holder.aSwitch.setOnCheckedChangeListener(null);
         holder.aSwitch.setChecked(dataSet.get(position).isStatus());
         holder.aSwitch.setOnCheckedChangeListener(listner);

@@ -43,9 +43,10 @@ router.put('/API/cycles/', function(req, res, next) {
 	var cycle = req.body;
 	//console.log(cycle);
 	//console.log(cycle.relay_id);
+	//console.log(cycle);
 	cycles.insertInterval(cycle, function(cycleId) {
 		if(cycle.relay_id != undefined){
-			relays.updateOne(cycle.relay_id,{currentCycle_id:cycleId});
+			relays.updateOne(cycle.relay_id,{currentCycle:cycle});
 			
 		}
 		res.json({message:"Perfecto!"});
