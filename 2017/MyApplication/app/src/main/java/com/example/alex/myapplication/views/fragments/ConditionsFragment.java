@@ -92,8 +92,8 @@ public class ConditionsFragment extends Fragment implements DataCallBack {
     public void onSuccess(Object result, String context) {
         if(context.equals("newTemp")) {
             String[] temps = (String[]) result.toString().split(",");
-            temp1.setText(temps[0] += "°");
-            temp2.setText(temps[1] += "°");
+            temp1.setText(temps[1] += "°");
+            temp2.setText(temps[0] += "°");
             ProgressBarAnimation anim = new ProgressBarAnimation(progressBar, 0, 80);
             anim.setDuration(1000);
             //progressBar.startAnimation(anim);
@@ -127,6 +127,5 @@ public class ConditionsFragment extends Fragment implements DataCallBack {
             float value = from + (to - from) * interpolatedTime;
             progressBar.setProgress((int) value);
         }
-
     }
 }

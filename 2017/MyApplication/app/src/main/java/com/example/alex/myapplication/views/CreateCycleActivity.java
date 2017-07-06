@@ -4,13 +4,8 @@ package com.example.alex.myapplication.views;
 import android.app.FragmentManager;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
-import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.widget.Toast;
-
-import com.example.alex.myapplication.communication.BaseBiotDAO;
-import com.example.alex.myapplication.parsers.CycleParser;
 import com.example.alex.myapplication.views.fragments.CreateCycleFragment;
 import com.example.alex.myapplication.R;
 

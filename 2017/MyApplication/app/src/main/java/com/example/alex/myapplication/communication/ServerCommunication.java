@@ -22,14 +22,12 @@ public class ServerCommunication {
     private ServerCommunication() {
         try {
             socket = IO.socket(URI);
-            //socket.connect();
         } catch (URISyntaxException e) {
         }
     }
 
-    public static ServerCommunication getInstance () {
+    public static synchronized ServerCommunication getInstance () {
         if(serverComm == null) {
-            Log.i("ServerCommunication", "JE SUIS NUL!");
             serverComm = new ServerCommunication();
             return serverComm;
         }
@@ -43,7 +41,7 @@ public class ServerCommunication {
 
     public void subscribeToNewTemperature(Activity activity, DataCallBack dataCallBack) {
         OnNewTemperatureListener onNewTemperature = new OnNewTemperatureListener(activity, dataCallBack);
-        socket.connect();
+        //socket.connect();
         socket.on("newTemp", onNewTemperature);
     }
 

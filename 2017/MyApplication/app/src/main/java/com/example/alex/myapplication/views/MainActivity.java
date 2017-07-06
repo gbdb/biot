@@ -2,7 +2,6 @@ package com.example.alex.myapplication.views;
 
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.graphics.Color;
 import android.graphics.PorterDuff;
 import android.preference.PreferenceManager;
 import android.support.design.widget.TabLayout;
@@ -95,12 +94,15 @@ public class MainActivity extends AppCompatActivity implements DataCallBack {
         mViewPager.setAdapter(mSectionsPagerAdapter);
         mViewPager.setOffscreenPageLimit(3);
         Log.i("MainActivity", ServerCommunication.getInstance().getSocket().toString());
-        //ServerCommunication.getInstance().registerToToastAlerts(this, this);
+
+
+
+
+
         FirebaseMessaging.getInstance().subscribeToTopic("events");
 
 
         tabLayout.setupWithViewPager(mViewPager);
-        /*
         tabLayout.getTabAt(0).setIcon(tabIcons[0]);
         tabLayout.getTabAt(1).setIcon(tabIcons[1]);
         tabLayout.getTabAt(2).setIcon(tabIcons[2]);
@@ -123,7 +125,7 @@ public class MainActivity extends AppCompatActivity implements DataCallBack {
 
             }
         });
-        */
+
     }
 
     @Override
@@ -149,8 +151,7 @@ public class MainActivity extends AppCompatActivity implements DataCallBack {
     }
 
     @Override
-    public void onFailure() {
-    }
+    public void onFailure() {}
 
     public class SectionsPagerAdapter extends FragmentPagerAdapter {
 

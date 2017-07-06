@@ -2,9 +2,6 @@ package com.example.alex.myapplication.views.fragments;
 
 import android.os.Bundle;
 import android.app.Fragment;
-import android.support.annotation.Nullable;
-import android.support.design.widget.Snackbar;
-import android.telecom.Call;
 import android.transition.TransitionManager;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -21,8 +18,9 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.example.alex.myapplication.R;
-import com.example.alex.myapplication.communication.BaseBiotDAO;
+import com.example.alex.myapplication.communication.daos.BaseBiotDAO;
 import com.example.alex.myapplication.communication.BiotDataCallback;
+import com.example.alex.myapplication.models.Action;
 import com.example.alex.myapplication.models.Cycle;
 import com.example.alex.myapplication.models.Relay;
 import com.example.alex.myapplication.parsers.CycleParser;
@@ -30,8 +28,6 @@ import com.example.alex.myapplication.parsers.RelayParser;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
 
 
 public class CreateCycleFragment extends Fragment {
@@ -82,8 +78,6 @@ public class CreateCycleFragment extends Fragment {
 
             }
         });
-
-
 
         relaysSpinner.setAdapter(adapter);
 
@@ -146,6 +140,9 @@ public class CreateCycleFragment extends Fragment {
                 temps_off.setText(String.valueOf(progress));
             else
                 temps_on.setText(String.valueOf(progress));
+
+
+
         }
         @Override
         public void onStartTrackingTouch(SeekBar seekBar) {}
@@ -165,13 +162,9 @@ public class CreateCycleFragment extends Fragment {
                             Relay relayToApplyCycleOn = relays.get(selectRelayIndex);
                             Log.i("RelayToApplyCycleON", relayToApplyCycleOn.toString());
                             relayToApplyCycleOn.setCycle(getCycle());
+                            
 
-                            Map<String,String> args = new HashMap<>();
-                            args.put("route", "/action/reset/" + relayToApplyCycleOn.getId());
-
-
-
-                            new BaseBiotDAO(args, getActivity()).update(relayToApplyCycleOn, new RelayParser(), new BiotDataCallback() {
+                            new BaseBiotDAO(new Action("/action/reset/"), getActivity()).update(relayToApplyCycleOn, new RelayParser(), new BiotDataCallback() {
                                 @Override
                                 public void onDataReceived(Object object) {
                                     Toast.makeText(getActivity(), "Cycle créé et appliqué avec succès!", Toast.LENGTH_LONG).show();

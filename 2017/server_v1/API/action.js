@@ -25,7 +25,7 @@ router.put('/action/stop/:id', function(req,res,next) {
 	console.log(req.body);
 });
 
-router.put('/action/reset/:id', function(req,res,next){
+router.put('/action/reset/', function(req,res,next){
 
 	var data = req.body;
 	relaysDAO.findOne(data.cycle.relay_id, function(doc) {

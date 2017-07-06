@@ -1,8 +1,6 @@
 package com.example.alex.myapplication.views.fragments;
 
-
 import android.os.Bundle;
-import android.support.v4.app.Fragment;
 import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
@@ -10,74 +8,47 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
-import com.example.alex.myapplication.adapters.AlertItemAdapter;
 import com.example.alex.myapplication.R;
-import com.example.alex.myapplication.communication.BaseBiotDAO;
-import com.example.alex.myapplication.communication.BiotDataCallback;
-import com.example.alex.myapplication.models.Alert;
+import com.example.alex.myapplication.communication.daos.BaseBiotDAO;
 import com.example.alex.myapplication.parsers.AlertParser;
+import com.example.alex.myapplication.views.adapters.AlertItemAdapter;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-
-public class AlertsFragment extends Fragment {
-
-    public AlertsFragment() {}
+public class AlertsFragment extends BiotFragment {
 
     private RecyclerView recyclerView;
-    private RecyclerView.Adapter adapter;
-    private RecyclerView.LayoutManager layoutManager;
-    private List<Alert> alerts;
-    private BaseBiotDAO alertsDAO;
     private SwipeRefreshLayout swipeRefreshLayout;
+    private RecyclerView.LayoutManager layoutManager;
+    private RecyclerView.Adapter adapter;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         View rootView = inflater.inflate(R.layout.fragment_alerts, container, false);
         recyclerView = (RecyclerView)rootView.findViewById(R.id.alertsRecyclerView);
-
         swipeRefreshLayout = (SwipeRefreshLayout)rootView.findViewById(R.id.swipeRefresh);
         swipeRefreshLayout.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
             @Override
             public void onRefresh() {
-                refreshView();
+                refresh();
             }
         });
-
-
-        alerts = new ArrayList<>();
-
-        adapter = new AlertItemAdapter(alerts);
         layoutManager = new LinearLayoutManager(getActivity());
         recyclerView.setLayoutManager(layoutManager);
         recyclerView.setAdapter(adapter);
-
         return rootView;
     }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        alertsDAO = new BaseBiotDAO("alerts", getContext());
+        adapter = new AlertItemAdapter(biotData);
+        operation = new BaseBiotDAO("alerts", getActivity());
+        parser = new AlertParser();
     }
 
     @Override
-    public void onResume() {
-        super.onResume();
-        refreshView();
-    }
-
-    private void refreshView() {
-        alertsDAO.fetchAll(new BiotDataCallback() {
-            @Override
-            public void onDataReceived(Object object) {
-                alerts.clear();
-                alerts.addAll((Collection<? extends Alert>) object);
-                adapter.notifyDataSetChanged();
-                swipeRefreshLayout.setRefreshing(false);
-            }
-        }, new AlertParser());
+    protected void onDataLoadedHook() {
+        adapter.notifyDataSetChanged();
+        swipeRefreshLayout.setRefreshing(false);
     }
 }

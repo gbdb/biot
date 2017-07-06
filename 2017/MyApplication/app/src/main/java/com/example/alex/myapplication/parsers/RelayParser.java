@@ -17,8 +17,8 @@ public class RelayParser implements BiotEntityParser {
     public Biot parse(JSONObject data) {
         Biot biot = null;
         try {
-            String name = (String)data.get("name");
-            String _id = (String)data.get("_id");
+            String name = data.getString("name");
+            String _id = data.getString("_id");
             boolean status = (boolean)data.get("status");
             JSONObject cycle = (JSONObject)data.get("currentCycle");
             Cycle parsedCycle = new Cycle(cycle.getString("name"),

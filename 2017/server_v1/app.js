@@ -16,6 +16,10 @@ var sensorsDAO = new SensorDAO();
 
 var CycleManager = require("./CycleManager.js");
 
+var notification = require('./notifications.js');
+
+//notification.send("jte casse les dents");
+
 
 var relays = {};
 
@@ -29,13 +33,16 @@ app.use('/', require('./API/action'));
 
 io.on('connection', function(socket) {
   console.log("Android User connected");
+  initRelays();
   socket.on('event', function(event) {
     console.log("yo");
     switch (event.type) {
       case "TOGGLE_PUMP":
         //console.log(event);
         //Cycle1.stop();
-        CycleManager.printAll();
+        //CycleManager.printAll();
+        console.log(event);
+        relaysDAO.updateOne(event.args.id, {status:event.args.status} );
         var relay = relays[event.args.id];
         if (relay != undefined){
           relay.toggle();
@@ -46,7 +53,6 @@ io.on('connection', function(socket) {
   });
   socket.on('disconnect', function() {
     console.log("Android User disconnected");
-    initRelays();
   });
 });
 
@@ -136,13 +142,13 @@ function initRelays(/*five,*/cb) {
     data.forEach(function(item){
 
       //relays[item._id] = new five.Relay(item.pin);
-      //var j5_relay = relays[item._id];
-      if(item.currentCycle != undefined){
-        var cycle = CycleManager.init(item.currentCycle);
-        cycle.start()
-        
-        //cycle.start(relays[item._id])
-      }
+        //var j5_relay = relays[item._id];
+        if(item.currentCycle != undefined){
+          var cycle = CycleManager.init(item.currentCycle);
+          cycle.start()
+          
+          //cycle.start(relays[item._id])
+        }
         
       });
       //relays[item._id] = new five.Relay(item.pin);

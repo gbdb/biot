@@ -47,7 +47,6 @@ router.put('/API/cycles/', function(req, res, next) {
 	cycles.insertInterval(cycle, function(cycleId) {
 		if(cycle.relay_id != undefined){
 			relays.updateOne(cycle.relay_id,{currentCycle:cycle});
-			
 		}
 		res.json({message:"Perfecto!"});
 		console.log("CYCLE SAVED");
