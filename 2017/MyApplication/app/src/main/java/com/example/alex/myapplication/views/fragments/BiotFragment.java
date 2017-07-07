@@ -38,7 +38,7 @@ public abstract class BiotFragment extends Fragment {
                 biotData.addAll((Collection<? extends Biot>) object);
                 onDataLoadedHook();
             }
-        }, parser);
+        });
     }
 
     public Vector<Map<String,String>> createUIDataBundle() {

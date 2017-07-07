@@ -69,23 +69,6 @@ public class SwitchItemAdapter extends ArrayAdapter<Biot> {
                 }
             });
 
-
-            /*
-            viewHolder.aSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-
-                @Override
-                public void onCheckedChanged(final CompoundButton buttonView,
-                                             boolean isChecked) {
-
-
-                    Relay element = (Relay) viewHolder.aSwitch
-                            .getTag();
-                    element.setStatus(buttonView.isChecked());
-
-                    onToggle(element);
-                }
-            });*/
-
             view.setTag(viewHolder);
             viewHolder.aSwitch.setTag(dataSet.get(position));
 
@@ -106,7 +89,7 @@ public class SwitchItemAdapter extends ArrayAdapter<Biot> {
 
     private void onToggle(Relay relay) {
         Log.i("SwitchItemAdapter", relay.toString());
-        new BaseBiotDAO(new Action(ApiRoutes.TOGGLE_PUMP, Request.Method.POST), getContext()).update(relay, new RelayParser(),
+        new BaseBiotDAO(new Action(ApiRoutes.TOGGLE_PUMP, Request.Method.POST),new RelayParser(), getContext()).update(relay,
             new BiotDataCallback() {
                 @Override
                 public void onDataReceived(Object object) {

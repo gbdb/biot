@@ -31,27 +31,30 @@ public class BaseBiotDAO extends DAO {
     protected RequestQueue queue;
     protected String apiEndPoint;
     protected int method;
+    private BiotEntityParser parser;
 
-    public BaseBiotDAO(String entityName, Context context) {
+    public BaseBiotDAO(String entityName, BiotEntityParser parser, Context context) {
         super(context);
         String URI = ServerURI.URI;
+        this.parser = parser;
         apiEndPoint = URI + "/API/" + entityName;
         this.entityName = entityName;
         queue = Volley.newRequestQueue(context);
         method = Request.Method.PUT;
     }
 
-    public BaseBiotDAO(Action action, Context context) {
+    public BaseBiotDAO(Action action, BiotEntityParser parser, Context context) {
         super(context);
         String entity = action.getName();
         String URI = ServerURI.URI;
+        this.parser = parser;
         apiEndPoint = URI + entity;
         method = action.getHttpMethod();
         queue = Volley.newRequestQueue(context);
     }
 
     @Override
-    public void fetchAll(final BiotDataCallback biotDataCallback, final BiotEntityParser parser) {
+    public void fetchAll(final BiotDataCallback biotDataCallback) {
         JsonArrayRequest request = new JsonArrayRequest(apiEndPoint, new Response.Listener<JSONArray>() {
             @Override
             public void onResponse(JSONArray response) {
@@ -93,12 +96,7 @@ public class BaseBiotDAO extends DAO {
     }
 
     @Override
-    public boolean create(Biot biot) {
-        return false;
-    }
-
-    @Override
-    public void update(final Biot biot, final BiotEntityParser entityParser, final BiotDataCallback biotDataCallback){
+    public void update(final Biot biot, final BiotDataCallback biotDataCallback){
         StringRequest putRequest = new StringRequest(method, apiEndPoint,
                 new Response.Listener<String>()
                 {
@@ -123,7 +121,7 @@ public class BaseBiotDAO extends DAO {
             @Override
             public byte[] getBody() throws AuthFailureError {
                 try {
-                    return entityParser.parse(biot).toString().getBytes();
+                    return parser.parse(biot).toString().getBytes();
                 } catch (JSONException e) {
                     e.printStackTrace();
                 }
@@ -131,5 +129,10 @@ public class BaseBiotDAO extends DAO {
             }
         };
         queue.add(putRequest);
+    }
+
+    @Override
+    public boolean create(Biot biot) {
+        return false;
     }
 }

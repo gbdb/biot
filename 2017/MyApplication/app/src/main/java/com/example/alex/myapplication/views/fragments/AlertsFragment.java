@@ -42,8 +42,9 @@ public class AlertsFragment extends BiotFragment {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         adapter = new AlertItemAdapter(biotData);
-        operation = new BaseBiotDAO("alerts", getActivity());
         parser = new AlertParser();
+        operation = new BaseBiotDAO("alerts", parser, getActivity() );
+
     }
 
     @Override

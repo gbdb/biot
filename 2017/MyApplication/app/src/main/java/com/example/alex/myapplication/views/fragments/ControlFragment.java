@@ -26,8 +26,9 @@ public class ControlFragment extends BiotFragment {
         super.onCreate(savedInstanceState);
 
         adapter = new SwitchItemAdapter(getActivity(), biotData);
-        operation = new BaseBiotDAO("relays", getContext());
         parser = new RelayParser();
+        operation = new BaseBiotDAO("relays", parser, getContext());
+
     }
 
     @Override

@@ -3,7 +3,7 @@ import com.example.alex.myapplication.models.Biot;
 import com.example.alex.myapplication.parsers.BiotEntityParser;
 
 public interface Operation {
-    void fetchAll(BiotDataCallback biotDataCallback, BiotEntityParser parser);
+    void fetchAll(BiotDataCallback biotDataCallback);
     boolean create(Biot biot);
-    void update(Biot biot, BiotEntityParser parser, BiotDataCallback biotDataCallback);
+    void update(Biot biot, BiotDataCallback biotDataCallback);
 }

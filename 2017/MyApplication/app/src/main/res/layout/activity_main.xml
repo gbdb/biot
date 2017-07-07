@@ -50,9 +50,9 @@
         android:layout_alignParentEnd="true"
         fab:fab_labelsPosition="left"
         fab:fab_labelStyle="@style/menu_labels_style"
-        fab:fab_addButtonColorNormal="@color/colorPrimary"
-        fab:fab_addButtonColorPressed="@color/colorPrimaryDark"
-        fab:fab_addButtonPlusIconColor="#FFFF"
+        fab:fab_addButtonColorNormal="@color/white"
+        fab:fab_addButtonColorPressed="#ededed"
+        fab:fab_addButtonPlusIconColor="@color/black"
         android:layout_marginBottom="16dp"
         android:layout_marginRight="16dp"
         android:layout_marginEnd="16dp"
@@ -62,17 +62,19 @@
             android:id="@+id/fab_action_cycle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            fab:fab_title="Nouveau Cycle"
-            fab:fab_colorNormal="@color/white"
-            fab:fab_colorPressed="@color/colorPrimary" />
+            fab:fab_title="Créer Cycle"
+            fab:fab_colorNormal="#2196F3"
+            fab:fab_icon="@drawable/ic_cached_white_24dp"
+            fab:fab_colorPressed="#69b4ef" />
 
         <com.getbase.floatingactionbutton.FloatingActionButton
             android:id="@+id/fab_action_alerte"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            fab:fab_title="Nouvelle alerte"
-            fab:fab_colorNormal="@color/white"
-            fab:fab_colorPressed="@color/colorPrimary"/>
+            fab:fab_title="Définir Alerte"
+            fab:fab_colorNormal="#B71C1C"
+            fab:fab_icon="@drawable/ic_notifications_white_24dp"
+            fab:fab_colorPressed="#e53232"/>
 
 
     </com.getbase.floatingactionbutton.FloatingActionsMenu>

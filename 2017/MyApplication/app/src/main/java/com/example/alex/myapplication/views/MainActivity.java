@@ -142,7 +142,6 @@ public class MainActivity extends AppCompatActivity {
                 startActivity(intent);
             }
         });
-        fabCreateCycle.setIcon(R.drawable.ic_timer_black_24dp);
 
         fabCreateAlert = (FloatingActionButton)findViewById(R.id.fab_action_alerte);
         fabCreateAlert.setOnClickListener(new View.OnClickListener() {

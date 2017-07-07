@@ -55,7 +55,7 @@
                     android:layout_alignStart="@+id/pump_name"
                     android:layout_below="@+id/pump_name"
                     android:layout_marginTop="4dp"
-                    app:srcCompat="@drawable/ic_timer_black_24dp" />
+                    app:srcCompat="@drawable/ic_sync_black_24dp" />
 
                 <Switch
                     android:id="@+id/pump_switch"
@@ -89,40 +89,76 @@
                     android:text="Normal" />
 
                 <TextView
-                    android:id="@+id/timeOn"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_alignStart="@+id/imageView3"
-                    android:layout_below="@+id/imageView3"
-                    android:text="10 " />
-
-                <TextView
                     android:id="@+id/timeUnitLabel"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:text="Intervalle:"
                     android:layout_below="@+id/textView2"
-                    android:layout_marginLeft="4dp"
-                    android:layout_toEndOf="@+id/timeOn"
-                    android:text="mins ON / " />
+                    android:layout_alignStart="@+id/textView2" />
 
-                <TextView
-                    android:id="@+id/textView10"
+
+                <ImageView
+                    android:id="@+id/imageView4"
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:layout_alignStart="@+id/imageView3"
+                    android:layout_below="@+id/imageView3"
+                    app:srcCompat="@drawable/ic_access_time_black_24dp" />
+
+                <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_alignBaseline="@+id/timeOff"
-                    android:layout_alignBottom="@+id/timeOff"
-                    android:layout_marginLeft="6dp"
-                    android:layout_toEndOf="@+id/timeOff"
-                    android:text="mins OFF" />
+                    android:layout_alignStart="@+id/cycleName"
+                    android:layout_below="@+id/textView2"
+                    android:orientation="vertical">
 
-                <TextView
-                    android:id="@+id/timeOff"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_alignBaseline="@+id/timeUnitLabel"
-                    android:layout_alignBottom="@+id/timeUnitLabel"
-                    android:layout_toEndOf="@+id/timeUnitLabel"
-                    android:text="22" />
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/timeOn"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_alignStart="@+id/imageView3"
+                            android:layout_below="@+id/imageView3"
+                            android:layout_marginRight="1dp"
+                            android:text="22"
+                            android:textAlignment="textEnd" />
+
+                        <TextView
+                            android:id="@+id/textView5"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="mins ON"
+                            android:textAlignment="textEnd" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/timeOff"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginRight="1dp"
+                            android:layout_weight="1"
+                            android:text="05" />
+
+                        <TextView
+                            android:id="@+id/textView4"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="mins OFF"
+                            android:textAlignment="textEnd" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
 
             </RelativeLayout>
 

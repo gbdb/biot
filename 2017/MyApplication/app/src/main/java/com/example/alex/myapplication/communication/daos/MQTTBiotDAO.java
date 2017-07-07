@@ -62,9 +62,7 @@ public class MQTTBiotDAO extends DAO {
     }
 
     @Override
-    public void fetchAll(BiotDataCallback biotDataCallback, BiotEntityParser parser) {
-
-    }
+    public void fetchAll(BiotDataCallback biotDataCallback) {}
 
     @Override
     public boolean create(Biot biot) {
@@ -72,8 +70,5 @@ public class MQTTBiotDAO extends DAO {
     }
 
     @Override
-    public void update(Biot biot, BiotEntityParser parser, BiotDataCallback biotDataCallback) {
-
-    }
-
+    public void update(Biot biot, BiotDataCallback biotDataCallback) {}
 }

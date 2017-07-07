@@ -112,7 +112,7 @@ public class CreateCycleFragment extends Fragment {
         seekBarOff.setOnSeekBarChangeListener(listener);
         seekBarOn.setOnSeekBarChangeListener(listener);
 
-        new BaseBiotDAO("relays", getActivity()).fetchAll(new BiotDataCallback() {
+        new BaseBiotDAO("relays",new RelayParser(), getActivity()).fetchAll(new BiotDataCallback() {
             @Override
             public void onDataReceived(Object object) {
                 relays.clear();
@@ -121,7 +121,7 @@ public class CreateCycleFragment extends Fragment {
                     relaysNames.add(relay.getName());
                 adapter.notifyDataSetChanged();
             }
-        }, new RelayParser());
+        });
 
         return rootView;
     }
@@ -135,8 +135,7 @@ public class CreateCycleFragment extends Fragment {
     }
 
     public void sendCycle() {
-        new BaseBiotDAO(ApiRoutes.CYCLES, getActivity()).update(getCycle(),
-            new CycleParser(), new BiotDataCallback() {
+        new BaseBiotDAO(ApiRoutes.CYCLES, new CycleParser(), getActivity()).update(getCycle(), new BiotDataCallback() {
                 @Override
                 public void onDataReceived(Object object) {
                     if(checkBox.isChecked()){
@@ -144,7 +143,7 @@ public class CreateCycleFragment extends Fragment {
                         Relay relayToApplyCycleOn = relays.get(selectRelayIndex);
                         relayToApplyCycleOn.setCycle(getCycle());
 
-                        new BaseBiotDAO(new Action(ApiRoutes.RESET_PUMP, Request.Method.PUT), getActivity()).update(relayToApplyCycleOn, new RelayParser(), new BiotDataCallback() {
+                        new BaseBiotDAO(new Action(ApiRoutes.RESET_PUMP, Request.Method.PUT), new RelayParser(), getActivity()).update(relayToApplyCycleOn, new BiotDataCallback() {
                             @Override
                             public void onDataReceived(Object object) {
                                 getActivity().finish();
