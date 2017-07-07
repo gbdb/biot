@@ -28,10 +28,10 @@
                     android:id="@+id/imageView6"
                     android:layout_width="36dp"
                     android:layout_height="36dp"
-                    android:layout_weight="0.2"
-                    android:src="@drawable/water_pump"
+                    android:layout_alignParentStart="true"
                     android:layout_alignParentTop="true"
-                    android:layout_alignParentStart="true" />
+                    android:layout_weight="0.2"
+                    android:src="@drawable/water_pump" />
 
                 <TextView
                     android:id="@+id/pump_name"
@@ -63,8 +63,7 @@
                     android:layout_height="wrap_content"
                     android:layout_alignBottom="@+id/pump_name"
                     android:layout_alignParentEnd="true"
-                    android:layout_gravity="center_vertical"
-                    android:checked="false" />
+                    android:layout_gravity="center_vertical"></Switch>
 
                 <TextView
                     android:id="@+id/textView2"
@@ -102,25 +101,27 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_below="@+id/textView2"
-                    android:layout_marginLeft="6dp"
+                    android:layout_marginLeft="4dp"
                     android:layout_toEndOf="@+id/timeOn"
-                    android:text="minutes ON" />
+                    android:text="mins ON / " />
 
                 <TextView
                     android:id="@+id/textView10"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_below="@+id/timeUnitLabel"
+                    android:layout_alignBaseline="@+id/timeOff"
+                    android:layout_alignBottom="@+id/timeOff"
                     android:layout_marginLeft="6dp"
-                    android:layout_toEndOf="@+id/timeOn"
-                    android:text="minutes OFF" />
+                    android:layout_toEndOf="@+id/timeOff"
+                    android:text="mins OFF" />
 
                 <TextView
                     android:id="@+id/timeOff"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_alignStart="@+id/timeOn"
-                    android:layout_below="@+id/timeOn"
+                    android:layout_alignBaseline="@+id/timeUnitLabel"
+                    android:layout_alignBottom="@+id/timeUnitLabel"
+                    android:layout_toEndOf="@+id/timeUnitLabel"
                     android:text="22" />
 
             </RelativeLayout>

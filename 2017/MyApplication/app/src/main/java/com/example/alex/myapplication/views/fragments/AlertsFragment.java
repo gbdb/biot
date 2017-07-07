@@ -51,4 +51,9 @@ public class AlertsFragment extends BiotFragment {
         adapter.notifyDataSetChanged();
         swipeRefreshLayout.setRefreshing(false);
     }
+
+    @Override
+    protected void beforeDataLoadedHook() {
+
+    }
 }

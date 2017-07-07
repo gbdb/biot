@@ -1,4 +1,4 @@
-package com.example.alex.myapplication.communication;
+package com.example.alex.myapplication.services;
 
 import android.app.NotificationManager;
 import android.app.PendingIntent;

@@ -124,7 +124,7 @@ board.on("ready", function() {
     });
 });
 
-setInterval(onewiretemps.getTemperatures,5000000, owts.unit_celcius, function(temps, lastUpdates){
+setInterval(onewiretemps.getTemperatures,2000, owts.unit_celcius, function(temps, lastUpdates){
     console.log(temps);
 
     var temperatures = { "temp1" :round(temps[0]), "temp2": round(temps[1]) };

@@ -9,11 +9,16 @@ var relaysDAO = new RelayDAO();
 
 router.use(bodyParser.json());
 
-/*router.get('/action/stop/:id', function(req, res, next) {
-	console.log("PARMAS " + req.params);
-	CycleManager.get(0).stop();
-	res.send("nigga");
-});*/
+var mongoose = require('mongoose');
+mongoose.connect('mongodb://localhost/Jardin');
+
+var relaySchema = mongoose.Schema({
+	name: String,
+	pin: Number
+});
+
+var Relay = mongoose.model('relay', relaySchema);
+
 
 router.get('/action/start/:id', function(req, res, next) {
 	CycleManager.get(0).start();
@@ -45,6 +50,13 @@ router.put('/action/reset/', function(req,res,next){
 		res.json({message:"Perfecto!"});
 	
 	})
+});
+
+router.post('/action/toggle/', function(req,res,next){
+	console.log("hey");
+	console.log(req.params);
+	console.log(req.body);
+	res.send("ok");
 });
 
 module.exports = router;

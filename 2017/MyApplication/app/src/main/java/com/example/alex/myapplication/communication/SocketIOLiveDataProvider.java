@@ -1,8 +1,10 @@
-package com.example.alex.myapplication.communication.adapters;
+package com.example.alex.myapplication.communication;
 
 import android.app.Activity;
 
 import com.example.alex.myapplication.communication.BiotDataCallback;
+import com.example.alex.myapplication.communication.ILiveDataProvider;
+import com.example.alex.myapplication.communication.ServerURI;
 import com.github.nkzawa.emitter.Emitter;
 import com.github.nkzawa.socketio.client.IO;
 import com.github.nkzawa.socketio.client.Socket;
@@ -16,21 +18,22 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class SocketIOLiveDataProviderAdapter implements ILiveDataProviderAdapter {
+public class SocketIOLiveDataProvider implements ILiveDataProvider {
 
     private Socket socket;
     private Activity activity;
 
     private List<Map<String,BiotDataCallback>> subscribers;
 
-    public SocketIOLiveDataProviderAdapter(Activity activity) {
+    public SocketIOLiveDataProvider(Activity activity) {
         this.activity = activity;
+        String URI = ServerURI.URI;
         try {
-            socket = IO.socket("localhost");
+            socket = IO.socket(URI);
+            socket.connect();
         } catch (URISyntaxException e) {
             e.printStackTrace();
         }
-
 
         subscribers = new ArrayList<>();
         socket.on("newTemp", temperatureListener);
@@ -55,20 +58,21 @@ public class SocketIOLiveDataProviderAdapter implements ILiveDataProviderAdapter
                     try {
                         temp1 = data.getString("temp1");
                         temp2 = data.getString("temp2");
+                        broadcast(temp1 + "," + temp2, "newTemp");
                     } catch (JSONException e) {
                         return;
                     }
-                    broadcast(data, "newTemp");
+
                 }
             });
         }
     };
 
-    private void broadcast(JSONObject jsonObject, String topic) {
+    private void broadcast(String data, String topic) {
 
-        for(Map<String,BiotDataCallback>sub: subscribers){
+        for(Map<String,BiotDataCallback>sub:subscribers){
             if(sub.containsKey(topic))
-                sub.get(topic).onDataReceived(jsonObject);
+                sub.get(topic).onDataReceived(data);
         }
     }
 }

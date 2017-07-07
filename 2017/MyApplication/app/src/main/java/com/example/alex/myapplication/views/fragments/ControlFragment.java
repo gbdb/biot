@@ -44,8 +44,6 @@ public class ControlFragment extends BiotFragment {
         });
 
         listView = (ListView)rootView.findViewById(R.id.pump_listView);
-        Log.i("ControlFragment", listView.toString());
-        Log.i("ControlFragment", biotData.toString());
         listView.setAdapter(adapter);
         return rootView;
     }
@@ -60,5 +58,10 @@ public class ControlFragment extends BiotFragment {
     protected void onDataLoadedHook() {
         adapter.notifyDataSetChanged();
         swipeRefreshLayout.setRefreshing(false);
+    }
+
+    @Override
+    protected void beforeDataLoadedHook() {
+
     }
 }

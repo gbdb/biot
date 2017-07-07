@@ -6,8 +6,6 @@ import com.example.alex.myapplication.models.Biot;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.util.Map;
-
 public class AlertParser implements BiotEntityParser {
     @Override
     public Biot parse(JSONObject data) throws JSONException {
@@ -18,7 +16,9 @@ public class AlertParser implements BiotEntityParser {
 
     @Override
     public JSONObject parse(Biot data) {
-        return null;
+        JSONObject json = new JSONObject();
+        //json.put("message")
+        return json;
     }
 
 

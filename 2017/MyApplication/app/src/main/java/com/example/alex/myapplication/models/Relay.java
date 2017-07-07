@@ -26,6 +26,10 @@ public class Relay extends Biot {
         this.status = status;
     }
 
+    public String toString() {
+        return "Name: " + name + " Status: " + status;
+    }
+
     public boolean isStatus() {
         return status;
     }

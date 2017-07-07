@@ -17,10 +17,12 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.android.volley.Request;
 import com.example.alex.myapplication.R;
+import com.example.alex.myapplication.communication.ApiRoutes;
 import com.example.alex.myapplication.communication.daos.BaseBiotDAO;
 import com.example.alex.myapplication.communication.BiotDataCallback;
-import com.example.alex.myapplication.models.Action;
+import com.example.alex.myapplication.communication.Action;
 import com.example.alex.myapplication.models.Cycle;
 import com.example.alex.myapplication.models.Relay;
 import com.example.alex.myapplication.parsers.CycleParser;
@@ -132,6 +134,27 @@ public class CreateCycleFragment extends Fragment {
                 seekBarOn.getProgress());
     }
 
+    public void sendCycle() {
+        new BaseBiotDAO(ApiRoutes.CYCLES, getActivity()).update(getCycle(),
+            new CycleParser(), new BiotDataCallback() {
+                @Override
+                public void onDataReceived(Object object) {
+                    if(checkBox.isChecked()){
+
+                        Relay relayToApplyCycleOn = relays.get(selectRelayIndex);
+                        relayToApplyCycleOn.setCycle(getCycle());
+
+                        new BaseBiotDAO(new Action(ApiRoutes.RESET_PUMP, Request.Method.PUT), getActivity()).update(relayToApplyCycleOn, new RelayParser(), new BiotDataCallback() {
+                            @Override
+                            public void onDataReceived(Object object) {
+                                getActivity().finish();
+                            }
+                        });
+                    }
+                }
+            });
+    }
+
     private class SeekBarListener implements SeekBar.OnSeekBarChangeListener {
 
         @Override
@@ -140,39 +163,10 @@ public class CreateCycleFragment extends Fragment {
                 temps_off.setText(String.valueOf(progress));
             else
                 temps_on.setText(String.valueOf(progress));
-
-
-
         }
         @Override
         public void onStartTrackingTouch(SeekBar seekBar) {}
         @Override
         public void onStopTrackingTouch(SeekBar seekBar) {}
-    }
-
-    public void sendCycle() {
-        new BaseBiotDAO("cycles/", getActivity()).update(getCycle(),
-                new CycleParser(), new BiotDataCallback() {
-                    @Override
-                    public void onDataReceived(Object object) {
-                        if(checkBox.isChecked()){
-                            //temporaire
-                            //// TODO: 7/2/17 ajouter un objet "action" qui déléguera une action abstraite à un controlleur abstrait qui envera l'action au serveur
-
-                            Relay relayToApplyCycleOn = relays.get(selectRelayIndex);
-                            Log.i("RelayToApplyCycleON", relayToApplyCycleOn.toString());
-                            relayToApplyCycleOn.setCycle(getCycle());
-                            
-
-                            new BaseBiotDAO(new Action("/action/reset/"), getActivity()).update(relayToApplyCycleOn, new RelayParser(), new BiotDataCallback() {
-                                @Override
-                                public void onDataReceived(Object object) {
-                                    Toast.makeText(getActivity(), "Cycle créé et appliqué avec succès!", Toast.LENGTH_LONG).show();
-                                    getActivity().finish();
-                                }
-                            });
-                        }
-                    }
-                });
     }
 }

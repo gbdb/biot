@@ -37,7 +37,7 @@ public class RelayParser implements BiotEntityParser {
         Relay relay = (Relay) data;
         try {
             jsonObject.put("name", relay.getCurrentCycleId());
-            jsonObject.put("_id", relay._id);
+            jsonObject.put("_id", relay.getId());
             jsonObject.put("status", relay.isStatus());
             jsonObject.put("cycle", new CycleParser().parse(relay.getCycle()));
         } catch (JSONException e) {

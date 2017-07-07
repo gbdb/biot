@@ -33,6 +33,7 @@ public abstract class BiotFragment extends Fragment {
         operation.fetchAll(new BiotDataCallback() {
             @Override
             public void onDataReceived(Object object) {
+                beforeDataLoadedHook();
                 biotData.clear();
                 biotData.addAll((Collection<? extends Biot>) object);
                 onDataLoadedHook();
@@ -46,4 +47,5 @@ public abstract class BiotFragment extends Fragment {
     }
 
     protected abstract void onDataLoadedHook();
+    protected abstract void beforeDataLoadedHook();
 }
