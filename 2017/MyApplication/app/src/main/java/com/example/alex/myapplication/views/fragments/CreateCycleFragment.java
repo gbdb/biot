@@ -3,7 +3,6 @@ package com.example.alex.myapplication.views.fragments;
 import android.os.Bundle;
 import android.app.Fragment;
 import android.transition.TransitionManager;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -15,7 +14,6 @@ import android.widget.EditText;
 import android.widget.SeekBar;
 import android.widget.Spinner;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.android.volley.Request;
 import com.example.alex.myapplication.R;
@@ -49,8 +47,6 @@ public class CreateCycleFragment extends Fragment {
 
     private String selectedRelayId;
     private int selectRelayIndex;
-
-
 
     @Override
     public View onCreateView(LayoutInflater inflater,ViewGroup container,Bundle savedInstanceState) {
@@ -95,22 +91,13 @@ public class CreateCycleFragment extends Fragment {
 
         temps_off = (TextView) rootView.findViewById(R.id.tempsOff);
         temps_on = (TextView) rootView.findViewById(R.id.tempsOn);
-
         seekBarOff = (SeekBar) rootView.findViewById(R.id.seekBarOff);
         seekBarOn = (SeekBar) rootView.findViewById(R.id.seekBarOn);
 
-        seekBarOff.setMax(60);
-        seekBarOn.setMax(60);
+        initSeekBar();
 
-        seekBarOff.setProgress(10);
-        temps_off.setText(String.valueOf(10));
-        seekBarOn.setProgress(15);
-        temps_on.setText(String.valueOf(15));
 
-        SeekBarListener listener = new SeekBarListener();
 
-        seekBarOff.setOnSeekBarChangeListener(listener);
-        seekBarOn.setOnSeekBarChangeListener(listener);
 
         new BaseBiotDAO("relays",new RelayParser(), getActivity()).fetchAll(new BiotDataCallback() {
             @Override
@@ -126,7 +113,22 @@ public class CreateCycleFragment extends Fragment {
         return rootView;
     }
 
-    public Cycle getCycle() {
+    private void initSeekBar() {
+        seekBarOff.setMax(60);
+        seekBarOn.setMax(60);
+
+        seekBarOff.setProgress(10);
+        temps_off.setText(String.valueOf(10));
+        seekBarOn.setProgress(15);
+        temps_on.setText(String.valueOf(15));
+
+        SeekBarListener listener = new SeekBarListener();
+
+        seekBarOff.setOnSeekBarChangeListener(listener);
+        seekBarOn.setOnSeekBarChangeListener(listener);
+    }
+
+    private Cycle createCycle() {
         if(checkBox.isChecked())
             return new Cycle(editText.getText().toString(),seekBarOff.getProgress(),
                 seekBarOn.getProgress(),selectedRelayId);
@@ -135,13 +137,13 @@ public class CreateCycleFragment extends Fragment {
     }
 
     public void sendCycle() {
-        new BaseBiotDAO(ApiRoutes.CYCLES, new CycleParser(), getActivity()).update(getCycle(), new BiotDataCallback() {
+        new BaseBiotDAO(ApiRoutes.CYCLES, new CycleParser(), getActivity()).update(createCycle(), new BiotDataCallback() {
                 @Override
                 public void onDataReceived(Object object) {
                     if(checkBox.isChecked()){
 
                         Relay relayToApplyCycleOn = relays.get(selectRelayIndex);
-                        relayToApplyCycleOn.setCycle(getCycle());
+                        relayToApplyCycleOn.setCycle(createCycle());
 
                         new BaseBiotDAO(new Action(ApiRoutes.RESET_PUMP, Request.Method.PUT), new RelayParser(), getActivity()).update(relayToApplyCycleOn, new BiotDataCallback() {
                             @Override
@@ -151,7 +153,7 @@ public class CreateCycleFragment extends Fragment {
                         });
                     }
                 }
-            });
+        });
     }
 
     private class SeekBarListener implements SeekBar.OnSeekBarChangeListener {

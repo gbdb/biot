@@ -20,6 +20,10 @@ var notification = require('./notifications.js');
 
 //notification.send("jte casse les dents");
 
+var myCycle = new Cycle(2,6,"BasicTimer");
+
+myCycle.start();
+
 
 var relays = {};
 
@@ -33,7 +37,7 @@ app.use('/', require('./API/action'));
 
 io.on('connection', function(socket) {
   console.log("Android User connected");
-  initRelays();
+  //initRelays();
   socket.on('event', function(event) {
     console.log("yo");
     switch (event.type) {
@@ -41,6 +45,7 @@ io.on('connection', function(socket) {
         //console.log(event);
         //Cycle1.stop();
         //CycleManager.printAll();
+        myCycle.stop();
         console.log(event);
         relaysDAO.updateOne(event.args.id, {status:event.args.status} );
         var relay = relays[event.args.id];
@@ -143,6 +148,8 @@ function initRelays(/*five,*/cb) {
 
       //relays[item._id] = new five.Relay(item.pin);
         //var j5_relay = relays[item._id];
+        var relayHasActiveCycle = item.currentCycle ? true : false;
+        console.log(relayHasActiveCycle);
         if(item.currentCycle != undefined){
           var cycle = CycleManager.init(item.currentCycle);
           cycle.start()

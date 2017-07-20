@@ -6,10 +6,8 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
-import android.widget.CompoundButton;
 import android.widget.Switch;
 import android.widget.TextView;
-import android.widget.ToggleButton;
 
 import com.android.volley.Request;
 import com.example.alex.myapplication.R;
@@ -17,7 +15,6 @@ import com.example.alex.myapplication.communication.Action;
 import com.example.alex.myapplication.communication.ApiRoutes;
 import com.example.alex.myapplication.communication.BiotDataCallback;
 import com.example.alex.myapplication.communication.daos.BaseBiotDAO;
-import com.example.alex.myapplication.dispatchers.RequestDispatcher;
 import com.example.alex.myapplication.models.Biot;
 import com.example.alex.myapplication.models.Cycle;
 import com.example.alex.myapplication.models.Relay;
@@ -28,13 +25,11 @@ public class SwitchItemAdapter extends ArrayAdapter<Biot> {
 
     private List<Biot> dataSet;
     private Activity context;
-    private RequestDispatcher requestDispatcher;
 
     public SwitchItemAdapter(Activity context, List<Biot> list) {
         super(context, R.layout.pompe_item, list);
         this.context = context;
         this.dataSet = list;
-        requestDispatcher = RequestDispatcher.getInstance();
     }
 
     static class ViewHolder {

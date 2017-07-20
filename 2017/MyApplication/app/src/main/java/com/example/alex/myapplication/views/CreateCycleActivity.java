@@ -1,6 +1,5 @@
 package com.example.alex.myapplication.views;
 
-
 import android.app.FragmentManager;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
@@ -20,7 +19,6 @@ public class CreateCycleActivity extends AppCompatActivity {
         setContentView(R.layout.activity_create_cycle);
 
         createCycleFragment = new CreateCycleFragment();
-
 
         FragmentManager fragmentManager = getFragmentManager();
         fragmentManager.beginTransaction()

@@ -41,11 +41,6 @@ public abstract class BiotFragment extends Fragment {
         });
     }
 
-    public Vector<Map<String,String>> createUIDataBundle() {
-        Vector<Map<String,String>> dataBundle = new Vector<>();
-        return dataBundle;
-    }
-
     protected abstract void onDataLoadedHook();
     protected abstract void beforeDataLoadedHook();
 }

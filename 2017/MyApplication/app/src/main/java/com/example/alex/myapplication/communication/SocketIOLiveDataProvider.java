@@ -2,9 +2,6 @@ package com.example.alex.myapplication.communication;
 
 import android.app.Activity;
 
-import com.example.alex.myapplication.communication.BiotDataCallback;
-import com.example.alex.myapplication.communication.ILiveDataProvider;
-import com.example.alex.myapplication.communication.ServerURI;
 import com.github.nkzawa.emitter.Emitter;
 import com.github.nkzawa.socketio.client.IO;
 import com.github.nkzawa.socketio.client.Socket;
@@ -18,7 +15,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class SocketIOLiveDataProvider implements ILiveDataProvider {
+public class SocketIOLiveDataProvider implements IRealTimeContentProvider {
 
     private Socket socket;
     private Activity activity;
@@ -56,13 +53,13 @@ public class SocketIOLiveDataProvider implements ILiveDataProvider {
                     String temp1;
                     String temp2;
                     try {
+                        //// TODO: 7/10/17 refactor this crap.
                         temp1 = data.getString("temp1");
                         temp2 = data.getString("temp2");
                         broadcast(temp1 + "," + temp2, "newTemp");
                     } catch (JSONException e) {
                         return;
                     }
-
                 }
             });
         }
