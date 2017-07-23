@@ -14,6 +14,12 @@ var alerts = new AlertsDAO();
 
 router.use(bodyParser.json());
 
+const broker = require("../MQTT/broker.js");
+
+//broker.publish();
+
+
+
 router.get('/API/sensors', function(req, res, next) {
 	sensors.fetchAll(function(data) {
 		res.json(data);

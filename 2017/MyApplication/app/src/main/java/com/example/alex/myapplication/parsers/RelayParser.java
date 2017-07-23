@@ -19,11 +19,11 @@ public class RelayParser implements BiotEntityParser {
         try {
             String name = data.getString("name");
             String _id = data.getString("_id");
-            boolean status = (boolean)data.get("status");
-            JSONObject cycle = (JSONObject)data.get("currentCycle");
+            boolean status = (boolean)data.get("isOn");
+            JSONObject cycle = (JSONObject)data.get("cycle");
             Cycle parsedCycle = new Cycle(cycle.getString("name"),
-                    cycle.getInt("off"), cycle.getInt("on"));
-            Log.i("Parser", parsedCycle.toString());
+                    cycle.getInt("time_off"), cycle.getInt("time_on"));
+            //Log.i("Parser", parsedCycle.toString());
             biot = new Relay(name,_id,status, parsedCycle);
         } catch (JSONException e) {
             e.printStackTrace();

@@ -73,13 +73,16 @@ public class SwitchItemAdapter extends ArrayAdapter<Biot> {
         }
         ViewHolder holder = (ViewHolder) view.getTag();
         Relay relay = (Relay)dataSet.get(position);
-        Cycle cycle = relay.getCycle();
-        holder.text.setText(relay.getName());
-        holder.cycleName.setText(cycle.getName());
-        holder.timeOff.setText(String.valueOf(cycle.getTempsOff()));
-        holder.timeOn.setText(String.valueOf(cycle.getTempsOn()));
-        holder.aSwitch.setChecked(relay.isStatus());
+        if(relay != null){
+            Cycle cycle = relay.getCycle();
+            holder.text.setText(relay.getName());
+            holder.cycleName.setText(cycle.getName());
+            holder.timeOff.setText(String.valueOf(cycle.getTempsOff()));
+            holder.timeOn.setText(String.valueOf(cycle.getTempsOn()));
+            holder.aSwitch.setChecked(relay.isStatus());
+        }
         return view;
+
     }
 
     private void onToggle(Relay relay) {

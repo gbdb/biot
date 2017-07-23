@@ -2,6 +2,7 @@ package com.example.alex.myapplication.views;
 
 import android.app.FragmentManager;
 import android.os.Bundle;
+import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -12,6 +13,7 @@ public class CreateCycleActivity extends AppCompatActivity {
 
 
     private CreateCycleFragment createCycleFragment;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -37,6 +39,8 @@ public class CreateCycleActivity extends AppCompatActivity {
         int id = item.getItemId();
         if (id == R.id.confirmCycleCreation) {
             createCycleFragment.sendCycle();
+            Snackbar.make(findViewById(R.id.main_content), "Cycle envoyé", Snackbar.LENGTH_LONG).show();
+            //finish();
             return true;
         }
         return super.onOptionsItemSelected(item);

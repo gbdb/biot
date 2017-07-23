@@ -7,5 +7,7 @@ public class SendNewCycle implements ICommand {
     public SendNewCycle(Cycle cycle, boolean applyNewCycle) {}
 
     @Override
-    public void execute() {}
+    public void execute() {
+
+    }
 }

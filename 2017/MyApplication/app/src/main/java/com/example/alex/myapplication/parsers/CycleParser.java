@@ -19,9 +19,10 @@ public class CycleParser implements BiotEntityParser {
         Cycle cycle = (Cycle)biot;
 
         json.put("name", cycle.getName());
-        json.put("relay_id", cycle.getRelayId());
-        json.put("off", String.valueOf(cycle.getTempsOff()));
-        json.put("on", String.valueOf(cycle.getTempsOn()));
+        json.put("relay", cycle.getRelayId());
+        json.put("time_off", String.valueOf(cycle.getTempsOff()));
+        json.put("time_on", String.valueOf(cycle.getTempsOn()));
+        //json.put("relay_id", "1234");
 
         return json;
     }
