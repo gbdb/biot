@@ -1,4 +1,4 @@
-# 🌱 Jardin bIOT
+# 🌱 Jardin bIOT v2
 
 > **Plateforme open-source pour la gestion intelligente de jardins nourriciers et permaculture**
 
