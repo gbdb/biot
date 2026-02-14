@@ -1,0 +1,51 @@
+# Guide de Contribution - Jardin bIOT
+
+Merci de votre intérêt pour contribuer à **Jardin bIOT**! 🌱
+
+## Comment Contribuer
+
+### Types de Contributions
+
+Nous acceptons plusieurs types de contributions :
+
+- 🐛 **Rapports de bugs** - Signalez les problèmes
+- ✨ **Nouvelles fonctionnalités** - Proposez et implémentez des features
+- 📝 **Documentation** - Améliorez les guides et docs
+- 🌍 **Traductions** - Rendez l'app accessible dans d'autres langues
+- 🌱 **Données d'espèces** - Ajoutez ou corrigez des infos sur les plantes
+- 🎨 **UI/UX** - Améliorez l'interface utilisateur
+- 🧪 **Tests** - Ajoutez des tests unitaires et d'intégration
+
+### Processus de Contribution
+
+1. **Fork** le repository
+2. **Clone** votre fork localement
+3. **Créez une branche** : `git checkout -b feature/ma-feature`
+4. **Committez** vos changements : `git commit -m 'Ajout de ma feature'`
+5. **Push** vers votre fork : `git push origin feature/ma-feature`
+6. Ouvrez une **Pull Request** avec une description claire
+
+### Standards de Code
+
+- Suivez les conventions Python PEP 8
+- Écrivez des docstrings pour les fonctions
+- Ajoutez des tests pour les nouvelles fonctionnalités
+- Gardez les commits atomiques et bien décrits
+
+### Rapporter un Bug
+
+Utilisez le template d'issue et incluez :
+- Description claire du problème
+- Étapes pour reproduire
+- Comportement attendu vs actuel
+- Environnement (OS, version Python, etc.)
+
+### Proposer une Feature
+
+Ouvrez d'abord une issue "Feature Request" pour discuter de l'idée avant de coder.
+
+## Code de Conduite
+
+Soyez respectueux, inclusif et constructif dans toutes vos interactions.
+
+Merci de faire grandir Jardin bIOT! 🌍💚
