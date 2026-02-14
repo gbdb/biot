@@ -1,8 +1,0 @@
-<?php
-$MyUsername = "arduino";
-$MyPassword = "Bi0T2";
-$MyHostname = "localhost";	
-
-$dbh = mysql_pconnect($MyHostname , $MyUsername, $MyPassword);
-$selected = mysql_select_db("biot",$dbh);
-?>
