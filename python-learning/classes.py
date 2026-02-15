@@ -1,58 +1,43 @@
-# === PARTIE 3: COMME DANS DJANGO ===
-print("\n=== PREVIEW DJANGO ===")
+# === TON EXERCICE ===
+print("\n=== MON EXERCICE ===")
 
-# Ceci ressemble BEAUCOUP aux modèles Django!
-class Species:
-    """Modèle d'une espèce de plante"""
-    
-    def __init__(self, nom_commun, nom_latin, famille):
-        self.nom_commun = nom_commun
-        self.nom_latin = nom_latin
-        self.famille = famille
-        self.specimens = []  # Liste de spécimens de cette espèce
-    
-    def ajouter_specimen(self, specimen):
-        """Ajoute un spécimen de cette espèce"""
-        self.specimens.append(specimen)
-        print(f"✅ {specimen.nom} ajouté à l'espèce {self.nom_commun}")
-    
-    def compter_specimens(self):
-        """Compte combien de spécimens de cette espèce"""
-        return len(self.specimens)
+# Crée une classe Jardin qui:
+# - A un attribut 'nom' (ex: "Mon potager")
+# - A une liste de plantes (vide au départ)
+# - A une méthode ajouter_plante(plante) qui ajoute à la liste
+# - A une méthode compter_plantes() qui retourne le nombre
+# - A une méthode arroser_tout() qui appelle .arroser() sur chaque plante
 
-class Specimen:
-    """Modèle d'un plant individuel"""
-    
-    def __init__(self, nom, species, date_plantation):
+class Jardin:
+    def __init__(self, nom):
         self.nom = nom
-        self.species = species  # Lien vers l'espèce
-        self.date_plantation = date_plantation
-        self.evenements = []
+        self.list_de_plante = []
+        pass
     
-    def ajouter_evenement(self, type_event, note):
-        """Ajoute un événement (arrosage, taille, etc)"""
-        event = {
-            "type": type_event,
-            "note": note
-        }
-        self.evenements.append(event)
-        print(f"📝 Événement ajouté: {type_event} - {note}")
+    def ajouter_plante(self, plante):
+        # Ton code ici
+        self.list_de_plante.append(plante)
+        pass
+    
+    def compter_plantes(self):
+        # Ton code ici
+        return len(self.list_de_plante)
+        pass
+    
+    def arroser_tout(self):
+        # Ton code ici
+        pass
+    def Plante(self):
+        pass
 
-# Utilisation (comme tu vas faire dans Django!)
-tomate_espece = Species("Tomate cerise", "Solanum lycopersicum", "Solanaceae")
-
-# Créer des spécimens individuels
-tomate1 = Specimen("Tomate #1", tomate_espece, "2026-05-15")
-tomate2 = Specimen("Tomate #2", tomate_espece, "2026-05-20")
-
-# Lier les spécimens à l'espèce
-tomate_espece.ajouter_specimen(tomate1)
-tomate_espece.ajouter_specimen(tomate2)
-
-print(f"\nJ'ai {tomate_espece.compter_specimens()} plants de {tomate_espece.nom_commun}")
-
-# Logger des événements
-tomate1.ajouter_evenement("arrosage", "Arrosé 2L")
-tomate1.ajouter_evenement("taille", "Enlevé gourmands")
-
-print(f"\n{tomate1.nom} a {len(tomate1.evenements)} événements")
+# Test (décommente quand prêt)
+mon_jardin = Jardin("Potager du balcon")
+# 
+basilic = mon_jardin.Plante("Basilic", "Ocimum basilicum", "élevé")
+tomate = mon_jardin.Plante("Tomate", "Solanum lycopersicum", "moyen")
+# 
+# mon_jardin.ajouter_plante(basilic)
+# mon_jardin.ajouter_plante(tomate)
+# 
+# print(f"Mon jardin a {mon_jardin.compter_plantes()} plantes")
+# mon_jardin.arroser_tout()
