@@ -475,3 +475,264 @@ class Amendment(models.Model):
         if self.azote_n or self.phosphore_p or self.potassium_k:
             npk = f" ({self.azote_n or 0}-{self.phosphore_p or 0}-{self.potassium_k or 0})"
         return f"{self.nom}{npk}"
+
+class Specimen(models.Model):
+    """
+    Un plant/arbre individuel sur le terrain.
+    Ex: "Mon Pommier Dolgo #1 près du ruisseau"
+    """
+    
+    # Lien vers l'espèce/organisme
+    organisme = models.ForeignKey(
+        'Organism',
+        on_delete=models.PROTECT,  # Empêche de supprimer l'organisme si des specimens existent
+        related_name='specimens'
+    )
+    
+    # === IDENTIFICATION ===
+    nom = models.CharField(
+        max_length=200,
+        help_text="Nom personnel du specimen (ex: Pommier Dolgo #1, Basilic du balcon)"
+    )
+    
+    code_identification = models.CharField(
+        max_length=50,
+        blank=True,
+        unique=True,
+        help_text="Code unique (ex: PMMDOL-001, ou tag RFID)"
+    )
+    
+    # === LOCALISATION ===
+    zone_jardin = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Ex: Zone Nord, Près du ruisseau, Forêt Est"
+    )
+    
+    latitude = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Coordonnée GPS"
+    )
+    
+    longitude = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Coordonnée GPS"
+    )
+    
+    # === PLANTATION ===
+    date_plantation = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date de plantation sur le terrain"
+    )
+    
+    age_plantation = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Âge du plant à la plantation (années)"
+    )
+    
+    SOURCE_CHOICES = [
+        ('pepiniere', 'Acheté en pépinière'),
+        ('semis', 'Semis maison'),
+        ('bouture', 'Bouturage'),
+        ('division', 'Division'),
+        ('greffe', 'Greffé'),
+        ('marcottage', 'Marcottage'),
+        ('echange', 'Échange/Don'),
+        ('sauvage', 'Prélevé en nature'),
+        ('autre', 'Autre'),
+    ]
+    source = models.CharField(
+        max_length=20,
+        choices=SOURCE_CHOICES,
+        blank=True
+    )
+    
+    pepiniere_fournisseur = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Nom de la pépinière ou fournisseur"
+    )
+    
+    # === ÉTAT ACTUEL ===
+    STATUT_CHOICES = [
+        ('planifie', '📋 Planifié'),
+        ('commande', '🛒 Commandé'),
+        ('transplanter', '🌱 À transplanter'),
+        ('jeune', '🌿 Jeune plant'),
+        ('etabli', '🌳 Établi'),
+        ('mature', '🎯 Mature/Production'),
+        ('declin', '📉 En déclin'),
+        ('mort', '💀 Mort'),
+        ('enleve', '🗑️ Enlevé'),
+    ]
+    statut = models.CharField(
+        max_length=20,
+        choices=STATUT_CHOICES,
+        default='planifie'
+    )
+    
+    sante = models.IntegerField(
+        default=5,
+        help_text="État de santé général (1=très malade, 10=excellent)"
+    )
+    
+    hauteur_actuelle = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Hauteur actuelle en mètres"
+    )
+    
+    # === PRODUCTION (pour fruitiers) ===
+    premiere_fructification = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Année de première fructification"
+    )
+    
+    # === NOTES ===
+    notes = models.TextField(
+        blank=True,
+        help_text="Observations, particularités, historique"
+    )
+    
+    # === MÉTADONNÉES ===
+    date_ajout = models.DateTimeField(auto_now_add=True)
+    date_modification = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Spécimen"
+        verbose_name_plural = "Spécimens"
+        ordering = ['-date_plantation', 'nom']
+    
+    def __str__(self):
+        return f"{self.nom} ({self.organisme.nom_commun})"
+    
+    def age_annees(self):
+        """Calcule l'âge approximatif du specimen"""
+        if self.date_plantation:
+            from datetime import date
+            delta = date.today() - self.date_plantation
+            annees = delta.days // 365
+            if self.age_plantation:
+                return annees + self.age_plantation
+            return annees
+        return self.age_plantation
+    
+    age_annees.short_description = "Âge (années)"
+
+class Event(models.Model):
+    """
+    Événement dans la vie d'un spécimen.
+    Ex: Plantation, Arrosage, Taille, Observation, Récolte
+    """
+    
+    specimen = models.ForeignKey(
+        'Specimen',
+        on_delete=models.CASCADE,
+        related_name='evenements'
+    )
+    
+    # === TYPE D'ÉVÉNEMENT ===
+    TYPE_CHOICES = [
+        ('plantation', '🌱 Plantation'),
+        ('arrosage', '💧 Arrosage'),
+        ('fertilisation', '🌿 Fertilisation'),
+        ('amendement', '🪨 Amendement sol'),
+        ('taille', '✂️ Taille/Élagage'),
+        ('paillage', '🍂 Paillage'),
+        ('observation', '👁️ Observation'),
+        ('floraison', '🌸 Floraison'),
+        ('fructification', '🍎 Fructification'),
+        ('recolte', '🧺 Récolte'),
+        ('maladie', '🦠 Maladie/Problème'),
+        ('traitement', '💊 Traitement'),
+        ('transplantation', '🚚 Transplantation'),
+        ('protection', '🛡️ Protection (hiver, animaux)'),
+        ('autre', '📝 Autre'),
+    ]
+    type_event = models.CharField(
+        max_length=20,
+        choices=TYPE_CHOICES
+    )
+    
+    # === DATE & TEMPS ===
+    date = models.DateField(
+        help_text="Date de l'événement"
+    )
+    
+    heure = models.TimeField(
+        null=True,
+        blank=True,
+        help_text="Heure (optionnel)"
+    )
+    
+    # === DÉTAILS ===
+    titre = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Titre court (optionnel, sinon type suffit)"
+    )
+    
+    description = models.TextField(
+        blank=True,
+        help_text="Description détaillée, observations"
+    )
+    
+    # === QUANTITÉS (selon type) ===
+    quantite = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Quantité (litres d'eau, kg récoltés, etc.)"
+    )
+    
+    unite = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="Unité (L, kg, heures, cm, etc.)"
+    )
+    
+    # === AMENDEMENT/PRODUIT UTILISÉ ===
+    amendment = models.ForeignKey(
+        'Amendment',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text="Amendement utilisé (si applicable)"
+    )
+    
+    produit_utilise = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Autre produit/outil utilisé"
+    )
+    
+    # === CONDITIONS ===
+    temperature = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Température en °C"
+    )
+    
+    conditions_meteo = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Ex: Ensoleillé, Pluvieux, Nuageux"
+    )
+    
+    # === MÉTADONNÉES ===
+    date_ajout = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        verbose_name = "Événement"
+        verbose_name_plural = "Événements"
+        ordering = ['-date', '-heure']
+    
+    def __str__(self):
+        emoji = dict(self.TYPE_CHOICES).get(self.type_event, '📝')
+        if self.titre:
+            return f"{emoji} {self.specimen.nom} - {self.titre} ({self.date})"
+        return f"{emoji} {self.specimen.nom} - {self.get_type_event_display()} ({self.date})"
