@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Organism, CompanionRelation, Amendment
+from .models import Organism, CompanionRelation, Amendment, Specimen, Event
 
 
 @admin.register(Organism)
@@ -149,3 +149,129 @@ class AmendmentAdmin(admin.ModelAdmin):
             return f"{obj.azote_n or 0}-{obj.phosphore_p or 0}-{obj.potassium_k or 0}"
         return "-"
     npk_display.short_description = "NPK"
+
+@admin.register(Specimen)
+class SpecimenAdmin(admin.ModelAdmin):
+    list_display = [
+        'nom',
+        'organisme',
+        'zone_jardin',
+        'statut',
+        'date_plantation',
+        'age_display',
+        'sante_stars'
+    ]
+    
+    list_filter = [
+        'statut',
+        'source',
+        'zone_jardin',
+        'organisme__type_organisme',
+        'date_plantation'
+    ]
+    
+    search_fields = [
+        'nom',
+        'code_identification',
+        'organisme__nom_commun',
+        'organisme__nom_latin',
+        'notes'
+    ]
+    
+    autocomplete_fields = ['organisme']
+    
+    date_hierarchy = 'date_plantation'
+    
+    fieldsets = (
+        ('Identification', {
+            'fields': ('organisme', 'nom', 'code_identification')
+        }),
+        ('Localisation', {
+            'fields': ('zone_jardin', 'latitude', 'longitude')
+        }),
+        ('Plantation', {
+            'fields': ('date_plantation', 'age_plantation', 'source', 'pepiniere_fournisseur')
+        }),
+        ('État Actuel', {
+            'fields': ('statut', 'sante', 'hauteur_actuelle')
+        }),
+        ('Production', {
+            'fields': ('premiere_fructification',),
+            'classes': ('collapse',)
+        }),
+        ('Notes', {
+            'fields': ('notes',)
+        }),
+    )
+    
+    def age_display(self, obj):
+        age = obj.age_annees()
+        if age:
+            return f"{age} ans"
+        return "-"
+    age_display.short_description = "Âge"
+    
+    def sante_stars(self, obj):
+        stars = "⭐" * (obj.sante // 2)
+        return stars if stars else "-"
+    sante_stars.short_description = "Santé"
+
+@admin.register(Event)
+class EventAdmin(admin.ModelAdmin):
+    list_display = [
+        'emoji_type',
+        'specimen',
+        'type_event',
+        'date',
+        'quantite_display',
+        'temperature'
+    ]
+    
+    list_filter = [
+        'type_event',
+        'date',
+        'specimen__organisme__type_organisme'
+    ]
+    
+    search_fields = [
+        'specimen__nom',
+        'titre',
+        'description',
+        'produit_utilise'
+    ]
+    
+    autocomplete_fields = ['specimen', 'amendment']
+    
+    date_hierarchy = 'date'
+    
+    fieldsets = (
+        ('Quoi?', {
+            'fields': ('specimen', 'type_event', 'titre')
+        }),
+        ('Quand?', {
+            'fields': ('date', 'heure')
+        }),
+        ('Détails', {
+            'fields': ('description', 'quantite', 'unite')
+        }),
+        ('Produits/Amendements', {
+            'fields': ('amendment', 'produit_utilise'),
+            'classes': ('collapse',)
+        }),
+        ('Conditions', {
+            'fields': ('temperature', 'conditions_meteo'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def emoji_type(self, obj):
+        return dict(Event.TYPE_CHOICES).get(obj.type_event, '📝').split()[0]
+    emoji_type.short_description = ""
+    
+    def quantite_display(self, obj):
+        if obj.quantite and obj.unite:
+            return f"{obj.quantite} {obj.unite}"
+        elif obj.quantite:
+            return str(obj.quantite)
+        return "-"
+    quantite_display.short_description = "Quantité"
