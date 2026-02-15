@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Organism, CompanionRelation, Amendment, Specimen, Event
+from .models import Organism, CompanionRelation, Amendment, Specimen, Event, Photo
 
 
 @admin.register(Organism)
@@ -275,3 +275,58 @@ class EventAdmin(admin.ModelAdmin):
             return str(obj.quantite)
         return "-"
     quantite_display.short_description = "Quantité"
+
+@admin.register(Photo)
+class PhotoAdmin(admin.ModelAdmin):
+    list_display = [
+        'miniature',
+        'get_sujet',
+        'titre',
+        'date_prise',
+        'date_ajout'
+    ]
+    
+    list_filter = [
+        'date_prise',
+        'date_ajout'
+    ]
+    
+    search_fields = [
+        'titre',
+        'description',
+        'specimen__nom',
+        'organisme__nom_commun'
+    ]
+    
+    autocomplete_fields = ['organisme', 'specimen', 'event']
+    
+    date_hierarchy = 'date_prise'
+    
+    fieldsets = (
+        ('Image', {
+            'fields': ('image', 'titre', 'description', 'date_prise')
+        }),
+        ('Lié à', {
+            'fields': ('organisme', 'specimen', 'event')
+        }),
+    )
+    
+    def miniature(self, obj):
+        if obj.image:
+            from django.utils.html import format_html
+            return format_html(
+            '<img src="{}" width="80" height="80" style="object-fit: cover; border-radius: 4px;" />',
+            obj.image.url
+        )
+        return "-"
+    miniature.short_description = ""
+
+    def get_sujet(self, obj):
+        if obj.specimen:
+            return f"🌳 {obj.specimen.nom}"
+        elif obj.organisme:
+            return f"📚 {obj.organisme.nom_commun}"
+        elif obj.event:
+            return f"📅 {obj.event}"
+        return "-"
+    get_sujet.short_description = "Sujet"
