@@ -1,112 +1,298 @@
-# 🌱 Jardin bIOT v2
+# 🌳 Jardin bIOT
 
-> **Plateforme open-source pour la gestion intelligente de jardins nourriciers et permaculture**
+> **Plateforme open-source de design et gestion de forêts comestibles et écosystèmes permacoles**
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%203.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Python](https://img.shields.io/badge/Python-3.11+-green.svg)](https://www.python.org/)
 [![Django](https://img.shields.io/badge/Django-5.0+-092E20.svg)](https://www.djangoproject.com/)
-[![Status](https://img.shields.io/badge/Status-En%20D%C3%A9veloppement-yellow.svg)]()
+[![Status](https://img.shields.io/badge/Status-Alpha-yellow.svg)]()
 
 **Jardin bIOT** = **b**oulay + b**IO**logique + **IOT** (Internet of Things)
 
-Gérez votre jardin comestible, suivez vos cultures, partagez vos connaissances et cultivez la résilience alimentaire locale.
+De la gestion de votre potager urbain à la conception de forêts comestibles multi-strates, Jardin bIOT vous accompagne dans la création d'écosystèmes nourriciers résilients et autonomes.
+
+---
+
+## 🌲 Né d'une Vision Réelle
+
+Ce projet est développé activement pour gérer **Les Jardins Comestibles du Mont Caprice** à Morin-Heights, Québec - 3 acres (≈12,000 m²) de forêt comestible en **zone 4a** comprenant:
+
+🌳 **Arbres fruitiers** - Pommiers (Dolgo, Purple Passion), Poiriers de Mandchourie, Cerisiers  
+🌰 **Arbres à noix** - Noisetiers américains  
+🫐 **Arbustes à baies** - Argousiers (Tatjana, Pollmix), Gadelier, Pimbina, Framboises, Rosiers  
+🌿 **Vivaces** - Lobélie cardinale, Thé des bois, Clématite de Virginie  
+🍄 **Champignons** - Mycorh
+
+izes partenaires  
+💧 **Écosystème aquatique** - Ruisseau naturel traversant le terrain  
+⛰️ **Terrain** - Pente exposée Est, beaucoup d'ombre, sol forestier
+
+**La vision :** Un outil qui pense comme un permaculteur - pas juste une base de données de plantes, mais un système qui comprend les **relations écologiques**, les **guildes symbiotiques**, et l'**évolution des écosystèmes** dans le temps.
 
 ---
 
 ## 🎯 Vision du Projet
 
-Dans un contexte de changements climatiques et de souveraineté alimentaire, **Jardin bIOT** vise à démocratiser l'accès à des outils technologiques pour optimiser la culture de jardins nourriciers. Que vous soyez permaculteur amateur, jardinier urbain ou membre d'un jardin communautaire, cette plateforme vous aide à :
+Dans un contexte de changements climatiques, d'érosion de la biodiversité et de souveraineté alimentaire, **Jardin bIOT** vise à démocratiser l'accès à des outils de **design permaculturel intelligent** pour créer des écosystèmes nourriciers durables.
 
-- 📊 **Suivre** vos espèces et spécimens avec précision
-- 📸 **Documenter** la croissance et l'évolution de vos plantes
-- 🏷️ **Identifier** chaque plant avec tags RFID
-- 📅 **Logger** tous vos événements (plantation, arrosage, taille, récolte)
-- 🤝 **Partager** vos expériences avec une communauté de jardiniers
-- 🌍 **Collaborer** sur une base de connaissances locale et adaptée au climat
+### Au-delà du Simple Tracker de Plantes
 
----
+Jardin bIOT ne se contente pas de suivre vos plantations - il vous aide à :
 
-## 🌟 Fonctionnalités Principales
+🌳 **Concevoir des guildes écologiques** - Comprendre comment le pommier, le trèfle fixateur d'azote, les mycorhizes et le couvre-sol travaillent ensemble
 
-### Version Actuelle (En Développement)
+🍄 **Intégrer tous les règnes** - Plantes, champignons, mousses, et même la faune bénéfique dans votre design
 
-- [ ] **Gestion d'espèces** - Catalogue d'espèces comestibles avec données riches (besoins, calendrier, compagnonnage)
-- [ ] **Suivi de spécimens** - Chaque plant individuel avec historique complet
-- [ ] **Timeline d'événements** - Journal de bord par spécimen (plantation, soins, observations)
-- [ ] **Upload de photos** - Documentation visuelle de l'évolution
-- [ ] **Import de données** - Intégration automatique depuis plusieurs sources ouvertes (planifiée - voir section Sources de Données)
-- [ ] **Interface responsive** - Optimisée mobile pour utilisation au jardin
+💧 **Optimiser les ressources** - Captation d'eau, cycles de nutriments, gestion des microclimats
 
-### Roadmap Future
+🔄 **Planifier la succession écologique** - De l'annuelle pionnière à la forêt comestible mature
 
-- [ ] **Tags RFID** - Scan rapide pour logger événements sur le terrain
-- [ ] **Progressive Web App (PWA)** - Installable sur mobile, mode offline
-- [ ] **API REST** - Intégration avec Home Assistant et autres systèmes domotiques
-- [ ] **Multi-utilisateurs** - Partage de jardins, permissions granulaires
-- [ ] **Communauté** - Partage de fiches, symptômes, solutions, success stories
-- [ ] **Base de connaissances collaborative** - Wiki de maladies, parasites, remèdes
-- [ ] **Capteurs IoT** - Intégration humidité sol, température, ensoleillement
-- [ ] **Calendrier intelligent** - Rappels basés sur zone climatique et espèce
+🤝 **Partager la connaissance** - Base de données collaborative adaptée aux climats locaux (Québec, zones froides)
 
 ---
 
-## 📚 Sources de Données Ouvertes
+## 🌿 Philosophie Permaculture
 
-**Jardin bIOT** a pour plan d'intégrer plusieurs bases de données ouvertes afin d'offrir un catalogue riche et diversifié d'espèces comestibles, adaptées au climat québécois et aux principes de permaculture. Ces intégrations seront développées progressivement au cours du projet.
+Jardin bIOT s'inspire des principes fondamentaux de la permaculture de David Holmgren et Bill Mollison :
 
-### Sources Principales Planifiées
+### 1. Observer et Interagir 👁️
+L'outil vous aide à **documenter** vos observations (croissance, maladies, interactions faune/flore) pour prendre des décisions éclairées basées sur **votre contexte unique** - pas sur des conseils génériques.
 
-**1. Hydro-Québec - Répertoire des arbres et arbustes** 🍁
-- **Licence** : [Creative Commons CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/)
-- **Contenu** : 1700+ espèces d'arbres et arbustes adaptés au climat québécois
-- **Données** : Zone de rusticité, besoins (lumière, sol, humidité), distances de plantation, hauteur/largeur à maturité
-- **API** : REST gratuite et publique ([documentation](https://donnees.hydroquebec.com/explore/dataset/repertoire-arbres/))
-- **Statut** : ✅ Licence vérifiée, utilisation légale confirmée
-- **Utilité** : Base primaire pour arbres fruitiers et arbustes comestibles du Québec
+### 2. Chaque Élément Remplit Plusieurs Fonctions 🔄
+Une même plante peut : nourrir (fruits), enrichir (fixation d'azote), protéger (coupe-vent), attirer (pollinisateurs), soigner (médicinale), abriter (faune). Jardin bIOT capture cette **multifonctionnalité**.
 
-**2. Plants For A Future (PFAF)** 🌿
-- **Licence** : Données gratuites, projet fonctionnant sur dons
-- **Site** : [pfaf.org](https://pfaf.org)
-- **Contenu** : 7000+ plantes comestibles, médicinales et utilitaires
-- **Données** : Usages comestibles/médicinaux, zones climatiques, habitat, méthodes de culture
-- **Statut** : 📋 Intégration planifiée
-- **Utilité** : Plantes comestibles sauvages, permaculture, plantes vivaces et moins connues
+### 3. Chaque Fonction est Assurée par Plusieurs Éléments 🛡️
+Pour l'azote : légumineuses + compost + paillis + champignons mycorhiziens. Pour l'eau : swale + bassin + paillis + plantes économes. La **redondance = résilience**.
 
-**3. OpenFarm** 🥬
-- **Licence** : Domaine public (CC0) - totalement libre
-- **Données** : Disponibles sur [GitHub](https://github.com/openfarmcc/OpenFarm)
-- **Contenu** : Guides de culture pour légumes et plantes potagères
-- **Données** : Calendriers de plantation/récolte, conditions de croissance, expériences communautaires
-- **Statut** : 📋 Intégration planifiée
-- **Utilité** : Cultures maraîchères annuelles, légumes du potager
+### 4. Travailler Avec la Nature, Pas Contre Elle 🦋
+Plantes indigènes, associations naturelles, prédateurs bénéfiques. Pas de lutte - des **écosystèmes équilibrés** qui se régulent.
 
-**4. USDA Plants Database** 🔬
-- **Licence** : Domaine public (US Government)
-- **API** : [plantsdb.xyz](https://plantsdb.xyz)
-- **Contenu** : Caractéristiques botaniques détaillées, traits biologiques, cycle de vie
-- **Données** : Taxonomie scientifique validée, distribution géographique native
-- **Statut** : 📋 Intégration planifiée
-- **Utilité** : Validation scientifique, données botaniques de référence, nomenclature standardisée
+### 5. Produire Sans Gaspiller, Accepter le Feedback 📊
+Chaque donnée (succès, échec, observation) enrichit le système pour vous et la communauté. **L'apprentissage continu** par l'expérimentation.
 
-### Stratégie d'Intégration
+### 6. Utiliser et Valoriser la Diversité 🌈
+Plus de diversité = plus de stabilité = moins de maladies = meilleure résilience climatique. Jardin bIOT encourage les **polycultures**, pas les monocultures.
 
-L'architecture de données de Jardin bIOT est conçue pour agréger intelligemment plusieurs sources :
+---
 
-- **Priorité géographique** : Hydro-Québec pour espèces locales québécoises, PFAF pour permaculture globale
-- **Champs flexibles (JSONField)** : Stocker les données de chaque source sans perte d'information
-- **Validation croisée** : Confirmer et enrichir les informations entre plusieurs sources
-- **Attribution claire** : Chaque fiche d'espèce identifie et crédite ses sources de données
-- **Enrichissement communautaire** : Les utilisateurs pourront contribuer observations locales et retours d'expérience
+## 🌟 Fonctionnalités par Niveau d'Évolution
 
-### Conformité Légale et Attribution
+### 🌱 NIVEAU 1 : Fondations Écologiques (En cours - Hiver/Printemps 2026)
 
-**Jardin bIOT** s'engage à respecter scrupuleusement les licences de toutes les sources de données :
+**Gestion des Organismes Vivants**
+- [x] Base de données **Organism** (pas juste "plantes" mais tous les organismes!)
+  - Plantes (arbres, arbustes, vivaces, annuelles, herbes, grimpantes, couvre-sol)
+  - Champignons (comestibles, mycorhiziens)
+  - Mousses et bryophytes
+- [x] Types spécialisés : arbres fruitiers, arbres à noix (noyers, noisetiers, etc.)
+- [x] Caractéristiques culturales complètes :
+  - Besoins : eau, soleil, type de sol, pH, drainage, rusticité (zone climatique)
+  - Physiques : hauteur/largeur max, croissance
+  - Fruitiers : âge fructification, période récolte, pollinisation
+  - Comestibilité : parties comestibles (fruits, feuilles, racines, fleurs, écorce)
+- [ ] **Spécimens individuels** - Vos plants réels avec :
+  - Géolocalisation sur le terrain
+  - Photos et timeline complète
+  - Historique de santé et d'événements
+- [ ] **Événements** - Journal de bord :
+  - Plantation, arrosage, taille, fertilisation
+  - Observations (floraison, fructification, maladies)
+  - Récoltes avec quantités
 
-- ✅ **Attribution systématique** : Chaque source sera créditée sur les fiches d'espèces
-- ✅ **Respect des conditions spécifiques** : 
-  - Pour Hydro-Québec : Affichage des distances de plantation avec lien vers leur [guide de mesure](https://www.hydroquebec.com/safety/distribution-lines/how-measure-safe-planting-distance.html)
-- ✅ **Licences ouvertes** : Seules des sources à licences permissives (CC-BY, CC0, domaine public) seront utilisées
-- ✅ **Transparence** : La provenance de chaque donnée sera traçable et visible
+**Relations Écologiques** 🔗
+- [ ] **Compagnonnage** - Relations entre organismes :
+  - **Positives** : compagnon bénéfique, fixateur azote, attire pollinisateurs, repousse nuisibles
+  - **Négatives** : allélopathie (ex: noyer produit juglone toxique pour tomates)
+  - **Structurelles** : abri, ombre, coupe-vent, support physique (tuteur vivant)
+  - **Symbiotiques** : mycorhizes (champignons ↔ racines)
+- [ ] Force et description détaillée des interactions
+- [ ] Visualisation graphique des réseaux de relations
+
+**Sols & Amendements** 🌱
+- [ ] Base de données d'amendements :
+  - Compost, fumiers, engrais verts
+  - Amendements minéraux (chaux, soufre, roches)
+  - Paillis organiques (BRF, feuilles, paille)
+- [ ] Composition NPK et oligo-éléments
+- [ ] Recommandations intelligentes :
+  - Par type de sol (argileux, limoneux, sablonneux)
+  - Par organisme (besoins spécifiques)
+  - Par problématique (sol acide, pauvre, compacté)
+
+**Interface & Données** 💻
+- [x] Interface admin Django complète avec recherche et filtres avancés
+- [ ] Import automatique depuis sources ouvertes :
+  - ✅ Hydro-Québec (arbres zone Québec)
+  - ⏳ Plants For A Future (PFAF) - plantes comestibles permaculture
+  - ⏳ OpenFarm - légumes et cultures maraîchères
+  - ⏳ USDA Plants Database - données botaniques
+- [x] Stockage flexible (JSONField) pour données de sources multiples
+- [ ] Upload et galerie de photos par spécimen
+- [ ] Export de données (CSV, PDF)
+
+---
+
+### 🌳 NIVEAU 2 : Design Permaculture (Printemps/Été 2026)
+
+**Guildes Écologiques** 🏕️
+- [ ] Création et gestion de guildes (ex: guilde du pommier, guilde des 3 sœurs)
+- [ ] **Stratification par couches** :
+  - Canopée (grands arbres)
+  - Sous-canopée (petits arbres)
+  - Arbustes
+  - Herbacées
+  - Couvre-sol
+  - Rhizosphère (racines)
+  - Verticale (grimpantes)
+- [ ] Modèles de guildes pré-configurées pour :
+  - Climat québécois (zones 3-5)
+  - Terrain ombragé vs ensoleillé
+  - Sol humide vs sec
+- [ ] Visualisation 3D des strates
+- [ ] Suggestions intelligentes de plantes compagnes
+
+**Zones & Microclimats** 🗺️
+- [ ] Cartographie interactive de votre terrain
+- [ ] Définition de zones avec caractéristiques :
+  - Ensoleillement (ombre, mi-ombre, plein soleil)
+  - Humidité (sec, normal, humide, détrempé)
+  - Pente et drainage
+  - Exposition (N, S, E, O)
+  - Type de sol et pH
+- [ ] **Recommandations par zone** :
+  - Organismes les plus adaptés
+  - Score de compatibilité (0-100)
+  - Explications des recommandations
+- [ ] Gestion des éléments d'eau :
+  - Ruisseaux, mares, bassins
+  - Swales (fossés absorbants)
+  - Systèmes de récupération d'eau
+  - Jardins de pluie
+
+**Planification Spatiale** 📐
+- [ ] Plan de jardin interactif (drag & drop)
+- [ ] Espacement automatique selon taille mature
+- [ ] Visualisation de l'ombrage au fil des saisons
+- [ ] Zones de pollinisation (rayon efficace)
+- [ ] Calcul automatique de densités de plantation
+
+---
+
+### 🔄 NIVEAU 3 : Succession & Évolution (Automne 2026)
+
+**Succession Écologique** ⏳
+- [ ] Modélisation des stades de succession :
+  - Stade 1 (0-2 ans) : Pionnières, annuelles, légumes
+  - Stade 2 (2-5 ans) : Vivaces, petits arbustes
+  - Stade 3 (5-10 ans) : Arbustes matures, jeunes arbres
+  - Stade 4 (10-20 ans) : Arbres dominants
+  - Stade 5 (20+ ans) : Forêt comestible climax
+- [ ] Planification temporelle de votre jardin
+- [ ] Suggestions de plantes pionnières vs permanentes
+- [ ] Simulation de l'évolution sur 10-20 ans
+
+**Timeline & Calendrier** 📅
+- [ ] Calendrier des tâches par zone climatique
+- [ ] Rappels intelligents basés sur :
+  - Dates de dernière gelée / première gelée
+  - Besoins spécifiques des organismes
+  - Événements passés (espacer les tailles, etc.)
+- [ ] Prédictions de récolte
+- [ ] Suivi phénologique (débourrement, floraison, fructification)
+
+---
+
+### 🐝 NIVEAU 4 : Écosystème Complet (2027)
+
+**Faune Bénéfique** 🦋
+- [ ] Base de données de faune utile :
+  - Pollinisateurs (abeilles, papillons, bourdons)
+  - Prédateurs (coccinelles, chrysopes, carabes)
+  - Décomposeurs (vers de terre, cloportes)
+  - Oiseaux insectivores
+  - Amphibiens (grenouilles, crapauds)
+- [ ] Liens plantes ↔ faune :
+  - Quelles plantes attirent quels pollinisateurs
+  - Plantes hôtes pour papillons
+  - Abris et nichoirs requis
+- [ ] Gestion de la biodiversité :
+  - Corridors écologiques
+  - Habitats (tas de bois, pierres, eau)
+  - Stratégies anti-nuisibles sans pesticides
+
+**Cycles de Nutriments** ♻️
+- [ ] Modélisation des flux :
+  - Fixation d'azote (légumineuses)
+  - Accumulateurs dynamiques (consoude, ortie)
+  - Décomposition (champignons, bactéries)
+  - Litière et BRF
+- [ ] Fermeture des boucles :
+  - Compostage intégré
+  - Paillage permanent
+  - Valorisation des "déchets"
+
+---
+
+### 🤖 NIVEAU 5 : Intelligence & Automation (2027-2028)
+
+**Capteurs IoT & Home Assistant** 📡
+- [ ] Intégration capteurs :
+  - Humidité du sol (par zone/spécimen)
+  - Température air et sol
+  - Luminosité / PAR
+  - pH et NPK du sol
+- [ ] Automation :
+  - Déclenchement irrigation automatique
+  - Alertes si conditions anormales
+  - Logging automatique des données environnementales
+- [ ] Tags RFID sur spécimens :
+  - Scan rapide pour identifier le plant
+  - Ajout d'événements ultra-rapide au jardin
+
+**IA & Recommandations** 🧠
+- [ ] Assistant IA (via Claude API) :
+  - Analyse de photos (maladies, carences, identification)
+  - Suggestions de guildes optimales
+  - Réponses à questions contextuelles
+  - Génération de plans de jardin
+- [ ] Apprentissage des patterns :
+  - Dates optimales selon **votre micro-climat**
+  - Prédiction de maladies
+  - Optimisation des récoltes
+
+**PWA & Mobile** 📱
+- [ ] Progressive Web App installable
+- [ ] Mode offline complet
+- [ ] Prise de photo et ajout instantané
+- [ ] Géolocalisation automatique des spécimens
+- [ ] Voix (dictée d'observations)
+
+---
+
+### 🤝 NIVEAU 6 : Communauté & Partage (2028+)
+
+**Réseau Social Permacole** 👥
+- [ ] Profils utilisateurs et jardins publics
+- [ ] Partage de fiches d'organismes personnalisées
+- [ ] Success stories et échecs (apprendre ensemble)
+- [ ] Questions/Réponses communautaires
+- [ ] Système de réputation et badges
+
+**Échanges & Grainothèques** 🌱
+- [ ] Plateforme d'échange de semences
+- [ ] Échange de plants et boutures
+- [ ] Greffons pour arbres fruitiers
+- [ ] Géolocalisation des échanges locaux
+- [ ] Ratings et commentaires
+
+**Base de Connaissances Collaborative** 📚
+- [ ] Wiki communautaire :
+  - Fiches d'organismes enrichies par utilisateurs
+  - Maladies et solutions
+  - Techniques de culture locales
+  - Recettes et transformations
+- [ ] Données climatiques par région
+- [ ] Adaptation au changement climatique
 
 ---
 
@@ -116,41 +302,84 @@ L'architecture de données de Jardin bIOT est conçue pour agréger intelligemme
 
 - **Backend** : Django 5.0+ (Python 3.11+)
 - **Base de données** : PostgreSQL 15+
-- **Frontend** : Django Templates + Bootstrap/Tailwind CSS
-- **API** : Django REST Framework (à venir)
+- **Frontend** : Django Templates + Alpine.js / HTMX (léger et progressif)
+- **API** : Django REST Framework
 - **Déploiement** : Docker + Docker Compose
-- **Infrastructure** : Auto-hébergeable (Proxmox, serveur local) ou cloud
+- **Infrastructure** : Auto-hébergeable (Proxmox, Raspberry Pi, VPS) ou SaaS
 
-### Modèle de Données Principal
+### Modèles de Données Principaux
 
 ```
-Species (Espèce)
-├─ Nom scientifique / commun
-├─ Famille botanique
-├─ Besoins (eau, soleil, sol, température)
-├─ Calendrier (plantation, récolte)
-└─ Données externes (JSON flexible)
-
-Specimen (Plant individuel)
-├─ Référence vers Species
-├─ ID RFID unique
-├─ Emplacement (zone du jardin)
-├─ Date de plantation
-├─ Photos
-└─ Statut de santé
-
-Event (Événement)
-├─ Référence vers Specimen
-├─ Type (arrosage, taille, fertilisation, observation, maladie, récolte)
-├─ Date/heure
-├─ Notes
-├─ Photos
-└─ Données capteurs (optionnel)
-
-Garden Zone (Zone de jardin)
-├─ Caractéristiques (ensoleillement, type de sol, pH)
-└─ Spécimens présents
+┌─────────────────┐
+│   Organism      │  ← Plantes, champignons, mousses
+│                 │     (avec JSONField flexible pour données externes)
+└────────┬────────┘
+         │
+         ├─ Specimen        (plants individuels avec géoloc)
+         ├─ Event           (timeline : plantation, arrosage, observations)
+         ├─ CompanionRelation  (qui aide qui, comment)
+         ├─ OrganismAmendment  (quel engrais pour qui)
+         │
+         └─ [Niveau 2+]
+             ├─ Guild       (guildes écologiques)
+             ├─ Zone        (zones du terrain)
+             ├─ Succession  (stades temporels)
+             └─ Wildlife    (faune partenaire)
 ```
+
+**Pourquoi cette architecture :**
+- ✅ **Flexible** : JSONField pour données évolutives
+- ✅ **Relationnelle** : Liens clairs entre entités
+- ✅ **Extensible** : Facile d'ajouter nouveaux modèles
+- ✅ **Performante** : PostgreSQL optimisé pour recherches complexes
+- ✅ **Future-proof** : Pense déjà aux niveaux 2-6
+
+---
+
+## 🌍 Sources de Données
+
+**Jardin bIOT** agrège des données provenant de sources ouvertes et libres pour offrir un catalogue riche adapté à différents contextes.
+
+### Sources Intégrées/Planifiées
+
+**1. Hydro-Québec - Répertoire d'arbres et arbustes** ✅
+- 📋 **Licence** : Creative Commons CC-BY 4.0
+- 🌲 **Contenu** : 1700+ espèces adaptées au climat québécois
+- 📍 **Spécificités** : Zones de rusticité, distances plantation sécuritaire, caractéristiques hivernales
+- 🔗 **API** : [donnees.hydroquebec.com](https://donnees.hydroquebec.com/explore/dataset/repertoire-arbres/)
+- ⭐ **Priorité** : Source primaire pour arbres et arbustes (contexte québécois)
+
+**2. Plants For A Future (PFAF)** ⏳
+- 📋 **Licence** : Gratuit, fonctionne sur dons
+- 🌿 **Contenu** : 7000+ plantes comestibles, médicinales, utilitaires
+- 📍 **Spécificités** : Excellent pour permaculture, plantes sauvages, usages multiples
+- 🔗 **Site** : [pfaf.org](https://pfaf.org)
+- ⭐ **Priorité** : Plantes comestibles sauvages, vivaces, permaculture
+
+**3. OpenFarm** ⏳
+- 📋 **Licence** : Domaine public (CC0)
+- 🥕 **Contenu** : Base collaborative sur cultures maraîchères
+- 📍 **Spécificités** : Guides de culture, calendriers, expériences communautaires
+- 🔗 **GitHub** : [github.com/openfarmcc/OpenFarm](https://github.com/openfarmcc/OpenFarm)
+- ⭐ **Priorité** : Légumes annuels, cultures potagères
+- ⚠️ **Note** : Projet fermé mais données disponibles
+
+**4. USDA Plants Database** ⏳
+- 📋 **Licence** : Domaine public (US Government)
+- 🔬 **Contenu** : Base scientifique avec traits botaniques
+- 📍 **Spécificités** : Données fiables, caractéristiques, histoire de vie
+- 🔗 **API** : [plantsdb.xyz](https://plantsdb.xyz)
+- ⭐ **Priorité** : Validation scientifique, données botaniques
+
+### Stratégie d'Intégration
+
+- **Agréger** plusieurs sources pour une même espèce
+- **Prioriser** selon contexte (Hydro-Québec pour Québec, PFAF pour permaculture)
+- **Valider** par recoupement
+- **Enrichir** avec contributions communautaires locales
+- **Adapter** selon zones climatiques
+
+**Format de stockage :** JSONField flexible permettant d'ajouter facilement de nouvelles sources sans modifier la structure de base.
 
 ---
 
@@ -166,11 +395,11 @@ Garden Zone (Zone de jardin)
 
 ```bash
 # Cloner le repository
-git clone https://github.com/[ton-username]/jardinbiot.git
-cd jardinbiot
+git clone https://github.com/gbdb/biot.git
+cd biot
 
 # Créer un environnement virtuel
-python -m venv venv
+python3 -m venv venv
 source venv/bin/activate  # Sur Windows: venv\Scripts\activate
 
 # Installer les dépendances
@@ -190,14 +419,15 @@ python manage.py createsuperuser
 python manage.py runserver
 ```
 
-Accédez à l'application : `http://localhost:8000`
+Accédez à l'application : `http://localhost:8000`  
+Admin : `http://localhost:8000/admin`
 
 ### Installation avec Docker (Production)
 
 ```bash
 # Cloner le repository
-git clone https://github.com/[ton-username]/jardinbiot.git
-cd jardinbiot
+git clone https://github.com/gbdb/biot.git
+cd biot
 
 # Configuration
 cp .env.example .env
@@ -219,12 +449,13 @@ Accédez à l'application : `http://localhost` (ou votre domaine configuré)
 
 ## 📖 Documentation
 
-*(À venir)*
+*(En construction - contributions bienvenues!)*
 
-- Guide d'utilisation
-- Guide de contribution
-- Documentation API
-- Guide de déploiement complet
+- [ ] Guide d'utilisation
+- [ ] Guide de contribution
+- [ ] Documentation API
+- [ ] Guide de déploiement complet
+- [ ] Tutoriels vidéo
 
 ---
 
@@ -243,16 +474,27 @@ Accédez à l'application : `http://localhost` (ou votre domaine configuré)
 ### Types de Contributions Recherchées
 
 - 🐛 Correction de bugs
-- ✨ Nouvelles fonctionnalités
-- 📝 Documentation
+- ✨ Nouvelles fonctionnalités (voir roadmap par niveaux)
+- 📝 Documentation et tutoriels
 - 🌍 Traductions (anglais, espagnol, autres langues)
 - 🎨 Améliorations UI/UX
-- 🌱 Données d'espèces (ajout de plantes comestibles)
+- 🌱 Données d'organismes (ajout/correction de fiches)
 - 🧪 Tests et qualité du code
+- 📸 Photos et illustrations
+- 🎓 Contenu éducatif (permaculture, guildes, techniques)
+
+### Domaines d'Expertise Recherchés
+
+- 🌳 **Permaculteurs** : Validation des concepts écologiques, design de guildes
+- 🔬 **Botanistes/Agronomes** : Validation scientifique des données
+- 💻 **Développeurs Django/Python** : Features, optimisations, architecture
+- 🎨 **Designers UI/UX** : Amélioration interface, visualisations
+- 📊 **Data Scientists** : Analyses, IA, recommandations intelligentes
+- 🇫🇷🇬🇧🇪🇸 **Traducteurs** : Internationalisation du projet
 
 ### Code de Conduite
 
-Ce projet adhère à un code de conduite respectueux et inclusif. En participant, vous vous engagez à maintenir un environnement accueillant pour tous.
+Ce projet adhère à un code de conduite respectueux et inclusif. En participant, vous vous engagez à maintenir un environnement accueillant pour tous. Respect, bienveillance, collaboration.
 
 ---
 
@@ -269,73 +511,94 @@ L'AGPL garantit que le code reste libre et open-source, même si quelqu'un hébe
 - ✅ Modifications permises (doivent rester open-source)
 - ✅ Usage commercial éthique autorisé
 - ❌ Impossible de créer une version fermée/propriétaire
+- ✅ Partage des améliorations obligatoire
+
+**Philosophie :** Les connaissances sur la culture vivrière et la permaculture doivent rester **libres et accessibles à tous**. C'est un bien commun.
 
 ---
 
 ## 🌍 Communauté & Support
 
-- **Discussions** : [GitHub Discussions](https://github.com/[ton-username]/jardinbiot/discussions)
-- **Issues** : [GitHub Issues](https://github.com/[ton-username]/jardinbiot/issues)
+- **GitHub Discussions** : [github.com/gbdb/biot/discussions](https://github.com/gbdb/biot/discussions)
+- **Issues** : [github.com/gbdb/biot/issues](https://github.com/gbdb/biot/issues)
 - **Discord** : *(à venir)*
-- **Email** : [ton-email]
+- **Email** : *(à définir)*
+- **Facebook** : [Les Jardins Comestibles du Mont Caprice](https://facebook.com) (exemple de cas d'usage réel)
 
 ---
 
 ## 🙏 Remerciements
 
-- **Hydro-Québec** pour leurs données ouvertes (CC-BY 4.0) sur les arbres et arbustes adaptés au climat québécois
+- **Hydro-Québec** pour leur répertoire d'arbres en données ouvertes (CC-BY 4.0)
 - **Plants For A Future (PFAF)** pour leur travail colossal de documentation des plantes comestibles
 - **OpenFarm** pour leur base de données communautaire de cultures potagères
 - **USDA Plants Database** pour leurs données botaniques scientifiques
-- La communauté **permaculture** pour leur inspiration et leurs connaissances
-- Tous les contributeurs passés et futurs
+- La communauté **permaculture** mondiale pour leur inspiration et connaissances partagées
+- **David Holmgren** et **Bill Mollison** pour les principes de permaculture
+- **Sepp Holzer**, **Geoff Lawton**, **Martin Crawford** pour leurs enseignements sur les forêts comestibles
+- Tous les contributeurs passés, présents et futurs
 - Le mouvement **open-source** pour rendre la technologie accessible à tous
+- La **Terre-Mère** et tous les organismes qui nous nourrissent 🌍💚
 
 ---
 
 ## 📊 Statut du Projet
 
-**Phase actuelle** : Développement actif (Alpha)
+**Phase actuelle** : Développement actif (Alpha) - Niveau 1 en construction
 
-Le projet est en reconstruction active depuis février 2026, basé sur des expérimentations antérieures (2017) avec jardinage hydroponique et capteurs IoT.
+Le projet est en reconstruction active depuis février 2026, basé sur des expérimentations antérieures (2017) avec jardinage hydroponique et capteurs IoT sur balcon.
 
 ### Historique
 
-- **2017** : Premiers prototypes IoT pour jardin hydroponique (capteurs, pompes automatiques)
-- **2026** : Relance complète avec architecture Django moderne et vision communautaire
+- **2017** : Premiers prototypes IoT pour jardin hydroponique urbain (capteurs, pompes automatiques, contrôle Arduino)
+- **2026** : Relance complète avec vision permaculture, architecture Django moderne, focus forêt comestible
 
-### Roadmap 2026
+### Roadmap 2026-2028
 
-- **Q1 2026** (Hiver) : Architecture de base, modèles de données, Django setup
-- **Q2 2026** (Printemps) : Interface web fonctionnelle, import de données
-- **Q3 2026** (Été) : Tests réels au jardin, itérations UX, API REST
-- **Q4 2026** (Automne) : Multi-utilisateurs, fonctionnalités communautaires, RFID
+- **Q1 2026** (Hiver) : Niveau 1 - Fondations (Organism, Relations, Amendements, Specimens)
+- **Q2 2026** (Printemps) : Niveau 1 finalisé + début Niveau 2 (Guildes, Zones)
+- **Q3 2026** (Été) : Niveau 2 complet, tests terrain aux Jardins du Mont Caprice
+- **Q4 2026** (Automne) : Niveau 3 (Succession, Calendriers), API REST, début mobile
+- **2027** : Niveaux 4-5 (Faune, IoT, IA)
+- **2028** : Niveau 6 (Communauté, réseau social permacole)
+
+**Mise à jour :** Février 2026 - Modèle Organism créé, architecture de base en place
 
 ---
 
 ## 💚 Philosophie du Projet
 
-**Jardin bIOT** croit que :
+**Jardin bIOT** croit fermement que :
 
-1. **La souveraineté alimentaire** est un droit fondamental
-2. **La technologie** doit servir la nature, pas la dominer
-3. **Le partage de connaissances** enrichit toute la communauté
-4. **L'open-source** est essentiel pour des outils durables et équitables
-5. **La permaculture** et le jardinage nourricier contribuent à la résilience climatique
+1. **La souveraineté alimentaire** est un droit fondamental et une nécessité de résilience
+2. **La biodiversité** n'est pas optionnelle - c'est la base de la vie
+3. **La technologie** doit servir la nature et les humains, pas les dominer
+4. **Le partage de connaissances** enrichit toute la communauté - pas de secrets commerciaux sur comment nourrir les gens
+5. **L'open-source** est essentiel pour des outils durables, équitables et inspectables
+6. **La permaculture** et les forêts comestibles sont une réponse concrète aux crises climatique et alimentaire
+7. **Chaque jardin** est unique - pas de solutions universelles, mais des principes adaptables
+8. **La nature** est la meilleure enseignante - observons-la et imitons-la
 
 ---
 
-## 🌱 Cultivons ensemble!
+## 🌱 Cultivons ensemble l'avenir!
 
-Si vous croyez en l'importance des jardins nourriciers, de la permaculture et de l'accès libre aux outils technologiques pour tous, **rejoignez-nous!**
+Si vous croyez en l'importance des forêts comestibles, de la permaculture, de la biodiversité et de l'accès libre aux outils pour cultiver notre nourriture, **rejoignez-nous!**
 
-⭐ **Star** ce projet si il vous intéresse  
+⭐ **Star** ce projet pour montrer votre intérêt  
 👁️ **Watch** pour suivre les développements  
 🍴 **Fork** pour contribuer  
-💬 **Discutez** de vos idées dans les Discussions
+💬 **Discutez** de vos idées dans les Discussions  
+🌳 **Partagez** vos expériences de terrain
 
 ---
 
 *"Le meilleur moment pour planter un arbre était il y a 20 ans. Le deuxième meilleur moment est maintenant."* - Proverbe chinois
 
-**Codons pour un avenir nourricier et résilient! 🌍🌱💻**
+*"Observez, n'intervenez pas. Travaillez avec la nature, pas contre elle."* - Bill Mollison
+
+**Codons pour un avenir nourricier, résilient et vivant! 🌍🌳🍄💻**
+
+---
+
+**Note :** Ce projet est développé avec passion par un permaculteur qui code, pour des permaculteurs qui jardinent. Le code peut avoir des bugs, mais la vision est claire : des outils libres pour nourrir le monde. 🌱
