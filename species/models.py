@@ -736,3 +736,66 @@ class Event(models.Model):
         if self.titre:
             return f"{emoji} {self.specimen.nom} - {self.titre} ({self.date})"
         return f"{emoji} {self.specimen.nom} - {self.get_type_event_display()} ({self.date})"
+    
+class Photo(models.Model):
+    """
+    Photo d'un organisme ou d'un spécimen.
+    """
+    
+    # Peut être lié soit à un organisme (photo générique) soit à un specimen (photo spécifique)
+    organisme = models.ForeignKey(
+        'Organism',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='photos',
+        help_text="Photo générique de l'espèce"
+    )
+    
+    specimen = models.ForeignKey(
+        'Specimen',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='photos',
+        help_text="Photo de ce specimen spécifique"
+    )
+    
+    event = models.ForeignKey(
+        'Event',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='photos',
+        help_text="Photo liée à un événement"
+    )
+    
+    # === IMAGE ===
+    image = models.ImageField(
+        upload_to='photos/%Y/%m/',
+        help_text="Photo (JPG, PNG)"
+    )
+    
+    # === MÉTADONNÉES ===
+    titre = models.CharField(
+        max_length=200,
+        blank=True
+    )
+    
+    description = models.TextField(
+        blank=True,
+        help_text="Description, observations"
+    )
+    
+    date_prise = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date de prise de la photo"
+    )
+    
+    # === AUTO ===
+    date_ajout = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        verbose_name = "Photo"
+        verbose_name_plural = "Photos"
