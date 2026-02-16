@@ -12,20 +12,31 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 
+import environ
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Environ - charge .env depuis BASE_DIR (optionnel)
+env = environ.Env(
+    DEBUG=(bool, True),
+)
+environ.Env.read_env(BASE_DIR / ".env")
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-=0^(gf^5gzdjpw^6a%1i^!j%9_$93^*f@!=-tb9)sr7*0bs)p8'
+SECRET_KEY = env(
+    "SECRET_KEY",
+    default="django-insecure-=0^(gf^5gzdjpw^6a%1i^!j%9_$93^*f@!=-tb9)sr7*0bs)p8",
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env("DEBUG")
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=[])
 
 
 # Application definition
@@ -72,13 +83,18 @@ WSGI_APPLICATION = 'jardinbiot.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
+# En dev sans .env ou sans DATABASE_URL : SQLite par défaut.
+# Avec DATABASE_URL (PostgreSQL) : utilise PostgreSQL.
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+if env("DATABASE_URL", default=None):
+    DATABASES = {"default": env.db()}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
     }
-}
 
 
 # Password validation
