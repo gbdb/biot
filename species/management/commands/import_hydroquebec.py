@@ -1,155 +1,240 @@
+import json
+import ssl
+from pathlib import Path
+
 import requests
-import urllib3
+from requests.adapters import HTTPAdapter
+from urllib3.util.ssl_ import create_urllib3_context
 from django.core.management.base import BaseCommand
 from species.models import Organism
+from species.source_rules import (
+    MERGE_FILL_GAPS,
+    MERGE_OVERWRITE,
+    SOURCE_HYDROQUEBEC,
+    apply_fill_gaps,
+)
 
-# Désactive les warnings SSL
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+class TLS12Adapter(HTTPAdapter):
+    """Adaptateur forçant TLS 1.2+ pour éviter SSLV3_ALERT_HANDSHAKE_FAILURE."""
+    def init_poolmanager(self, *args, **kwargs):
+        ctx = create_urllib3_context()
+        ctx.load_default_certs()
+        if hasattr(ssl, 'TLSVersion'):
+            ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+        kwargs['ssl_context'] = ctx
+        return super().init_poolmanager(*args, **kwargs)
 
 
 class Command(BaseCommand):
-    help = 'Importe les arbres et arbustes depuis Hydro-Québec'
+    help = (
+        'Importe les arbres et arbustes depuis Hydro-Québec. '
+        'Si l\'API bloque Python (SSL), utilisez --file avec un JSON enregistré depuis le navigateur.'
+    )
 
     def add_arguments(self, parser):
         parser.add_argument(
             '--limit',
             type=int,
             default=50,
-            help='Nombre maximum d\'arbres à importer (défaut: 50)'
+            help='Nombre max d\'arbres à importer (défaut: 50). Mettre 0 pour tout importer.'
+        )
+        parser.add_argument(
+            '--file',
+            type=str,
+            default=None,
+            help=(
+                'Fichier JSON local (liste d\'arbres). '
+                'Ouvrez https://arbres.hydroquebec.com/public/api/v1.0.0/arbres/fr/rechercher/tous '
+                'dans le navigateur, enregistrez la page en .json, puis: --file=arbres.json'
+            )
+        )
+        parser.add_argument(
+            '--merge',
+            type=str,
+            choices=[MERGE_OVERWRITE, MERGE_FILL_GAPS],
+            default=MERGE_OVERWRITE,
+            help=(
+                f'{MERGE_OVERWRITE}: écraser les champs (défaut). '
+                f'{MERGE_FILL_GAPS}: ne remplir que les champs vides (préserve PFAF/manuel).'
+            )
         )
 
     def handle(self, *args, **options):
         limit = options['limit']
+        file_path = options.get('file')
+        merge_mode = options.get('merge', MERGE_OVERWRITE)
         
-        self.stdout.write(self.style.SUCCESS(
-            f'🌳 Début de l\'import Hydro-Québec (max {limit} arbres)...'
-        ))
-        
-        # URL de l'API Hydro-Québec
-        url = 'https://arbres.hydroquebec.com/public/api/v1.0.0/arbres/fr/rechercher/tous'
-        
-        try:
-            # Requête à l'API avec SSL désactivé
-            self.stdout.write('📡 Connexion à l\'API Hydro-Québec...')
-            
-            #session = requests.Session()
-            #session.verify = False
-            import ssl
-            ssl._create_default_https_context = ssl._create_unverified_context
-            response = requests.get(url, timeout=30, verify=False)
-            response.raise_for_status()
-            
-            arbres = response.json()
+        if limit == 0:
+            self.stdout.write(self.style.SUCCESS('🌳 Début de l\'import Hydro-Québec (tout)...'))
+        else:
             self.stdout.write(self.style.SUCCESS(
-                f'✅ {len(arbres)} arbres récupérés de l\'API'
+                f'🌳 Début de l\'import Hydro-Québec (max {limit} arbres)...'
             ))
-            
-            # Limiter le nombre
+        
+        # Charger les données : fichier local ou API
+        if file_path:
+            arbres = self._charger_fichier(file_path)
+        else:
+            arbres = self._charger_api(limit)
+            if arbres is None:
+                return  # Erreur déjà affichée
+        
+        if not arbres:
+            self.stdout.write(self.style.WARNING('Aucun arbre à importer.'))
+            return
+        
+        # Limiter le nombre (0 = tout importer)
+        if limit > 0:
             arbres = arbres[:limit]
-            
-            # Compteurs
-            created = 0
-            updated = 0
-            skipped = 0
-            
-            for arbre in arbres:
-                try:
-                    # Extraire les données
-                    nom_latin = arbre.get('nomLatin', '').strip()
-                    nom_francais = arbre.get('nomFrancais', '').strip()
-                    
-                    if not nom_latin or not nom_francais:
-                        skipped += 1
-                        continue
-                    
-                    # Déterminer le type
-                    formes = arbre.get('formes', [])
-                    type_organisme = self._determiner_type(formes)
-                    
-                    # Créer ou mettre à jour
-                    organism, est_nouveau = Organism.objects.update_or_create(
-                        nom_latin=nom_latin,
-                        defaults={
-                            'nom_commun': nom_francais,
-                            'famille': arbre.get('famille', ''),
-                            'regne': 'plante',
-                            'type_organisme': type_organisme,
-                            
-                            # Besoins
-                            'besoin_eau': self._convertir_humidite(
-                                arbre.get('solHumidites', [])
-                            ),
-                            'besoin_soleil': self._convertir_exposition(
-                                arbre.get('expositionsLumiere', [])
-                            ),
-                            'zone_rusticite': arbre.get('zoneRusticite', ''),
-                            
-                            # Sol
-                            'sol_textures': arbre.get('solTextures', []),
-                            'sol_ph': arbre.get('solPhs', []),
-                            
-                            # Taille
-                            'hauteur_max': arbre.get('hauteur'),
-                            'largeur_max': arbre.get('largeur'),
-                            'vitesse_croissance': self._convertir_croissance(
-                                arbre.get('croissance', '')
-                            ),
-                            
-                            # Données sources
-                            'data_sources': {
-                                'hydroquebec': {
-                                    'numeroFiche': arbre.get('numeroFiche'),
-                                    'plantationDistanceMinimum': arbre.get('plantationDistanceMinimum'),
-                                    'remarques': arbre.get('remarquesFicheDeBase', ''),
-                                    'usages': arbre.get('usages', ''),
-                                    'maladies': arbre.get('maladies', ''),
-                                    'insectes': arbre.get('insectes', ''),
-                                }
-                            },
-                            
-                            'description': self._creer_description(arbre),
-                        }
-                    )
-                    
-                    if est_nouveau:
-                        created += 1
-                        self.stdout.write(f'  ✅ Créé: {nom_francais}')
-                    else:
-                        updated += 1
-                        self.stdout.write(f'  🔄 Mis à jour: {nom_francais}')
-                        
-                except Exception as e:
+        self.stdout.write(self.style.SUCCESS(f'✅ {len(arbres)} arbres à traiter.'))
+
+        created = 0
+        updated = 0
+        skipped = 0
+
+        for arbre in arbres:
+            try:
+                # .strip() sur None plante si l'API envoie null
+                nom_latin = (arbre.get('nomLatin') or '').strip()
+                nom_francais = (arbre.get('nomFrancais') or '').strip()
+
+                if not nom_latin or not nom_francais:
                     skipped += 1
-                    self.stdout.write(
-                        self.style.WARNING(f'  ⚠️ Erreur: {nom_francais} - {str(e)}')
-                    )
-            
-            # Résumé
-            self.stdout.write(self.style.SUCCESS(
-                f'\n🎉 Import terminé!'
+                    continue
+
+                formes = arbre.get('formes', [])
+                type_organisme = self._determiner_type(formes)
+
+                # L'API peut renvoyer null: on force listes/chaînes vides pour éviter NOT NULL en base
+                famille = arbre.get('famille') or ''
+                zone_rusticite = arbre.get('zoneRusticite') or ''
+                description = self._creer_description(arbre) or ''
+                sol_textures = arbre.get('solTextures') if arbre.get('solTextures') is not None else []
+                sol_ph = arbre.get('solPhs') if arbre.get('solPhs') is not None else []
+                hq_payload = {
+                    'numeroFiche': arbre.get('numeroFiche'),
+                    'plantationDistanceMinimum': arbre.get('plantationDistanceMinimum'),
+                    'remarques': arbre.get('remarquesFicheDeBase') or '',
+                    'usages': arbre.get('usages') or '',
+                    'maladies': arbre.get('maladies') or '',
+                    'insectes': arbre.get('insectes') or '',
+                }
+                full_defaults = {
+                    'nom_commun': nom_francais,
+                    'famille': famille,
+                    'regne': 'plante',
+                    'type_organisme': type_organisme,
+                    'besoin_eau': self._convertir_humidite(
+                        arbre.get('solHumidites') or []
+                    ),
+                    'besoin_soleil': self._convertir_exposition(
+                        arbre.get('expositionsLumiere') or []
+                    ),
+                    'zone_rusticite': zone_rusticite,
+                    'sol_textures': sol_textures,
+                    'sol_ph': sol_ph,
+                    'hauteur_max': arbre.get('hauteur'),
+                    'largeur_max': arbre.get('largeur'),
+                    'vitesse_croissance': self._convertir_croissance(
+                        arbre.get('croissance') or ''
+                    ),
+                    'description': description,
+                }
+
+                existing = Organism.objects.filter(nom_latin=nom_latin).first()
+                if merge_mode == MERGE_FILL_GAPS and existing:
+                    current = {k: getattr(existing, k, None) for k in full_defaults}
+                    full_defaults = apply_fill_gaps(current, full_defaults)
+                    # data_sources: fusionner avec l'existant (garder pfaf, etc.)
+                    existing_sources = dict(existing.data_sources or {})
+                    existing_sources[SOURCE_HYDROQUEBEC] = hq_payload
+                    full_defaults['data_sources'] = existing_sources
+                else:
+                    existing_sources = dict(existing.data_sources or {}) if existing else {}
+                    existing_sources[SOURCE_HYDROQUEBEC] = hq_payload
+                    full_defaults['data_sources'] = existing_sources
+
+                organism, est_nouveau = Organism.objects.update_or_create(
+                    nom_latin=nom_latin,
+                    defaults=full_defaults,
+                )
+
+                if est_nouveau:
+                    created += 1
+                    self.stdout.write(f'  ✅ Créé: {nom_francais}')
+                else:
+                    updated += 1
+                    self.stdout.write(f'  🔄 Mis à jour: {nom_francais}')
+
+            except Exception as e:
+                skipped += 1
+                nom_francais = arbre.get('nomFrancais', '?')
+                self.stdout.write(
+                    self.style.WARNING(f'  ⚠️ Erreur: {nom_francais} - {str(e)}')
+                )
+
+        self.stdout.write(self.style.SUCCESS(f'\n🎉 Import terminé!'))
+        self.stdout.write(f'  ✅ Créés: {created}')
+        self.stdout.write(f'  🔄 Mis à jour: {updated}')
+        self.stdout.write(f'  ⚠️ Ignorés: {skipped}')
+
+    def _charger_fichier(self, file_path):
+        """Charge la liste d'arbres depuis un fichier JSON (enregistré depuis le navigateur)."""
+        path = Path(file_path)
+        if not path.exists():
+            self.stdout.write(self.style.ERROR(f'❌ Fichier introuvable: {path}'))
+            return []
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+        except json.JSONDecodeError as e:
+            self.stdout.write(self.style.ERROR(f'❌ Fichier JSON invalide: {e}'))
+            return []
+        if not isinstance(data, list):
+            self.stdout.write(self.style.ERROR('❌ Le JSON doit être une liste d\'objets (arbres).'))
+            return []
+        return data
+
+    def _charger_api(self, limit):
+        """Tente de récupérer les arbres depuis l'API. Retourne None en cas d'erreur."""
+        url = 'https://arbres.hydroquebec.com/public/api/v1.0.0/arbres/fr/rechercher/tous'
+        try:
+            self.stdout.write('📡 Connexion à l\'API Hydro-Québec...')
+            session = requests.Session()
+            session.mount('https://', TLS12Adapter())
+            session.headers.update({
+                'User-Agent': (
+                    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
+                    'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                ),
+                'Accept': 'application/json',
+            })
+            response = session.get(url, timeout=30)
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.SSLError as e:
+            self.stdout.write(self.style.ERROR(
+                f'❌ Erreur SSL (l\'API bloque souvent les clients non-navigateur).\n'
+                f'   Solution: ouvrez cette URL dans votre navigateur:\n'
+                f'   {url}\n'
+                f'   Enregistrez la page en "arbres.json", puis lancez:\n'
+                f'   python manage.py import_hydroquebec --file=arbres.json --limit=500'
             ))
-            self.stdout.write(f'  ✅ Créés: {created}')
-            self.stdout.write(f'  🔄 Mis à jour: {updated}')
-            self.stdout.write(f'  ⚠️ Ignorés: {skipped}')
-            
+            return None
         except requests.exceptions.RequestException as e:
-            self.stdout.write(self.style.ERROR(
-                f'❌ Erreur de connexion à l\'API: {str(e)}'
-            ))
-        except Exception as e:
-            self.stdout.write(self.style.ERROR(
-                f'❌ Erreur: {str(e)}'
-            ))
-    
+            self.stdout.write(self.style.ERROR(f'❌ Erreur de connexion à l\'API: {e}'))
+            return None
+
     def _determiner_type(self, formes):
-        """Détermine le type d'organisme selon les formes"""
+        """Détermine le type d'organisme selon les formes (choix Organism.TYPE_CHOICES)."""
         if not formes:
-            return 'arbre'
+            return 'arbre_ornement'
         
-        forme_str = ' '.join(formes).lower()
+        forme_str = ' '.join(f if isinstance(f, str) else '' for f in formes).lower()
         
         if 'grand arbre' in forme_str or 'moyen arbre' in forme_str:
-            return 'arbre'
+            return 'arbre_ornement'
         elif 'petit arbre' in forme_str or 'arbrisseau' in forme_str:
             return 'arbuste'
         elif 'arbuste' in forme_str:
@@ -157,7 +242,7 @@ class Command(BaseCommand):
         elif 'grimpant' in forme_str:
             return 'grimpante'
         else:
-            return 'arbre'
+            return 'arbre_ornement'
     
     def _convertir_humidite(self, humidites):
         """Convertit les humidités HQ en besoin eau"""

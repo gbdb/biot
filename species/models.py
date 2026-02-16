@@ -252,6 +252,11 @@ class Organism(models.Model):
         help_text="Produit juglone (toxique pour certaines plantes - noyers)"
     )
     
+    indigene = models.BooleanField(
+        default=False,
+        help_text="Espèce indigène (originaire de la région / du territoire concerné)"
+    )
+    
     # === INFORMATIONS DESCRIPTIVES ===
     description = models.TextField(
         blank=True,
@@ -298,14 +303,14 @@ class CompanionRelation(models.Model):
     """
     
     organisme_source = models.ForeignKey(
-        'Organism',
+        'species.Organism',
         on_delete=models.CASCADE,
         related_name='relations_sortantes',
         help_text="Organisme qui produit l'effet"
     )
     
     organisme_cible = models.ForeignKey(
-        'Organism',
+        'species.Organism',
         on_delete=models.CASCADE,
         related_name='relations_entrantes',
         help_text="Organisme qui reçoit l'effet"
@@ -484,7 +489,7 @@ class Specimen(models.Model):
     
     # Lien vers l'espèce/organisme
     organisme = models.ForeignKey(
-        'Organism',
+        'species.Organism',
         on_delete=models.PROTECT,  # Empêche de supprimer l'organisme si des specimens existent
         related_name='specimens'
     )
@@ -631,7 +636,7 @@ class Event(models.Model):
     """
     
     specimen = models.ForeignKey(
-        'Specimen',
+        'species.Specimen',
         on_delete=models.CASCADE,
         related_name='evenements'
     )
@@ -697,7 +702,7 @@ class Event(models.Model):
     
     # === AMENDEMENT/PRODUIT UTILISÉ ===
     amendment = models.ForeignKey(
-        'Amendment',
+        'species.Amendment',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -744,7 +749,7 @@ class Photo(models.Model):
     
     # Peut être lié soit à un organisme (photo générique) soit à un specimen (photo spécifique)
     organisme = models.ForeignKey(
-        'Organism',
+        'species.Organism',
         on_delete=models.CASCADE,
         null=True,
         blank=True,
@@ -753,7 +758,7 @@ class Photo(models.Model):
     )
     
     specimen = models.ForeignKey(
-        'Specimen',
+        'species.Specimen',
         on_delete=models.CASCADE,
         null=True,
         blank=True,
@@ -762,7 +767,7 @@ class Photo(models.Model):
     )
     
     event = models.ForeignKey(
-        'Event',
+        'species.Event',
         on_delete=models.CASCADE,
         null=True,
         blank=True,

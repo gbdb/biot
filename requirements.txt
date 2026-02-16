@@ -1,3 +1,16 @@
+# Core
 asgiref==3.11.1
 Django==5.2.11
 sqlparse==0.5.5
+
+# Database - PostgreSQL (production / optionnel en dev)
+#psycopg2-binary==2.9.10
+
+# Images (modèle Photo - ImageField)
+Pillow==11.0.0
+
+# Configuration via variables d'environnement
+django-environ==0.11.2
+
+# Import Hydro-Québec (API)
+requests==2.32.3

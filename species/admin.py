@@ -23,6 +23,7 @@ class OrganismAdmin(admin.ModelAdmin):
         'comestible',
         'fixateur_azote',
         'mellifere',
+        'indigene',
     ]
     
     search_fields = [
@@ -55,7 +56,7 @@ class OrganismAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
         ('Écologie', {
-            'fields': ('fixateur_azote', 'accumulateur_dynamique', 'mellifere', 'produit_juglone'),
+            'fields': ('fixateur_azote', 'accumulateur_dynamique', 'mellifere', 'produit_juglone', 'indigene'),
             'classes': ('collapse',)
         }),
         ('Informations', {
