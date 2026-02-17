@@ -12,6 +12,8 @@ from species.source_rules import (
     MERGE_OVERWRITE,
     SOURCE_HYDROQUEBEC,
     apply_fill_gaps,
+    find_or_match_organism,
+    merge_zones_rusticite,
 )
 
 
@@ -108,7 +110,7 @@ class Command(BaseCommand):
 
                 # L'API peut renvoyer null: on force listes/chaînes vides pour éviter NOT NULL en base
                 famille = arbre.get('famille') or ''
-                zone_rusticite = arbre.get('zoneRusticite') or ''
+                zone_rusticite_raw = arbre.get('zoneRusticite') or ''
                 description = self._creer_description(arbre) or ''
                 sol_textures = arbre.get('solTextures') if arbre.get('solTextures') is not None else []
                 sol_ph = arbre.get('solPhs') if arbre.get('solPhs') is not None else []
@@ -120,45 +122,93 @@ class Command(BaseCommand):
                     'maladies': arbre.get('maladies') or '',
                     'insectes': arbre.get('insectes') or '',
                 }
-                full_defaults = {
-                    'nom_commun': nom_francais,
-                    'famille': famille,
-                    'regne': 'plante',
-                    'type_organisme': type_organisme,
-                    'besoin_eau': self._convertir_humidite(
-                        arbre.get('solHumidites') or []
-                    ),
-                    'besoin_soleil': self._convertir_exposition(
-                        arbre.get('expositionsLumiere') or []
-                    ),
-                    'zone_rusticite': zone_rusticite,
-                    'sol_textures': sol_textures,
-                    'sol_ph': sol_ph,
-                    'hauteur_max': arbre.get('hauteur'),
-                    'largeur_max': arbre.get('largeur'),
-                    'vitesse_croissance': self._convertir_croissance(
-                        arbre.get('croissance') or ''
-                    ),
-                    'description': description,
-                }
-
-                existing = Organism.objects.filter(nom_latin=nom_latin).first()
-                if merge_mode == MERGE_FILL_GAPS and existing:
-                    current = {k: getattr(existing, k, None) for k in full_defaults}
-                    full_defaults = apply_fill_gaps(current, full_defaults)
-                    # data_sources: fusionner avec l'existant (garder pfaf, etc.)
-                    existing_sources = dict(existing.data_sources or {})
-                    existing_sources[SOURCE_HYDROQUEBEC] = hq_payload
-                    full_defaults['data_sources'] = existing_sources
-                else:
-                    existing_sources = dict(existing.data_sources or {}) if existing else {}
-                    existing_sources[SOURCE_HYDROQUEBEC] = hq_payload
-                    full_defaults['data_sources'] = existing_sources
-
-                organism, est_nouveau = Organism.objects.update_or_create(
+                
+                # Chercher ou créer l'organisme avec matching intelligent
+                organism, est_nouveau = find_or_match_organism(
+                    Organism,
                     nom_latin=nom_latin,
-                    defaults=full_defaults,
+                    nom_commun=nom_francais,
+                    defaults={
+                        'nom_commun': nom_francais,
+                        'famille': famille,
+                        'regne': 'plante',
+                        'type_organisme': type_organisme,
+                        'besoin_eau': self._convertir_humidite(
+                            arbre.get('solHumidites') or []
+                        ),
+                        'besoin_soleil': self._convertir_exposition(
+                            arbre.get('expositionsLumiere') or []
+                        ),
+                        'sol_textures': sol_textures,
+                        'sol_ph': sol_ph,
+                        'hauteur_max': arbre.get('hauteur'),
+                        'largeur_max': arbre.get('largeur'),
+                        'vitesse_croissance': self._convertir_croissance(
+                            arbre.get('croissance') or ''
+                        ),
+                        'description': description,
+                    }
                 )
+                
+                # Gérer les zones de rusticité (format JSONField avec source)
+                current_zones = list(organism.zone_rusticite or [])
+                if zone_rusticite_raw:
+                    updated_zones = merge_zones_rusticite(
+                        current_zones,
+                        zone_rusticite_raw,
+                        SOURCE_HYDROQUEBEC
+                    )
+                else:
+                    updated_zones = current_zones
+                
+                # Préparer les mises à jour selon le mode de merge
+                update_fields = {}
+                
+                if merge_mode == MERGE_FILL_GAPS:
+                    # Ne mettre à jour que les champs vides
+                    current = {k: getattr(organism, k, None) for k in [
+                        'famille', 'besoin_eau', 'besoin_soleil', 'sol_textures',
+                        'sol_ph', 'hauteur_max', 'largeur_max', 'vitesse_croissance', 'description'
+                    ]}
+                    defaults_to_apply = {
+                        'famille': famille,
+                        'besoin_eau': self._convertir_humidite(arbre.get('solHumidites') or []),
+                        'besoin_soleil': self._convertir_exposition(arbre.get('expositionsLumiere') or []),
+                        'sol_textures': sol_textures,
+                        'sol_ph': sol_ph,
+                        'hauteur_max': arbre.get('hauteur'),
+                        'largeur_max': arbre.get('largeur'),
+                        'vitesse_croissance': self._convertir_croissance(arbre.get('croissance') or ''),
+                        'description': description,
+                    }
+                    filtered = apply_fill_gaps(current, defaults_to_apply)
+                    update_fields.update(filtered)
+                else:
+                    # Mode overwrite: mettre à jour tous les champs
+                    update_fields.update({
+                        'famille': famille,
+                        'besoin_eau': self._convertir_humidite(arbre.get('solHumidites') or []),
+                        'besoin_soleil': self._convertir_exposition(arbre.get('expositionsLumiere') or []),
+                        'sol_textures': sol_textures,
+                        'sol_ph': sol_ph,
+                        'hauteur_max': arbre.get('hauteur'),
+                        'largeur_max': arbre.get('largeur'),
+                        'vitesse_croissance': self._convertir_croissance(arbre.get('croissance') or ''),
+                        'description': description,
+                    })
+                
+                # Toujours mettre à jour les zones (merge intelligent)
+                update_fields['zone_rusticite'] = updated_zones
+                
+                # Fusionner data_sources
+                existing_sources = dict(organism.data_sources or {})
+                existing_sources[SOURCE_HYDROQUEBEC] = hq_payload
+                update_fields['data_sources'] = existing_sources
+                
+                # Appliquer les mises à jour
+                for key, value in update_fields.items():
+                    setattr(organism, key, value)
+                organism.save()
 
                 if est_nouveau:
                     created += 1

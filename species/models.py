@@ -96,10 +96,10 @@ class Organism(models.Model):
         blank=True
     )
     
-    zone_rusticite = models.CharField(
-        max_length=10,
+    zone_rusticite = models.JSONField(
+        default=list,
         blank=True,
-        help_text="Ex: 4a, 5b (USDA Hardiness Zone)"
+        help_text="Liste de zones avec source: [{'zone': '4a', 'source': 'hydroquebec'}, {'zone': '5b', 'source': 'pfaf'}]"
     )
     
     # === SOL ===
@@ -280,6 +280,14 @@ class Organism(models.Model):
         help_text="Données de sources externes (Hydro-Québec, PFAF, etc.)"
     )
     
+    # === TAGS PERSONNELS ===
+    mes_tags = models.ManyToManyField(
+        'UserTag',
+        blank=True,
+        related_name='organismes',
+        help_text="Tags personnels pour organiser votre collection"
+    )
+    
     # === MÉTADONNÉES ===
     date_ajout = models.DateTimeField(auto_now_add=True)
     date_modification = models.DateTimeField(auto_now=True)
@@ -293,6 +301,67 @@ class Organism(models.Model):
         if self.nom_latin:
             return f"{self.nom_commun} ({self.nom_latin})"
         return self.nom_commun
+    
+    def get_zones_by_source(self, source: str) -> list:
+        """
+        Retourne toutes les zones d'une source donnée.
+        Ex: get_zones_by_source('hydroquebec') → ['4a']
+        """
+        if not self.zone_rusticite or not isinstance(self.zone_rusticite, list):
+            return []
+        return [
+            z.get('zone') for z in self.zone_rusticite
+            if isinstance(z, dict) and z.get('source') == source and z.get('zone')
+        ]
+    
+    def get_primary_zone(self) -> str:
+        """
+        Retourne la zone la plus conservative (la plus froide) pour affichage/compatibilité.
+        Si aucune zone, retourne chaîne vide.
+        """
+        if not self.zone_rusticite or not isinstance(self.zone_rusticite, list):
+            return ''
+        
+        zones = [
+            z.get('zone') for z in self.zone_rusticite
+            if isinstance(z, dict) and z.get('zone')
+        ]
+        if not zones:
+            return ''
+        
+        # Importer la fonction de tri depuis source_rules
+        from .source_rules import zone_rusticite_order
+        zones_sorted = sorted(zones, key=zone_rusticite_order)
+        return zones_sorted[0] if zones_sorted else ''
+
+
+class UserTag(models.Model):
+    """
+    Tags personnels pour organiser et catégoriser les organismes.
+    Permet de créer des collections personnalisées (ex: "Saison 2026", "Zone ruisseau").
+    """
+    nom = models.CharField(
+        max_length=50,
+        help_text="Nom du tag (ex: 'Saison 2026', 'Priorité haute')"
+    )
+    couleur = models.CharField(
+        max_length=7,
+        default="#00AA00",
+        help_text="Code couleur hexadécimal (ex: #FF0000 pour rouge)"
+    )
+    description = models.TextField(
+        blank=True,
+        help_text="Description optionnelle du tag"
+    )
+    date_creation = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        verbose_name = "Tag personnel"
+        verbose_name_plural = "Tags personnels"
+        ordering = ['nom']
+    
+    def __str__(self):
+        return self.nom
     
 class CompanionRelation(models.Model):
     """
@@ -376,6 +445,259 @@ class CompanionRelation(models.Model):
         symbole = "✅" if "positif" in self.type_relation or "attire" in self.type_relation or "fixateur" in self.type_relation else "⚠️"
         return f"{symbole} {self.organisme_source.nom_commun} → {self.organisme_cible.nom_commun} ({self.get_type_relation_display()})"
     
+class SeedSupplier(models.Model):
+    """
+    Fournisseur de semences : semencier commercial, échange, récolte personnelle.
+    Utilisé pour l'import de catalogues et la traçabilité des lots.
+    """
+    nom = models.CharField(
+        max_length=200,
+        help_text="Nom du fournisseur (ex: Semences du Portage, Récolte perso)"
+    )
+    site_web = models.URLField(blank=True)
+    contact = models.CharField(max_length=200, blank=True)
+
+    TYPE_CHOICES = [
+        ('commercial', 'Semencier commercial'),
+        ('echange', 'Grainothèque/Échange'),
+        ('recolte_perso', 'Récolte personnelle'),
+        ('autre', 'Autre'),
+    ]
+    type_fournisseur = models.CharField(
+        max_length=20,
+        choices=TYPE_CHOICES,
+        default='commercial'
+    )
+
+    # Config de mapping pour import personnalisé (colonnes fournisseur → champs internes)
+    mapping_config = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Config de mapping: {\"column_mapping\": {\"Latin Name\": \"nom_latin\", ...}}"
+    )
+    actif = models.BooleanField(default=True)
+    dernier_import = models.DateTimeField(null=True, blank=True)
+
+    date_ajout = models.DateTimeField(auto_now_add=True)
+    date_modification = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Fournisseur de semences"
+        verbose_name_plural = "Fournisseurs de semences"
+        ordering = ['nom']
+
+    def __str__(self):
+        return self.nom
+
+
+class SeedCollection(models.Model):
+    """
+    Lot de semences en inventaire.
+    Lié à un organisme (espèce) et optionnellement à un fournisseur.
+    """
+    organisme = models.ForeignKey(
+        'species.Organism',
+        on_delete=models.PROTECT,
+        related_name='seed_collections',
+        help_text="Espèce de la graine"
+    )
+    variete = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Variété ou cultivar (ex: Roma VF)"
+    )
+    lot_reference = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Numéro de lot ou identifiant unique"
+    )
+    fournisseur = models.ForeignKey(
+        'species.SeedSupplier',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='seed_collections'
+    )
+
+    # === QUANTITÉ ===
+    quantite = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Quantité en stock"
+    )
+    UNITE_CHOICES = [
+        ('graines', 'Graines'),
+        ('g', 'Grammes'),
+        ('ml', 'Millilitres'),
+        ('sachet', 'Sachet'),
+        ('s', 'Sachet'),
+    ]
+    unite = models.CharField(
+        max_length=15,
+        choices=UNITE_CHOICES,
+        default='graines'
+    )
+
+    # === DURÉE DE VIE / VIABILITÉ ===
+    date_recolte = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date de récolte ou date de test germination"
+    )
+    duree_vie_annees = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Durée de vie typique en années (ex: 2, 5)"
+    )
+    germination_lab_pct = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Taux germination labo (%, si connu)"
+    )
+
+    # === STRATIFICATION ===
+    stratification_requise = models.BooleanField(
+        default=False,
+        help_text="Semence nécessite stratification"
+    )
+    stratification_duree_jours = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Durée stratification en jours (ex: 30, 90)"
+    )
+    stratification_temp = models.CharField(
+        max_length=20,
+        blank=True,
+        choices=[
+            ('', '—'),
+            ('froide', 'Froide (0-5°C)'),
+            ('chaude', 'Chaude (15-25°C)'),
+            ('chaude_puis_froide', 'Chaude puis froide'),
+        ],
+        help_text="Type de stratification"
+    )
+    stratification_notes = models.TextField(blank=True)
+
+    # === GERMINATION ===
+    temps_germination_jours_min = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Temps germination minimum (jours)"
+    )
+    temps_germination_jours_max = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Temps germination maximum (jours)"
+    )
+    temperature_optimal_min = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Température optimale min (°C)"
+    )
+    temperature_optimal_max = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Température optimale max (°C)"
+    )
+
+    # === PRÉTRAITEMENT ===
+    pretraitement = models.TextField(
+        blank=True,
+        help_text="Scarification, trempage, etc."
+    )
+
+    # === DONNÉES FOURNISSEUR ===
+    data_sources = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Données brutes de la source (catalogue fournisseur)"
+    )
+
+    notes = models.TextField(blank=True)
+    date_ajout = models.DateTimeField(auto_now_add=True)
+    date_modification = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Collection de semences"
+        verbose_name_plural = "Collections de semences"
+        ordering = ['organisme__nom_commun', 'variete']
+
+    def __str__(self):
+        if self.variete:
+            return f"{self.organisme.nom_commun} — {self.variete}"
+        return str(self.organisme.nom_commun)
+
+    def est_potentiellement_perime(self):
+        """Indique si la semence pourrait être périmée (date_recolte + duree_vie)."""
+        if not self.date_recolte or not self.duree_vie_annees:
+            return None
+        from datetime import date
+        try:
+            years = int(self.duree_vie_annees)
+            # Approximation: année + années
+            peremption = date(
+                self.date_recolte.year + years,
+                self.date_recolte.month,
+                self.date_recolte.day
+            )
+            return date.today() > peremption
+        except (ValueError, OverflowError):
+            return None
+
+
+class SemisBatch(models.Model):
+    """
+    Session de semis — permet de suivre germination et taux de succès.
+    Lie un lot de semences aux specimens créés.
+    """
+    seed_collection = models.ForeignKey(
+        'species.SeedCollection',
+        on_delete=models.CASCADE,
+        related_name='semis_batches',
+        help_text="Lot de semences utilisé"
+    )
+    date_semis = models.DateField(help_text="Date du semis")
+    quantite_semee = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Nombre de graines ou quantité semée"
+    )
+    unite_semee = models.CharField(max_length=20, blank=True)
+
+    METHODE_CHOICES = [
+        ('interieur', 'À l\'intérieur'),
+        ('exterieur', 'Direct en pleine terre'),
+        ('serre', 'Sous serre'),
+        ('godets', 'Godets/Plateaux'),
+        ('autre', 'Autre'),
+    ]
+    methode = models.CharField(
+        max_length=20,
+        choices=METHODE_CHOICES,
+        blank=True
+    )
+
+    # Résultats observés
+    taux_germination_reel = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Taux de germination observé (%)"
+    )
+    date_premiere_germination = models.DateField(null=True, blank=True)
+    nb_plants_obtenus = models.IntegerField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+
+    date_ajout = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Batch de semis"
+        verbose_name_plural = "Batches de semis"
+        ordering = ['-date_semis']
+
+    def __str__(self):
+        return f"Semis {self.seed_collection.organisme.nom_commun} — {self.date_semis}"
+
+
 class Amendment(models.Model):
     """
     Engrais, compost, amendements du sol.
@@ -561,6 +883,16 @@ class Specimen(models.Model):
         blank=True,
         help_text="Nom de la pépinière ou fournisseur"
     )
+
+    # Lien vers la collection de semences quand source='semis'
+    seed_collection = models.ForeignKey(
+        'species.SeedCollection',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='specimens_issus',
+        help_text="Lot de semences utilisé (quand source = Semis maison)"
+    )
     
     # === ÉTAT ACTUEL ===
     STATUT_CHOICES = [
@@ -745,7 +1077,32 @@ class Event(models.Model):
 class Photo(models.Model):
     """
     Photo d'un organisme ou d'un spécimen.
+    type_photo permet de catégoriser pour identification, diagnostic santé et documentation.
     """
+    
+    # Types de photo (galerie éducative: identification, diagnostic, documentation saisonnière)
+    TYPE_PHOTO_CHOICES = [
+        ('tronc_juvenile', 'Tronc - juvénile'),
+        ('tronc_mature', 'Tronc - mature'),
+        ('tronc_malade', 'Tronc - malade'),
+        ('tronc_ecorce', 'Tronc - écorce détail'),
+        ('feuillage_printemps', 'Feuillage - printemps'),
+        ('feuillage_ete', 'Feuillage - été'),
+        ('feuillage_automne', 'Feuillage - automne'),
+        ('feuillage_jeune', 'Feuillage - jeune'),
+        ('feuillage_sain', 'Feuillage - sain'),
+        ('feuillage_malade', 'Feuillage - malade'),
+        ('branches_juvenile', 'Branches - juvénile'),
+        ('branches_mature', 'Branches - mature'),
+        ('branches_bourgeons', 'Branches - bourgeons'),
+        ('reproduction_fleurs', 'Reproduction - fleurs'),
+        ('reproduction_fruits_immature', 'Reproduction - fruits immature'),
+        ('reproduction_fruits_mur', 'Reproduction - fruits mûr'),
+        ('reproduction_graines', 'Reproduction - graines'),
+        ('port_general', 'Port général et silhouette hiver'),
+        ('problemes', 'Problèmes courants (maladies, parasites)'),
+        ('autre', 'Autre'),
+    ]
     
     # Peut être lié soit à un organisme (photo générique) soit à un specimen (photo spécifique)
     organisme = models.ForeignKey(
@@ -781,6 +1138,14 @@ class Photo(models.Model):
         help_text="Photo (JPG, PNG)"
     )
     
+    # === TYPE (galerie éducative) ===
+    type_photo = models.CharField(
+        max_length=35,
+        choices=TYPE_PHOTO_CHOICES,
+        blank=True,
+        help_text="Type de vue pour identification et diagnostic (tronc, feuillage, reproduction, etc.)"
+    )
+    
     # === MÉTADONNÉES ===
     titre = models.CharField(
         max_length=200,
@@ -804,3 +1169,4 @@ class Photo(models.Model):
     class Meta:
         verbose_name = "Photo"
         verbose_name_plural = "Photos"
+        ordering = ['-date_prise', '-date_ajout']

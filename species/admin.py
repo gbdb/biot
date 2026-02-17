@@ -1,9 +1,49 @@
+import tempfile
+from pathlib import Path
+
 from django.contrib import admin
-from .models import Organism, CompanionRelation, Amendment, Specimen, Event, Photo
+from django.contrib import messages
+from django.http import HttpResponseRedirect
+from django.shortcuts import render
+from django.urls import path, reverse
+from django.utils.html import format_html
+
+from .forms import ImportPFAFForm
+from .models import (
+    Organism, UserTag, CompanionRelation, Amendment,
+    Specimen, Event, Photo,
+    SeedSupplier, SeedCollection, SemisBatch,
+)
+
+
+class PhotoOrganismInline(admin.TabularInline):
+    """Inline pour ajouter plusieurs photos à un organisme depuis sa fiche."""
+    model = Photo
+    fk_name = 'organisme'
+    extra = 1
+    fields = ('image', 'type_photo', 'titre', 'date_prise')
+    verbose_name = "Photo de l'espèce"
+    verbose_name_plural = "Photos de l'espèce"
+from .pfaf_mapping import (
+    PFAF_FIELD_ALIASES,
+    get_available_columns,
+    get_row_value,
+    load_pfaf_data,
+)
+from .source_rules import (
+    MERGE_FILL_GAPS,
+    MERGE_OVERWRITE,
+    SOURCE_PFAF,
+    apply_fill_gaps,
+    find_or_match_organism,
+    merge_zones_rusticite,
+)
 
 
 @admin.register(Organism)
 class OrganismAdmin(admin.ModelAdmin):
+    inlines = [PhotoOrganismInline]
+    
     list_display = [
         'nom_commun',
         'nom_latin', 
@@ -11,7 +51,7 @@ class OrganismAdmin(admin.ModelAdmin):
         'type_organisme',
         'besoin_eau',
         'besoin_soleil',
-        'zone_rusticite',
+        'zones_display',
         'comestible'
     ]
     
@@ -24,6 +64,7 @@ class OrganismAdmin(admin.ModelAdmin):
         'fixateur_azote',
         'mellifere',
         'indigene',
+        'mes_tags',
     ]
     
     search_fields = [
@@ -59,6 +100,9 @@ class OrganismAdmin(admin.ModelAdmin):
             'fields': ('fixateur_azote', 'accumulateur_dynamique', 'mellifere', 'produit_juglone', 'indigene'),
             'classes': ('collapse',)
         }),
+        ('Ma Collection', {
+            'fields': ('mes_tags',)
+        }),
         ('Informations', {
             'fields': ('description', 'notes', 'usages_autres')
         }),
@@ -67,6 +111,457 @@ class OrganismAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
+    
+    filter_horizontal = ['mes_tags']
+
+    def zones_display(self, obj):
+        """Affiche toutes les zones de rusticité avec leurs sources."""
+        if not obj.zone_rusticite or not isinstance(obj.zone_rusticite, list):
+            return '-'
+        zones = [
+            z for z in obj.zone_rusticite
+            if isinstance(z, dict) and z.get('zone')
+        ]
+        if not zones:
+            return '-'
+        # Formater: "4a (HQ), 5b (PFAF)"
+        formatted = []
+        source_labels = {'hydroquebec': 'HQ', 'pfaf': 'PFAF', 'unknown': '?'}
+        for z in zones:
+            zone = z.get('zone', '')
+            source = z.get('source', 'unknown')
+            label = source_labels.get(source, source)
+            formatted.append(f"{zone} ({label})")
+        return ', '.join(formatted)
+    zones_display.short_description = "Zones rusticité"
+
+    def get_urls(self):
+        """Ajoute la route pour l'import PFAF."""
+        urls = super().get_urls()
+        custom_urls = [
+            path('import-pfaf/', self.admin_site.admin_view(self.import_pfaf_view), name='species_organism_import_pfaf'),
+        ]
+        return custom_urls + urls
+
+    def import_pfaf_view(self, request):
+        """Vue pour l'import PFAF depuis l'admin."""
+        if request.method == 'POST':
+            form = ImportPFAFForm(request.POST, request.FILES)
+            if form.is_valid():
+                uploaded_file = form.cleaned_data['file']
+                limit = form.cleaned_data['limit'] or 0
+                merge_mode = form.cleaned_data['merge_mode']
+                table = form.cleaned_data['table'] or 'plant_data'
+
+                # Sauvegarder temporairement le fichier uploadé
+                with tempfile.NamedTemporaryFile(delete=False, suffix=Path(uploaded_file.name).suffix) as tmp_file:
+                    for chunk in uploaded_file.chunks():
+                        tmp_file.write(chunk)
+                    tmp_path = Path(tmp_file.name)
+
+                try:
+                    # Charger les données
+                    data = load_pfaf_data(tmp_path, db_table=table)
+                    
+                    if not data:
+                        messages.warning(request, 'Aucune donnée trouvée dans le fichier.')
+                        return HttpResponseRedirect(reverse('admin:species_organism_import_pfaf'))
+                    
+                    if limit > 0:
+                        data = data[:limit]
+
+                    # Validation: vérifier les colonnes disponibles et critiques
+                    validation_warnings = []
+                    validation_passed = True
+                    if data:
+                        available_cols = get_available_columns(data)
+                        nom_latin_found = get_row_value(data[0], PFAF_FIELD_ALIASES['latin_name'], default=None)
+                        nom_commun_found = get_row_value(data[0], PFAF_FIELD_ALIASES['common_name'], default=None)
+                        
+                        if not nom_latin_found and not nom_commun_found:
+                            validation_passed = False
+                            warning_msg = (
+                                f'ATTENTION: ni nom_latin ni nom_commun trouvés dans la première ligne. '
+                                f'Colonnes disponibles: {", ".join(available_cols[:15])}{"..." if len(available_cols) > 15 else ""}'
+                            )
+                            # Suggérer des colonnes similaires
+                            similar_latin = [c for c in available_cols if 'latin' in c or 'scientific' in c or 'species' in c or 'binomial' in c]
+                            similar_common = [c for c in available_cols if 'common' in c or 'name' in c or 'vernacular' in c or 'english' in c]
+                            if similar_latin:
+                                warning_msg += f' Colonnes similaires à "latin_name": {", ".join(similar_latin)}'
+                            if similar_common:
+                                warning_msg += f' Colonnes similaires à "common_name": {", ".join(similar_common)}'
+                            validation_warnings.append(warning_msg)
+
+                    # Traiter l'import
+                    created = 0
+                    updated = 0
+                    skipped = 0
+                    skipped_empty_names = 0
+                    errors = []
+                    error_details = []  # Pour stocker plus de détails sur les erreurs
+
+                    for idx, row in enumerate(data, 1):
+                        try:
+                            nom_latin = get_row_value(row, PFAF_FIELD_ALIASES['latin_name'], default='')
+                            nom_commun = get_row_value(row, PFAF_FIELD_ALIASES['common_name'], default='')
+                            
+                            # Si ni nom_latin ni nom_commun, on ne peut pas importer
+                            if not nom_latin and not nom_commun:
+                                skipped += 1
+                                skipped_empty_names += 1
+                                # Stocker les détails pour les premières lignes ignorées
+                                if skipped_empty_names <= 3:
+                                    available_cols = list(row.keys())
+                                    error_details.append(
+                                        f'Ligne {idx}: nom_latin et nom_commun vides. '
+                                        f'Colonnes: {", ".join(available_cols[:10])}'
+                                    )
+                                continue
+
+                            famille = get_row_value(row, PFAF_FIELD_ALIASES['family'], default='')
+                            description = self._description_from_row(row)
+                            zone_raw = self._zone_from_row(row)
+                            besoin_soleil = self._sun_from_row(row)
+                            besoin_eau = self._water_from_row(row)
+                            hauteur_raw = get_row_value(row, PFAF_FIELD_ALIASES['height'], default=None, coerce_str=False)
+                            hauteur_max = None
+                            if hauteur_raw is not None:
+                                try:
+                                    if isinstance(hauteur_raw, str):
+                                        hauteur_raw = hauteur_raw.replace(',', '.')
+                                    hauteur_max = float(hauteur_raw)
+                                except (TypeError, ValueError):
+                                    pass
+
+                            # Chercher ou créer l'organisme avec matching intelligent
+                            organism, est_nouveau = find_or_match_organism(
+                                Organism,
+                                nom_latin=nom_latin,
+                                nom_commun=nom_commun or nom_latin,
+                                defaults={
+                                    'nom_commun': nom_commun or nom_latin,
+                                    'famille': famille,
+                                    'regne': 'plante',
+                                    'type_organisme': self._type_from_row(row),
+                                    'besoin_soleil': besoin_soleil,
+                                    'besoin_eau': besoin_eau,
+                                    'hauteur_max': hauteur_max,
+                                    'description': description,
+                                    'parties_comestibles': get_row_value(
+                                        row, PFAF_FIELD_ALIASES['edible_parts'], default=''
+                                    ),
+                                    'usages_autres': get_row_value(
+                                        row, PFAF_FIELD_ALIASES['uses'], default=''
+                                    ),
+                                    'toxicite': get_row_value(
+                                        row, PFAF_FIELD_ALIASES['toxicite'], default=''
+                                    ),
+                                }
+                            )
+                            
+                            # Gérer fixateur_azote
+                            fixateur = get_row_value(
+                                row, PFAF_FIELD_ALIASES['fixateur_azote'], default=''
+                            ).lower()
+                            if fixateur and ('y' in fixateur or 'yes' in fixateur or 'oui' in fixateur or '1' in fixateur):
+                                if not organism.fixateur_azote:
+                                    organism.fixateur_azote = True
+                            
+                            # Gérer les zones de rusticité (format JSONField avec source)
+                            current_zones = list(organism.zone_rusticite or [])
+                            if zone_raw:
+                                updated_zones = merge_zones_rusticite(
+                                    current_zones,
+                                    zone_raw,
+                                    SOURCE_PFAF
+                                )
+                            else:
+                                updated_zones = current_zones
+                            
+                            # Préparer les mises à jour selon le mode de merge
+                            update_fields = {}
+                            
+                            if merge_mode == MERGE_FILL_GAPS:
+                                # Ne mettre à jour que les champs vides
+                                current = {k: getattr(organism, k, None) for k in [
+                                    'famille', 'besoin_eau', 'besoin_soleil', 'hauteur_max',
+                                    'description', 'parties_comestibles', 'usages_autres', 'toxicite'
+                                ]}
+                                defaults_to_apply = {
+                                    'famille': famille,
+                                    'besoin_soleil': besoin_soleil,
+                                    'besoin_eau': besoin_eau,
+                                    'hauteur_max': hauteur_max,
+                                    'description': description,
+                                    'parties_comestibles': get_row_value(
+                                        row, PFAF_FIELD_ALIASES['edible_parts'], default=''
+                                    ),
+                                    'usages_autres': get_row_value(
+                                        row, PFAF_FIELD_ALIASES['uses'], default=''
+                                    ),
+                                    'toxicite': get_row_value(
+                                        row, PFAF_FIELD_ALIASES['toxicite'], default=''
+                                    ),
+                                }
+                                filtered = apply_fill_gaps(current, defaults_to_apply)
+                                update_fields.update(filtered)
+                            else:
+                                # Mode overwrite: mettre à jour tous les champs
+                                update_fields.update({
+                                    'famille': famille,
+                                    'besoin_soleil': besoin_soleil,
+                                    'besoin_eau': besoin_eau,
+                                    'hauteur_max': hauteur_max,
+                                    'description': description,
+                                    'parties_comestibles': get_row_value(
+                                        row, PFAF_FIELD_ALIASES['edible_parts'], default=''
+                                    ),
+                                    'usages_autres': get_row_value(
+                                        row, PFAF_FIELD_ALIASES['uses'], default=''
+                                    ),
+                                    'toxicite': get_row_value(
+                                        row, PFAF_FIELD_ALIASES['toxicite'], default=''
+                                    ),
+                                })
+                            
+                            # Toujours mettre à jour les zones (merge intelligent)
+                            update_fields['zone_rusticite'] = updated_zones
+                            
+                            # Fusionner data_sources
+                            pfaf_payload = self._serializable_payload(row)
+                            existing_sources = dict(organism.data_sources or {})
+                            existing_sources[SOURCE_PFAF] = pfaf_payload
+                            update_fields['data_sources'] = existing_sources
+                            
+                            # Appliquer les mises à jour
+                            for key, value in update_fields.items():
+                                setattr(organism, key, value)
+                            organism.save()
+                            
+                            if est_nouveau:
+                                created += 1
+                            else:
+                                updated += 1
+                        except Exception as e:
+                            skipped += 1
+                            nom_latin = get_row_value(row, PFAF_FIELD_ALIASES['latin_name'], default='?')
+                            error_msg = f'{nom_latin}: {str(e)}'
+                            errors.append(error_msg)
+                            # Stocker les détails pour les premières erreurs
+                            if len(errors) <= 5:
+                                error_details.append(f'Ligne {idx}: {error_msg}')
+
+                    # Afficher les résultats
+                    result_msg = f'Import terminé: {created} créés, {updated} mis à jour, {skipped} ignorés'
+                    if skipped_empty_names > 0:
+                        result_msg += f' ({skipped_empty_names} noms vides, {len(errors)} erreurs)'
+                    messages.success(request, result_msg)
+                    
+                    # Afficher les avertissements de validation
+                    if validation_warnings:
+                        for warning in validation_warnings:
+                            messages.warning(request, warning)
+                    
+                    # Afficher les erreurs avec plus de détails
+                    if errors:
+                        error_count = len(errors)
+                        if error_count <= 10:
+                            # Afficher toutes les erreurs si <= 10
+                            messages.error(request, f'{error_count} erreurs: {"; ".join(errors)}')
+                        else:
+                            # Afficher un résumé avec les premières erreurs
+                            messages.error(
+                                request,
+                                f'{error_count} erreurs. Premières: {"; ".join(errors[:5])}... '
+                                f'(voir les détails ci-dessous)'
+                            )
+                            # Afficher les détails dans un message séparé
+                            if error_details:
+                                messages.warning(
+                                    request,
+                                    f'Détails des erreurs: {" | ".join(error_details)}'
+                                )
+
+                    # Rediriger vers la liste des organismes
+                    return HttpResponseRedirect(reverse('admin:species_organism_changelist'))
+                except Exception as e:
+                    messages.error(request, f'Erreur lors de l\'import: {str(e)}')
+                finally:
+                    # Nettoyer le fichier temporaire
+                    if tmp_path.exists():
+                        tmp_path.unlink()
+            else:
+                # Formulaire invalide, réafficher avec les erreurs
+                form = ImportPFAFForm(request.POST, request.FILES)
+        else:
+            # GET request - afficher le formulaire vide
+            form = ImportPFAFForm()
+
+        context = {
+            'form': form,
+            'opts': self.model._meta,
+            'has_view_permission': self.has_view_permission(request, None),
+            'title': 'Importer PFAF',
+        }
+        return render(request, 'admin/species/organism/import_pfaf.html', context)
+
+    def _serializable_payload(self, row: dict) -> dict:
+        """Construit un dict JSON-serialisable pour data_sources['pfaf']."""
+        out = {}
+        for k, v in row.items():
+            if v is None:
+                continue
+            if isinstance(v, (str, int, float, bool)):
+                out[k] = v
+            else:
+                out[k] = str(v)
+        return out
+
+    def _description_from_row(self, row: dict) -> str:
+        parts = []
+        for key in PFAF_FIELD_ALIASES['description'] + PFAF_FIELD_ALIASES['habitat']:
+            v = get_row_value(row, [key], default='')
+            if v:
+                parts.append(v)
+        return '\n\n'.join(parts) if parts else ''
+
+    def _zone_from_row(self, row: dict) -> str:
+        z = get_row_value(row, PFAF_FIELD_ALIASES['zone_rusticite'], default='', coerce_str=False)
+        if z is None:
+            return ''
+        if isinstance(z, (int, float)):
+            return str(int(z))
+        return str(z).strip() if z else ''
+
+    def _sun_from_row(self, row: dict) -> str:
+        sun = get_row_value(row, PFAF_FIELD_ALIASES['sun'], default='').lower()
+        if not sun:
+            return ''
+        if 'shade' in sun and 'sun' not in sun and 'partial' not in sun:
+            return 'ombre'
+        if 'partial' in sun or 'semi' in sun or 'mi-ombre' in sun or 'light shade' in sun:
+            return 'mi_ombre'
+        if 'full' in sun or 'sun' in sun or 'soleil' in sun or 'no shade' in sun:
+            return 'plein_soleil'
+        return ''
+
+    def _water_from_row(self, row: dict) -> str:
+        w = get_row_value(row, PFAF_FIELD_ALIASES['water'], default='').lower()
+        if not w:
+            return ''
+        if 'dry' in w or 'low' in w or 'faible' in w:
+            return 'faible'
+        if 'wet' in w or 'high' in w or 'eleve' in w or 'moist' in w:
+            return 'eleve'
+        return 'moyen'
+
+    def _type_from_row(self, row: dict) -> str:
+        t = get_row_value(row, PFAF_FIELD_ALIASES['habit'], default='').lower()
+        if 'tree' in t or 'arbre' in t:
+            return 'arbre_ornement'
+        if 'shrub' in t or 'arbuste' in t:
+            return 'arbuste'
+        if 'perennial' in t or 'vivace' in t:
+            return 'vivace'
+        if 'annual' in t or 'annuelle' in t:
+            return 'annuelle'
+        if 'climber' in t or 'grimpant' in t or 'vine' in t:
+            return 'grimpante'
+        return 'vivace'
+
+
+@admin.register(UserTag)
+class UserTagAdmin(admin.ModelAdmin):
+    list_display = ['apercu_couleur', 'nom', 'description', 'date_creation']
+    list_display_links = ['nom']
+    search_fields = ['nom', 'description']
+    list_filter = ['date_creation']
+    
+    def apercu_couleur(self, obj):
+        """Affiche le tag avec sa couleur comme pastille."""
+        return format_html(
+            '<span style="background-color: {}; padding: 5px 15px; '
+            'border-radius: 3px; color: white; font-weight: bold;">{}</span>',
+            obj.couleur, obj.nom
+        )
+    apercu_couleur.short_description = "Tag"
+    
+    fieldsets = (
+        ('Informations', {
+            'fields': ('nom', 'couleur', 'description')
+        }),
+        ('Métadonnées', {
+            'fields': ('date_creation',),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    readonly_fields = ['date_creation']
+
+    def _serializable_payload(self, row: dict) -> dict:
+        """Construit un dict JSON-serialisable pour data_sources['pfaf']."""
+        out = {}
+        for k, v in row.items():
+            if v is None:
+                continue
+            if isinstance(v, (str, int, float, bool)):
+                out[k] = v
+            else:
+                out[k] = str(v)
+        return out
+
+    def _description_from_row(self, row: dict) -> str:
+        parts = []
+        for key in PFAF_FIELD_ALIASES['description'] + PFAF_FIELD_ALIASES['habitat']:
+            v = get_row_value(row, [key], default='')
+            if v:
+                parts.append(v)
+        return '\n\n'.join(parts) if parts else ''
+
+    def _zone_from_row(self, row: dict) -> str:
+        z = get_row_value(row, PFAF_FIELD_ALIASES['zone_rusticite'], default='', coerce_str=False)
+        if z is None:
+            return ''
+        if isinstance(z, (int, float)):
+            return str(int(z))
+        return str(z).strip() if z else ''
+
+    def _sun_from_row(self, row: dict) -> str:
+        sun = get_row_value(row, PFAF_FIELD_ALIASES['sun'], default='').lower()
+        if not sun:
+            return ''
+        if 'shade' in sun and 'sun' not in sun and 'partial' not in sun:
+            return 'ombre'
+        if 'partial' in sun or 'semi' in sun or 'mi-ombre' in sun or 'light shade' in sun:
+            return 'mi_ombre'
+        if 'full' in sun or 'sun' in sun or 'soleil' in sun or 'no shade' in sun:
+            return 'plein_soleil'
+        return ''
+
+    def _water_from_row(self, row: dict) -> str:
+        w = get_row_value(row, PFAF_FIELD_ALIASES['water'], default='').lower()
+        if not w:
+            return ''
+        if 'dry' in w or 'low' in w or 'faible' in w:
+            return 'faible'
+        if 'wet' in w or 'high' in w or 'eleve' in w or 'moist' in w:
+            return 'eleve'
+        return 'moyen'
+
+    def _type_from_row(self, row: dict) -> str:
+        t = get_row_value(row, PFAF_FIELD_ALIASES['habit'], default='').lower()
+        if 'tree' in t or 'arbre' in t:
+            return 'arbre_ornement'
+        if 'shrub' in t or 'arbuste' in t:
+            return 'arbuste'
+        if 'perennial' in t or 'vivace' in t:
+            return 'vivace'
+        if 'annual' in t or 'annuelle' in t:
+            return 'annuelle'
+        if 'climber' in t or 'grimpant' in t or 'vine' in t:
+            return 'grimpante'
+        return 'vivace'
 
 @admin.register(CompanionRelation)
 class CompanionRelationAdmin(admin.ModelAdmin):
@@ -151,6 +646,102 @@ class AmendmentAdmin(admin.ModelAdmin):
         return "-"
     npk_display.short_description = "NPK"
 
+
+@admin.register(SeedSupplier)
+class SeedSupplierAdmin(admin.ModelAdmin):
+    list_display = ['nom', 'type_fournisseur', 'actif', 'dernier_import']
+    list_filter = ['type_fournisseur', 'actif']
+    search_fields = ['nom', 'contact']
+    ordering = ['nom']
+
+
+class SemisBatchInline(admin.TabularInline):
+    model = SemisBatch
+    extra = 0
+    fields = ('date_semis', 'quantite_semee', 'methode', 'taux_germination_reel', 'nb_plants_obtenus')
+
+
+@admin.register(SeedCollection)
+class SeedCollectionAdmin(admin.ModelAdmin):
+    list_display = [
+        'organisme', 'variete', 'lot_reference', 'fournisseur',
+        'quantite_unite_display', 'stratification_display',
+        'viabilite_display', 'date_ajout'
+    ]
+    list_filter = ['fournisseur', 'stratification_requise', 'unite']
+    search_fields = [
+        'organisme__nom_commun', 'organisme__nom_latin',
+        'variete', 'lot_reference', 'notes'
+    ]
+    autocomplete_fields = ['organisme', 'fournisseur']
+    inlines = [SemisBatchInline]
+    date_hierarchy = 'date_ajout'
+
+    fieldsets = (
+        ('Identification', {
+            'fields': ('organisme', 'variete', 'lot_reference', 'fournisseur')
+        }),
+        ('Quantité', {
+            'fields': ('quantite', 'unite')
+        }),
+        ('Viabilité', {
+            'fields': ('date_recolte', 'duree_vie_annees', 'germination_lab_pct')
+        }),
+        ('Stratification', {
+            'fields': (
+                'stratification_requise', 'stratification_duree_jours',
+                'stratification_temp', 'stratification_notes'
+            ),
+            'classes': ('collapse',)
+        }),
+        ('Germination', {
+            'fields': (
+                'temps_germination_jours_min', 'temps_germination_jours_max',
+                'temperature_optimal_min', 'temperature_optimal_max', 'pretraitement'
+            ),
+            'classes': ('collapse',)
+        }),
+        ('Notes', {
+            'fields': ('notes',)
+        }),
+        ('Données source', {
+            'fields': ('data_sources',),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def quantite_unite_display(self, obj):
+        if obj.quantite is not None:
+            return f"{obj.quantite} {obj.get_unite_display()}"
+        return "-"
+    quantite_unite_display.short_description = "Quantité"
+
+    def stratification_display(self, obj):
+        if not obj.stratification_requise:
+            return "—"
+        s = f"{obj.stratification_duree_jours or '?'} j"
+        if obj.stratification_temp:
+            s += f" ({obj.get_stratification_temp_display()})"
+        return s
+    stratification_display.short_description = "Stratification"
+
+    def viabilite_display(self, obj):
+        if obj.date_recolte and obj.duree_vie_annees:
+            perime = obj.est_potentiellement_perime()
+            return "⚠️ Périmé" if perime else "✓ OK"
+        return "-"
+    viabilite_display.short_description = "Viabilité"
+
+
+@admin.register(SemisBatch)
+class SemisBatchAdmin(admin.ModelAdmin):
+    list_display = ['seed_collection', 'date_semis', 'methode', 'taux_germination_reel', 'nb_plants_obtenus']
+    list_filter = ['methode', 'date_semis']
+    search_fields = ['seed_collection__organisme__nom_commun', 'notes']
+    autocomplete_fields = ['seed_collection']
+    date_hierarchy = 'date_semis'
+
+
 @admin.register(Specimen)
 class SpecimenAdmin(admin.ModelAdmin):
     list_display = [
@@ -179,7 +770,7 @@ class SpecimenAdmin(admin.ModelAdmin):
         'notes'
     ]
     
-    autocomplete_fields = ['organisme']
+    autocomplete_fields = ['organisme', 'seed_collection']
     
     date_hierarchy = 'date_plantation'
     
@@ -191,7 +782,10 @@ class SpecimenAdmin(admin.ModelAdmin):
             'fields': ('zone_jardin', 'latitude', 'longitude')
         }),
         ('Plantation', {
-            'fields': ('date_plantation', 'age_plantation', 'source', 'pepiniere_fournisseur')
+            'fields': (
+                'date_plantation', 'age_plantation', 'source',
+                'pepiniere_fournisseur', 'seed_collection'
+            )
         }),
         ('État Actuel', {
             'fields': ('statut', 'sante', 'hauteur_actuelle')
@@ -282,12 +876,14 @@ class PhotoAdmin(admin.ModelAdmin):
     list_display = [
         'miniature',
         'get_sujet',
+        'type_photo',
         'titre',
         'date_prise',
         'date_ajout'
     ]
     
     list_filter = [
+        'type_photo',
         'date_prise',
         'date_ajout'
     ]
@@ -305,7 +901,7 @@ class PhotoAdmin(admin.ModelAdmin):
     
     fieldsets = (
         ('Image', {
-            'fields': ('image', 'titre', 'description', 'date_prise')
+            'fields': ('image', 'type_photo', 'titre', 'description', 'date_prise')
         }),
         ('Lié à', {
             'fields': ('organisme', 'specimen', 'event')
