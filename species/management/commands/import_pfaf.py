@@ -16,6 +16,7 @@ from django.core.management.base import BaseCommand
 from species.models import Organism
 from species.pfaf_mapping import (
     PFAF_FIELD_ALIASES,
+    get_available_columns,
     get_row_value,
     load_pfaf_data,
 )
@@ -24,6 +25,8 @@ from species.source_rules import (
     MERGE_OVERWRITE,
     SOURCE_PFAF,
     apply_fill_gaps,
+    find_or_match_organism,
+    merge_zones_rusticite,
 )
 
 
@@ -90,6 +93,10 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR(f'❌ Erreur de chargement: {e}'))
             return
 
+        if not data:
+            self.stdout.write(self.style.WARNING('⚠️ Aucune donnée trouvée dans le fichier.'))
+            return
+
         if limit > 0:
             data = data[:limit]
 
@@ -97,25 +104,87 @@ class Command(BaseCommand):
             f'🌿 Import PFAF (merge={merge_mode}, {len(data)} entrées)'
         ))
 
+        # Validation: vérifier les colonnes disponibles et critiques
+        validation_passed = True
+        if data:
+            available_cols = get_available_columns(data)
+            self.stdout.write(f'\n🔍 Colonnes disponibles dans le fichier ({len(available_cols)}):')
+            self.stdout.write(f'   {", ".join(available_cols[:20])}{"..." if len(available_cols) > 20 else ""}')
+            
+            # Vérifier si les colonnes critiques sont trouvées
+            first_row = data[0]
+            nom_latin_found = get_row_value(first_row, PFAF_FIELD_ALIASES['latin_name'], default=None)
+            nom_commun_found = get_row_value(first_row, PFAF_FIELD_ALIASES['common_name'], default=None)
+            
+            self.stdout.write(f'\n🔍 Test sur la première ligne:')
+            if nom_latin_found:
+                self.stdout.write(self.style.SUCCESS(f'   ✓ nom_latin trouvé: "{nom_latin_found}"'))
+            else:
+                self.stdout.write(self.style.WARNING(
+                    f'   ✗ nom_latin non trouvé (colonnes testées: {", ".join(PFAF_FIELD_ALIASES["latin_name"][:5])}...)'
+                ))
+            if nom_commun_found:
+                self.stdout.write(self.style.SUCCESS(f'   ✓ nom_commun trouvé: "{nom_commun_found}"'))
+            else:
+                self.stdout.write(self.style.WARNING(
+                    f'   ✗ nom_commun non trouvé (colonnes testées: {", ".join(PFAF_FIELD_ALIASES["common_name"][:5])}...)'
+                ))
+            
+            if not nom_latin_found and not nom_commun_found:
+                validation_passed = False
+                self.stdout.write(self.style.ERROR(
+                    '\n⚠️ ATTENTION: ni nom_latin ni nom_commun trouvés dans la première ligne!'
+                ))
+                self.stdout.write(self.style.WARNING(
+                    '   Les enregistrements seront ignorés si cette condition persiste.'
+                ))
+                # Suggérer des colonnes similaires
+                similar_latin = [c for c in available_cols if 'latin' in c or 'scientific' in c or 'species' in c or 'binomial' in c]
+                similar_common = [c for c in available_cols if 'common' in c or 'name' in c or 'vernacular' in c or 'english' in c]
+                if similar_latin:
+                    self.stdout.write(self.style.WARNING(
+                        f'   Colonnes similaires à "latin_name": {", ".join(similar_latin)}'
+                    ))
+                if similar_common:
+                    self.stdout.write(self.style.WARNING(
+                        f'   Colonnes similaires à "common_name": {", ".join(similar_common)}'
+                    ))
+        
+        # Demander confirmation si validation échoue
+        if not validation_passed:
+            self.stdout.write(self.style.WARNING(
+                '\n⚠️ La validation a détecté des problèmes. L\'import continuera mais beaucoup d\'enregistrements pourraient être ignorés.'
+            ))
+
         created = 0
         updated = 0
         skipped = 0
+        skipped_empty_names = 0
+        skipped_errors = 0
 
-        for row in data:
+        for idx, row in enumerate(data, 1):
             try:
                 nom_latin = get_row_value(row, PFAF_FIELD_ALIASES['latin_name'], default='')
-                if not nom_latin:
-                    skipped += 1
-                    continue
-
                 nom_commun = get_row_value(row, PFAF_FIELD_ALIASES['common_name'], default='')
-                if not nom_commun:
-                    existing = Organism.objects.filter(nom_latin=nom_latin).first()
-                    nom_commun = (existing.nom_commun if existing else '') or nom_latin
+                
+                # Si ni nom_latin ni nom_commun, on ne peut pas importer
+                if not nom_latin and not nom_commun:
+                    skipped += 1
+                    skipped_empty_names += 1
+                    # Afficher les détails seulement pour les premières lignes ignorées
+                    if skipped_empty_names <= 3:
+                        available_cols = list(row.keys())
+                        self.stdout.write(
+                            self.style.WARNING(
+                                f'  ⚠️ Ignoré ligne {idx}: nom_latin et nom_commun vides\n'
+                                f'     Colonnes disponibles: {", ".join(available_cols[:10])}{"..." if len(available_cols) > 10 else ""}'
+                            )
+                        )
+                    continue
 
                 famille = get_row_value(row, PFAF_FIELD_ALIASES['family'], default='')
                 description = self._description_from_row(row)
-                zone = self._zone_from_row(row)
+                zone_raw = self._zone_from_row(row)
                 besoin_soleil = self._sun_from_row(row)
                 besoin_eau = self._water_from_row(row)
                 hauteur_raw = get_row_value(row, PFAF_FIELD_ALIASES['height'], default=None, coerce_str=False)
@@ -128,50 +197,111 @@ class Command(BaseCommand):
                     except (TypeError, ValueError):
                         pass
 
-                full_defaults = {
-                    'nom_commun': nom_commun,
-                    'famille': famille,
-                    'regne': 'plante',
-                    'type_organisme': self._type_from_row(row),
-                    'zone_rusticite': zone,
-                    'besoin_soleil': besoin_soleil,
-                    'besoin_eau': besoin_eau,
-                    'hauteur_max': hauteur_max,
-                    'description': description,
-                    'parties_comestibles': get_row_value(
-                        row, PFAF_FIELD_ALIASES['edible_parts'], default=''
-                    ),
-                    'usages_autres': get_row_value(
-                        row, PFAF_FIELD_ALIASES['uses'], default=''
-                    ),
-                    'toxicite': get_row_value(
-                        row, PFAF_FIELD_ALIASES['toxicite'], default=''
-                    ),
-                }
+                # Chercher ou créer l'organisme avec matching intelligent
+                # (find_or_match_organism gère le cas où nom_latin manque)
+                organism, est_nouveau = find_or_match_organism(
+                    Organism,
+                    nom_latin=nom_latin,
+                    nom_commun=nom_commun or nom_latin,  # Fallback sur nom_latin si nom_commun manque
+                    defaults={
+                        'nom_commun': nom_commun or nom_latin,
+                        'famille': famille,
+                        'regne': 'plante',
+                        'type_organisme': self._type_from_row(row),
+                        'besoin_soleil': besoin_soleil,
+                        'besoin_eau': besoin_eau,
+                        'hauteur_max': hauteur_max,
+                        'description': description,
+                        'parties_comestibles': get_row_value(
+                            row, PFAF_FIELD_ALIASES['edible_parts'], default=''
+                        ),
+                        'usages_autres': get_row_value(
+                            row, PFAF_FIELD_ALIASES['uses'], default=''
+                        ),
+                        'toxicite': get_row_value(
+                            row, PFAF_FIELD_ALIASES['toxicite'], default=''
+                        ),
+                    }
+                )
+                
+                # Gérer fixateur_azote
                 fixateur = get_row_value(
                     row, PFAF_FIELD_ALIASES['fixateur_azote'], default=''
                 ).lower()
                 if fixateur and ('y' in fixateur or 'yes' in fixateur or 'oui' in fixateur or '1' in fixateur):
-                    full_defaults['fixateur_azote'] = True
-
-                pfaf_payload = self._serializable_payload(row)
-
-                existing = Organism.objects.filter(nom_latin=nom_latin).first()
-                if merge_mode == MERGE_FILL_GAPS and existing:
-                    current = {k: getattr(existing, k, None) for k in full_defaults}
-                    full_defaults = apply_fill_gaps(current, full_defaults)
-                    existing_sources = dict(existing.data_sources or {})
-                    existing_sources[SOURCE_PFAF] = pfaf_payload
-                    full_defaults['data_sources'] = existing_sources
+                    if not organism.fixateur_azote:
+                        organism.fixateur_azote = True
+                
+                # Gérer les zones de rusticité (format JSONField avec source)
+                current_zones = list(organism.zone_rusticite or [])
+                if zone_raw:
+                    updated_zones = merge_zones_rusticite(
+                        current_zones,
+                        zone_raw,
+                        SOURCE_PFAF
+                    )
                 else:
-                    existing_sources = dict(existing.data_sources or {}) if existing else {}
-                    existing_sources[SOURCE_PFAF] = pfaf_payload
-                    full_defaults['data_sources'] = existing_sources
-
-                organism, est_nouveau = Organism.objects.update_or_create(
-                    nom_latin=nom_latin,
-                    defaults=full_defaults,
-                )
+                    updated_zones = current_zones
+                
+                # Préparer les mises à jour selon le mode de merge
+                update_fields = {}
+                
+                if merge_mode == MERGE_FILL_GAPS:
+                    # Ne mettre à jour que les champs vides
+                    current = {k: getattr(organism, k, None) for k in [
+                        'famille', 'besoin_eau', 'besoin_soleil', 'hauteur_max',
+                        'description', 'parties_comestibles', 'usages_autres', 'toxicite'
+                    ]}
+                    defaults_to_apply = {
+                        'famille': famille,
+                        'besoin_soleil': besoin_soleil,
+                        'besoin_eau': besoin_eau,
+                        'hauteur_max': hauteur_max,
+                        'description': description,
+                        'parties_comestibles': get_row_value(
+                            row, PFAF_FIELD_ALIASES['edible_parts'], default=''
+                        ),
+                        'usages_autres': get_row_value(
+                            row, PFAF_FIELD_ALIASES['uses'], default=''
+                        ),
+                        'toxicite': get_row_value(
+                            row, PFAF_FIELD_ALIASES['toxicite'], default=''
+                        ),
+                    }
+                    filtered = apply_fill_gaps(current, defaults_to_apply)
+                    update_fields.update(filtered)
+                else:
+                    # Mode overwrite: mettre à jour tous les champs
+                    update_fields.update({
+                        'famille': famille,
+                        'besoin_soleil': besoin_soleil,
+                        'besoin_eau': besoin_eau,
+                        'hauteur_max': hauteur_max,
+                        'description': description,
+                        'parties_comestibles': get_row_value(
+                            row, PFAF_FIELD_ALIASES['edible_parts'], default=''
+                        ),
+                        'usages_autres': get_row_value(
+                            row, PFAF_FIELD_ALIASES['uses'], default=''
+                        ),
+                        'toxicite': get_row_value(
+                            row, PFAF_FIELD_ALIASES['toxicite'], default=''
+                        ),
+                    })
+                
+                # Toujours mettre à jour les zones (merge intelligent)
+                update_fields['zone_rusticite'] = updated_zones
+                
+                # Fusionner data_sources
+                pfaf_payload = self._serializable_payload(row)
+                existing_sources = dict(organism.data_sources or {})
+                existing_sources[SOURCE_PFAF] = pfaf_payload
+                update_fields['data_sources'] = existing_sources
+                
+                # Appliquer les mises à jour
+                for key, value in update_fields.items():
+                    setattr(organism, key, value)
+                organism.save()
                 if est_nouveau:
                     created += 1
                     self.stdout.write(f'  ✅ Créé: {nom_commun}')
@@ -180,15 +310,18 @@ class Command(BaseCommand):
                     self.stdout.write(f'  🔄 Mis à jour: {nom_commun}')
             except Exception as e:
                 skipped += 1
+                skipped_errors += 1
                 nom_latin = get_row_value(row, PFAF_FIELD_ALIASES['latin_name'], default='?')
-                self.stdout.write(
-                    self.style.WARNING(f'  ⚠️ Erreur: {nom_latin} - {e}')
-                )
+                # Afficher les détails seulement pour les premières erreurs
+                if skipped_errors <= 5:
+                    self.stdout.write(
+                        self.style.WARNING(f'  ⚠️ Erreur ligne {idx}: {nom_latin} - {e}')
+                    )
 
         self.stdout.write(self.style.SUCCESS(f'\n🎉 Import PFAF terminé.'))
         self.stdout.write(f'  ✅ Créés: {created}')
         self.stdout.write(f'  🔄 Mis à jour: {updated}')
-        self.stdout.write(f'  ⚠️ Ignorés: {skipped}')
+        self.stdout.write(f'  ⚠️ Ignorés: {skipped} ({skipped_empty_names} noms vides, {skipped_errors} erreurs)')
 
     def _serializable_payload(self, row: dict) -> dict:
         """Construit un dict JSON-serialisable pour data_sources['pfaf']."""

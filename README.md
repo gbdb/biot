@@ -121,9 +121,13 @@ Plus de diversité = plus de stabilité = moins de maladies = meilleure résilie
 
 **Interface & Données** 💻
 - [x] Interface admin Django complète avec recherche et filtres avancés
+- [x] **Tags personnels** - Système de tags colorés pour organiser votre collection :
+  - Tags personnalisables avec couleurs et descriptions
+  - Filtrage par tags dans l'admin
+  - Interface de sélection intuitive (filter_horizontal)
 - [ ] Import automatique depuis sources ouvertes :
   - ✅ Hydro-Québec (arbres zone Québec)
-  - ⏳ Plants For A Future (PFAF) - plantes comestibles permaculture
+  - ✅ Plants For A Future (PFAF) - plantes comestibles permaculture
   - ⏳ OpenFarm - légumes et cultures maraîchères
   - ⏳ USDA Plants Database - données botaniques
 - [x] Stockage flexible (JSONField) pour données de sources multiples
@@ -152,7 +156,11 @@ Plus de diversité = plus de stabilité = moins de maladies = meilleure résilie
 - [ ] Suggestions intelligentes de plantes compagnes
 
 **Zones & Microclimats** 🗺️
-- [ ] Cartographie interactive de votre terrain
+- [ ] **Cartographie 3D du terrain** (priorité : terrains en pente) :
+  - Vue 3D dès la conception — le relief est central pour pentes, drainage, exposition
+  - **Cesium** (open source, Apache 2.0) pour visualisation 3D dans le navigateur
+  - Relief via LiDAR/MNT (Données Québec, données ouvertes)
+  - Placement des espèces/spécimens aux emplacements voulus sur la carte 3D
 - [ ] Définition de zones avec caractéristiques :
   - Ensoleillement (ombre, mi-ombre, plein soleil)
   - Humidité (sec, normal, humide, détrempé)
@@ -170,7 +178,7 @@ Plus de diversité = plus de stabilité = moins de maladies = meilleure résilie
   - Jardins de pluie
 
 **Planification Spatiale** 📐
-- [ ] Plan de jardin interactif (drag & drop)
+- [ ] Plan de jardin interactif sur fond 3D (placement des espèces par clic/drag)
 - [ ] Espacement automatique selon taille mature
 - [ ] Visualisation de l'ombrage au fil des saisons
 - [ ] Zones de pollinisation (rayon efficace)
@@ -302,7 +310,7 @@ Plus de diversité = plus de stabilité = moins de maladies = meilleure résilie
 
 - **Backend** : Django 5.0+ (Python 3.11+)
 - **Base de données** : PostgreSQL 15+
-- **Frontend** : Django Templates + Alpine.js / HTMX (léger et progressif)
+- **Frontend** : Django Templates + Alpine.js / HTMX (léger et progressif) — Cesium prévu pour cartographie 3D (Niveau 2)
 - **API** : Django REST Framework
 - **Déploiement** : Docker + Docker Compose
 - **Infrastructure** : Auto-hébergeable (Proxmox, Raspberry Pi, VPS) ou SaaS

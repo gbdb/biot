@@ -15,8 +15,14 @@ from typing import Any, Dict, Iterator, List, Optional
 # Alias possibles par champ Organism (ordre de priorité)
 # Clés normalisées : on essaie chaque alias sur le row déjà normalisé
 PFAF_FIELD_ALIASES: Dict[str, List[str]] = {
-    'latin_name': ['latin_name', 'nom_latin', 'latin', 'scientific_name', 'scientificname'],
-    'common_name': ['common_name', 'nom_commun', 'commonname', 'common'],
+    'latin_name': [
+        'latin_name', 'nom_latin', 'latin', 'scientific_name', 'scientificname',
+        'sci_name', 'binomial', 'species', 'scientific', 'latinname', 'latin_name_full'
+    ],
+    'common_name': [
+        'common_name', 'nom_commun', 'commonname', 'common', 'name', 'plant_name',
+        'vernacular_name', 'english_name', 'vernacular', 'english', 'plantname'
+    ],
     'family': ['family', 'famille', 'familie'],
     'habit': ['habit', 'type', 'growth_form'],
     'zone_rusticite': ['zone_rusticite', 'zone_min', 'zone', 'hardiness', 'uk_hardiness', 'hardiness_zone'],
@@ -129,6 +135,17 @@ def rows_from_sqlite(
         rows.append(d)
     conn.close()
     return rows
+
+
+def get_available_columns(data: List[Dict[str, Any]]) -> List[str]:
+    """
+    Retourne la liste des colonnes disponibles dans les données.
+    Utile pour le débogage quand les colonnes attendues ne sont pas trouvées.
+    """
+    if not data:
+        return []
+    # Prendre les clés de la première ligne (toutes les lignes devraient avoir les mêmes clés après normalisation)
+    return sorted(list(data[0].keys()))
 
 
 def load_pfaf_data(
