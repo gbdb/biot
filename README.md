@@ -90,10 +90,11 @@ Plus de diversité = plus de stabilité = moins de maladies = meilleure résilie
   - Physiques : hauteur/largeur max, croissance
   - Fruitiers : âge fructification, période récolte, pollinisation
   - Comestibilité : parties comestibles (fruits, feuilles, racines, fleurs, écorce)
-- [ ] **Spécimens individuels** - Vos plants réels avec :
+- [x] **Spécimens individuels** - Vos plants réels avec :
   - Géolocalisation sur le terrain
   - Photos et timeline complète
   - Historique de santé et d'événements
+  - Lien vers collection de semences (pour semis maison)
 - [ ] **Événements** - Journal de bord :
   - Plantation, arrosage, taille, fertilisation
   - Observations (floraison, fructification, maladies)
@@ -119,15 +120,25 @@ Plus de diversité = plus de stabilité = moins de maladies = meilleure résilie
   - Par organisme (besoins spécifiques)
   - Par problématique (sol acide, pauvre, compacté)
 
+**Gestion des Semences** 🌱
+- [x] **Inventaire de graines** - Collections de semences avec :
+  - Fournisseurs (semenciers, échanges, récolte perso)
+  - Stratification (froide/chaude, durée), germination (temps, température)
+  - Viabilité (durée de vie, date récolte, taux germination labo)
+  - Batches de semis (suivi taux de succès, plants obtenus)
+- [x] **Import de catalogues** - Commande `import_seeds` (CSV, JSON) avec mapping flexible
+- [x] **Documentation pour semenciers** - [Guide de mapping](docs/seed-supplier-mapping.md) pour préparer vos exports
+
 **Interface & Données** 💻
 - [x] Interface admin Django complète avec recherche et filtres avancés
 - [x] **Tags personnels** - Système de tags colorés pour organiser votre collection :
   - Tags personnalisables avec couleurs et descriptions
   - Filtrage par tags dans l'admin
   - Interface de sélection intuitive (filter_horizontal)
-- [ ] Import automatique depuis sources ouvertes :
+- [x] Import automatique depuis sources ouvertes :
   - ✅ Hydro-Québec (arbres zone Québec)
   - ✅ Plants For A Future (PFAF) - plantes comestibles permaculture
+  - ✅ **Semences** - Catalogues semenciers (CSV/JSON) via `python manage.py import_seeds`
   - ⏳ OpenFarm - légumes et cultures maraîchères
   - ⏳ USDA Plants Database - données botaniques
 - [x] Stockage flexible (JSONField) pour données de sources multiples
@@ -287,6 +298,7 @@ Plus de diversité = plus de stabilité = moins de maladies = meilleure résilie
 - [ ] Système de réputation et badges
 
 **Échanges & Grainothèques** 🌱
+- [x] Fondations : inventaire semences, fournisseurs, import catalogues (voir Niveau 1)
 - [ ] Plateforme d'échange de semences
 - [ ] Échange de plants et boutures
 - [ ] Greffons pour arbres fruitiers
@@ -325,6 +337,9 @@ Plus de diversité = plus de stabilité = moins de maladies = meilleure résilie
          │
          ├─ Specimen        (plants individuels avec géoloc)
          ├─ Event           (timeline : plantation, arrosage, observations)
+         ├─ SeedSupplier    (fournisseurs de semences)
+         ├─ SeedCollection  (inventaire graines : stratification, germination, viabilité)
+         │   └─ SemisBatch  (sessions de semis, taux de succès)
          ├─ CompanionRelation  (qui aide qui, comment)
          ├─ OrganismAmendment  (quel engrais pour qui)
          │
@@ -427,7 +442,17 @@ python manage.py createsuperuser
 python manage.py runserver
 ```
 
-Accédez à l'application : `http://localhost:8000`  
+Accédez à l'application : `http://localhost:8000`
+
+**Import de données :**
+```bash
+# Import PFAF (plantes comestibles)
+python manage.py import_pfaf --file=votre_fichier.csv
+
+# Import catalogues de semences (CSV ou JSON)
+python manage.py import_seeds --file=catalogue_semences.csv [--supplier=ID]
+```
+
 Admin : `http://localhost:8000/admin`
 
 ### Installation avec Docker (Production)
@@ -459,6 +484,7 @@ Accédez à l'application : `http://localhost` (ou votre domaine configuré)
 
 *(En construction - contributions bienvenues!)*
 
+- [x] [Guide de mapping semenciers](docs/seed-supplier-mapping.md) - Préparer vos catalogues CSV/JSON pour l'import
 - [ ] Guide d'utilisation
 - [ ] Guide de contribution
 - [ ] Documentation API
@@ -570,7 +596,7 @@ Le projet est en reconstruction active depuis février 2026, basé sur des expé
 - **2027** : Niveaux 4-5 (Faune, IoT, IA)
 - **2028** : Niveau 6 (Communauté, réseau social permacole)
 
-**Mise à jour :** Février 2026 - Modèle Organism créé, architecture de base en place
+**Mise à jour :** Février 2026 - Modèle Organism créé, architecture de base en place, gestion des semences (SeedCollection, import catalogues)
 
 ---
 
