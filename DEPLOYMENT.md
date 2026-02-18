@@ -1,6 +1,6 @@
 # 🌳 Guide de déploiement Jardin bIOT — Serveur Proxmox (Production locale)
 
-> **Objectif** : Déployer Jardin bIOT sur une machine virtuelle Proxmox dans ton environnement (sous-sol, réseau local), pour une instance de production toujours disponible sans dépendre du laptop.
+> **Objectif** : Déployer Jardin bIOT sur une machine virtuelle Proxmox dans un environnement local, pour une instance de production toujours disponible et les test en et 2026.
 
 ---
 
