@@ -10,7 +10,13 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
 from .models import CompanionRelation, Garden, SprinklerZone
-from .weather_service import fetch_weather_for_garden, geocode_address, get_watering_alert
+from .weather_service import (
+    fetch_forecast,
+    fetch_weather_for_garden,
+    geocode_address,
+    get_forecast_alerts,
+    get_watering_alert,
+)
 
 
 @staff_member_required
@@ -70,6 +76,10 @@ def weather_dashboard_view(request):
             fetch_weather_for_garden(g, days_back=14)
         messages.success(request, "Données météo actualisées.")
 
+    if request.GET.get("clear_sprinkler_pause"):
+        request.session.pop("sprinkler_force_zone_id", None)
+        return redirect("weather_dashboard")
+
     gardens = Garden.objects.prefetch_related("sprinkler_zones", "weather_records").all()
     today = date.today()
     start = today - timedelta(days=14)
@@ -89,13 +99,22 @@ def weather_dashboard_view(request):
         g.total_pluie_mm = round(sum(r.rain_mm or 0 for r in records), 1)
         g.total_neige_cm = round(sum(r.snowfall_cm or 0 for r in records), 1)
 
+        # Prévision + alertes
+        g.forecast = fetch_forecast(g, days=7)
+        g.forecast_alerts = get_forecast_alerts(g, g.forecast)
+
         enriched.append(g)
 
-    return render(
-        request,
-        "species/weather_dashboard.html",
-        {"gardens": enriched},
-    )
+    force_zone_id = request.session.get("sprinkler_force_zone_id")
+    if force_zone_id and not SprinklerZone.objects.filter(pk=force_zone_id).exists():
+        request.session.pop("sprinkler_force_zone_id", None)
+        force_zone_id = None
+
+    context = {
+        "gardens": enriched,
+        "sprinkler_force_zone_id": force_zone_id,
+    }
+    return render(request, "species/weather_dashboard.html", context)
 
 
 @staff_member_required
@@ -141,9 +160,18 @@ def trigger_sprinkler_view(request, zone_id):
     if request.method != "POST":
         return redirect("weather_dashboard")
 
-    success, msg = trigger_sprinkler(zone)
+    force = request.POST.get("force") == "1"
+    success, msg, pause_reason = trigger_sprinkler(zone, force=force)
     if success:
+        request.session.pop("sprinkler_force_zone_id", None)
         messages.success(request, msg)
+    elif pause_reason:
+        request.session["sprinkler_force_zone_id"] = zone.id
+        messages.warning(
+            request,
+            f"Arrosage non déclenché : {pause_reason}. "
+            "Utilisez le bouton « Déclencher quand même » ci-dessous si nécessaire.",
+        )
     else:
         messages.error(request, f"Erreur : {msg}")
 
