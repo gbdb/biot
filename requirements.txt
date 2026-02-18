@@ -9,6 +9,9 @@ sqlparse==0.5.5
 # Images (modèle Photo - ImageField)
 Pillow==11.0.0
 
+# Export PDF
+reportlab==4.2.5
+
 # Configuration via variables d'environnement
 django-environ==0.11.2
 

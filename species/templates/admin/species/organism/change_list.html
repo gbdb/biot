@@ -8,4 +8,14 @@
             Importer PFAF
         </a>
     </li>
+    <li>
+        <a href="{{ request.path }}?export=csv{% if request.GET %}&{{ request.GET.urlencode }}{% endif %}" class="viewsitelink">
+            📥 Exporter CSV
+        </a>
+    </li>
+    <li>
+        <a href="{{ request.path }}?export=pdf{% if request.GET %}&{{ request.GET.urlencode }}{% endif %}" class="viewsitelink">
+            📥 Exporter PDF
+        </a>
+    </li>
 {% endblock %}

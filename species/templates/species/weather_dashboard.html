@@ -1,0 +1,160 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}Historique météo - Jardin bIOT{% endblock %}
+
+{% block extrahead %}
+<style>
+  .weather-dashboard { max-width: 1000px; }
+  .weather-garden-card {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 1rem 1.5rem;
+    margin-bottom: 1.5rem;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+  .weather-garden-card h3 { margin-top: 0; color: #417690; }
+  .weather-alert {
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+    border-radius: 6px;
+    padding: 1rem;
+    margin: 1rem 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  .weather-alert-icon { font-size: 1.5rem; }
+  .weather-alert-actions { margin-top: 0.5rem; }
+  .weather-alert-actions a, .weather-alert-actions button {
+    margin-right: 0.5rem;
+    padding: 0.35rem 0.75rem;
+    font-size: 0.9em;
+  }
+  .weather-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9em;
+  }
+  .weather-table th, .weather-table td { padding: 0.4rem 0.75rem; text-align: left; border-bottom: 1px solid #eee; }
+  .weather-table th { background: #f8f9fa; color: #555; font-weight: 600; }
+  .weather-table .temp-high { color: #c0392b; }
+  .weather-table .temp-low { color: #3498db; }
+  .weather-table .precip { color: #2980b9; }
+  .weather-table .snow { color: #7f8c8d; }
+  .weather-summary {
+    background: #f0f7ff;
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    margin: 0.75rem 0;
+    font-weight: 500;
+  }
+  .sprinkler-zones { margin-top: 1rem; }
+  .sprinkler-zone {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-right: 1rem;
+    margin-bottom: 0.5rem;
+    padding: 0.4rem 0.75rem;
+    background: #e8f5e9;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  .sprinkler-zone.triggered { background: #c8e6c9; }
+  .no-coords { color: #999; font-style: italic; }
+  .fetch-btn { margin-bottom: 1rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1>📊 Historique météo</h1>
+
+<p class="fetch-btn">
+  <a href="?refresh=1" class="button">Actualiser les données météo</a>
+  <span style="color:#666; margin-left:1rem; font-size:0.9em;">
+    Charge les 14 derniers jours. Nouveaux jardins : mise à jour automatique à la création.
+  </span>
+</p>
+
+<div class="weather-dashboard">
+  {% for garden in gardens %}
+  <div class="weather-garden-card">
+    <h3>🏡 {{ garden.nom }}</h3>
+    <p>
+      {% if garden.ville %}{{ garden.ville }}{% if garden.pays %}, {{ garden.pays }}{% endif %}{% endif %}
+      {% if not garden.a_coordonnees %}
+        <span class="no-coords">— Pas de coordonnées (lat/long) : ajoutez-les pour activer la météo.</span>
+      {% endif %}
+    </p>
+
+    {% if garden.alert %}
+    <div class="weather-alert">
+      <span class="weather-alert-icon">⚠️</span>
+      <div>
+        <strong>Alerte arrosage</strong>
+        <p>{{ garden.alert.message }}</p>
+        <div class="weather-alert-actions">
+          {% for zone in garden.sprinkler_zones_actives %}
+          <form method="post" action="{% url 'trigger_sprinkler' zone.id %}" style="display:inline;">
+            {% csrf_token %}
+            <button type="submit" class="button">🚿 {{ zone.nom }}</button>
+          </form>
+          {% endfor %}
+          <a href="{% url 'admin:species_event_add' %}?specimen=" class="button">📝 Noter un arrosage</a>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if garden.a_coordonnees and garden.weather_records_display %}
+    {% if garden.moyenne_temp is not None or garden.total_pluie_mm or garden.total_neige_cm %}
+    <div class="weather-summary">
+      {% if garden.moyenne_temp is not None %}Moyenne 14 j : <strong>{{ garden.moyenne_temp }}°C</strong>{% endif %}
+      {% if garden.total_pluie_mm %} · Pluie : <strong>{{ garden.total_pluie_mm }} mm</strong>{% endif %}
+      {% if garden.total_neige_cm %} · Neige : <strong>{{ garden.total_neige_cm }} cm</strong>{% endif %}
+    </div>
+    {% endif %}
+    <table class="weather-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Temp. max</th>
+          <th>Temp. min</th>
+          <th>Temp. moy</th>
+          <th>Pluie</th>
+          <th>Neige</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for rec in garden.weather_records_display %}
+        <tr>
+          <td>{{ rec.date|date:"d/m/Y" }}</td>
+          <td class="temp-high">{% if rec.temp_max %}{{ rec.temp_max|floatformat:1 }}°C{% else %}—{% endif %}</td>
+          <td class="temp-low">{% if rec.temp_min %}{{ rec.temp_min|floatformat:1 }}°C{% else %}—{% endif %}</td>
+          <td>{% if rec.temp_mean %}{{ rec.temp_mean|floatformat:1 }}°C{% else %}—{% endif %}</td>
+          <td class="precip">{{ rec.rain_mm|default:0|floatformat:1 }} mm</td>
+          <td class="snow">{{ rec.snowfall_cm|default:0|floatformat:1 }} cm</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% elif garden.a_coordonnees %}
+    <p style="color:#666;">Aucune donnée météo. Exécutez <code>python manage.py fetch_weather</code>.</p>
+    {% endif %}
+
+    {% if garden.sprinkler_zones_actives %}
+    <div class="sprinkler-zones">
+      <strong>Zones sprinkler :</strong>
+      {% for zone in garden.sprinkler_zones_actives %}
+      <span class="sprinkler-zone">{{ zone.nom }} ({{ zone.duree_defaut_minutes }} min)</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  {% empty %}
+  <p>Aucun jardin. <a href="{% url 'admin:species_garden_add' %}">Créer un jardin</a> avec adresse et coordonnées.</p>
+  {% endfor %}
+</div>
+{% endblock %}

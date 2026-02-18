@@ -8,11 +8,18 @@ from django.shortcuts import render
 from django.urls import path, reverse
 from django.utils.html import format_html
 
+from .export_utils import (
+    export_organisms_csv_simple,
+    export_organisms_pdf,
+    export_specimens_csv,
+    export_seed_collections_csv,
+)
 from .forms import ImportPFAFForm
 from .models import (
-    Organism, UserTag, CompanionRelation, Amendment,
+    Organism, UserTag, CompanionRelation, Amendment, OrganismAmendment,
     Specimen, Event, Photo,
     SeedSupplier, SeedCollection, SemisBatch,
+    Garden, WeatherRecord, SprinklerZone,
 )
 
 
@@ -24,6 +31,28 @@ class PhotoOrganismInline(admin.TabularInline):
     fields = ('image', 'type_photo', 'titre', 'date_prise')
     verbose_name = "Photo de l'espèce"
     verbose_name_plural = "Photos de l'espèce"
+
+
+class EventSpecimenInline(admin.TabularInline):
+    """Journal de bord : événements directement sur la fiche spécimen."""
+    model = Event
+    fk_name = 'specimen'
+    extra = 0
+    fields = ('type_event', 'date', 'titre', 'description', 'quantite', 'unite', 'amendment')
+    verbose_name = "Événement"
+    verbose_name_plural = "Événements"
+    ordering = ['-date', '-heure']
+    show_change_link = True
+
+
+class PhotoSpecimenInline(admin.TabularInline):
+    """Galerie de photos du spécimen."""
+    model = Photo
+    fk_name = 'specimen'
+    extra = 1
+    fields = ('image', 'type_photo', 'titre', 'date_prise', 'description')
+    verbose_name = "Photo du spécimen"
+    verbose_name_plural = "Photos du spécimen"
 from .pfaf_mapping import (
     PFAF_FIELD_ALIASES,
     get_available_columns,
@@ -43,7 +72,9 @@ from .source_rules import (
 @admin.register(Organism)
 class OrganismAdmin(admin.ModelAdmin):
     inlines = [PhotoOrganismInline]
-    
+    actions = ["export_organismes_csv", "export_organismes_pdf"]
+    change_list_template = "admin/species/organism/change_list.html"
+
     list_display = [
         'nom_commun',
         'nom_latin', 
@@ -134,6 +165,31 @@ class OrganismAdmin(admin.ModelAdmin):
             formatted.append(f"{zone} ({label})")
         return ', '.join(formatted)
     zones_display.short_description = "Zones rusticité"
+
+    @admin.action(description="Exporter en CSV")
+    def export_organismes_csv(self, request, queryset):
+        return export_organisms_csv_simple(queryset)
+
+    @admin.action(description="Exporter en PDF")
+    def export_organismes_pdf(self, request, queryset):
+        from django.http import HttpResponse
+        pdf_bytes = export_organisms_pdf(queryset)
+        response = HttpResponse(pdf_bytes, content_type="application/pdf")
+        response["Content-Disposition"] = 'attachment; filename="organismes.pdf"'
+        return response
+
+    def changelist_view(self, request, extra_context=None):
+        if request.GET.get("export") == "csv":
+            cl = self.get_changelist_instance(request)
+            return export_organisms_csv_simple(cl.get_queryset(request))
+        if request.GET.get("export") == "pdf":
+            from django.http import HttpResponse
+            cl = self.get_changelist_instance(request)
+            pdf_bytes = export_organisms_pdf(cl.get_queryset(request))
+            response = HttpResponse(pdf_bytes, content_type="application/pdf")
+            response["Content-Disposition"] = 'attachment; filename="organismes.pdf"'
+            return response
+        return super().changelist_view(request, extra_context)
 
     def get_urls(self):
         """Ajoute la route pour l'import PFAF."""
@@ -563,8 +619,92 @@ class UserTagAdmin(admin.ModelAdmin):
             return 'grimpante'
         return 'vivace'
 
+class SprinklerZoneInline(admin.TabularInline):
+    model = SprinklerZone
+    extra = 0
+    fields = ('nom', 'type_integration', 'webhook_url', 'duree_defaut_minutes', 'actif')
+
+
+@admin.register(Garden)
+class GardenAdmin(admin.ModelAdmin):
+    change_list_template = "admin/species/garden/change_list.html"
+    change_form_template = "admin/species/garden/change_form.html"
+    list_display = ['nom', 'ville', 'adresse_courte', 'pluie_semaine_display', 'a_coordonnees', 'nb_specimens']
+    list_filter = ['ville', 'pays']
+    search_fields = ['nom', 'adresse', 'ville', 'notes']
+    inlines = [SprinklerZoneInline]
+    fieldsets = (
+        ('Identification', {
+            'fields': ('nom',)
+        }),
+        ('Adresse', {
+            'fields': ('adresse', 'ville', 'code_postal', 'pays')
+        }),
+        ('Coordonnées (météo)', {
+            'fields': ('latitude', 'longitude', 'timezone', 'pluie_semaine_display'),
+            'description': 'Coordonnées pour la météo (Open-Meteo). Option 1 : remplir adresse/ville/code postal ci-dessus, enregistrer, puis cliquer "Remplir lat/long depuis l\'adresse" dans la barre d\'outils. Option 2 : saisir lat/long manuellement.'
+        }),
+        ('Seuils alerte arrosage', {
+            'fields': ('seuil_temp_chaud_c', 'seuil_pluie_faible_mm', 'jours_periode_analyse'),
+            'classes': ('collapse',)
+        }),
+        ('Notes', {
+            'fields': ('notes',)
+        }),
+    )
+
+    def adresse_courte(self, obj):
+        if obj.ville:
+            return f"{obj.ville}, {obj.pays}"
+        return obj.adresse[:50] + '...' if len(obj.adresse or '') > 50 else (obj.adresse or '-')
+    adresse_courte.short_description = "Lieu"
+
+    def a_coordonnees(self, obj):
+        return "✓" if obj.latitude and obj.longitude else "—"
+    a_coordonnees.short_description = "Coords"
+
+    def nb_specimens(self, obj):
+        return obj.specimens.count()
+    nb_specimens.short_description = "Spécimens"
+
+    def pluie_semaine_display(self, obj):
+        if not obj or not obj.pk:
+            return "—"
+        mm = obj.pluie_semaine_mm()
+        if mm is None:
+            return "—"  # Pas de données météo
+        return f"{mm} mm"
+    pluie_semaine_display.short_description = "Pluie 7 jours"
+
+    readonly_fields = ['pluie_semaine_display']
+
+
+@admin.register(SprinklerZone)
+class SprinklerZoneAdmin(admin.ModelAdmin):
+    list_display = ['nom', 'garden', 'type_integration', 'actif', 'webhook_url_court']
+    list_filter = ['garden', 'type_integration', 'actif']
+    search_fields = ['nom', 'webhook_url']
+    autocomplete_fields = ['garden']
+
+    def webhook_url_court(self, obj):
+        url = obj.webhook_url or ''
+        return url[:40] + '...' if len(url) > 40 else url or '-'
+    webhook_url_court.short_description = "Webhook"
+
+
+@admin.register(WeatherRecord)
+class WeatherRecordAdmin(admin.ModelAdmin):
+    change_list_template = "admin/species/weatherrecord/change_list.html"
+    list_display = ['garden', 'date', 'temp_max', 'temp_min', 'temp_mean', 'precipitation_mm', 'rain_mm', 'snowfall_cm']
+    list_filter = ['garden', 'date']
+    date_hierarchy = 'date'
+    autocomplete_fields = ['garden']
+
+
 @admin.register(CompanionRelation)
 class CompanionRelationAdmin(admin.ModelAdmin):
+    change_list_template = "admin/species/companionrelation/change_list.html"
+
     list_display = [
         'organisme_source',
         'type_relation_emoji',
@@ -647,6 +787,33 @@ class AmendmentAdmin(admin.ModelAdmin):
     npk_display.short_description = "NPK"
 
 
+@admin.register(OrganismAmendment)
+class OrganismAmendmentAdmin(admin.ModelAdmin):
+    list_display = [
+        'organisme',
+        'amendment',
+        'priorite',
+        'dose_specifique',
+        'moment_application',
+    ]
+    list_filter = ['priorite']
+    search_fields = [
+        'organisme__nom_commun',
+        'organisme__nom_latin',
+        'amendment__nom',
+        'notes',
+    ]
+    autocomplete_fields = ['organisme', 'amendment']
+    fieldsets = (
+        (None, {
+            'fields': ('organisme', 'amendment', 'priorite')
+        }),
+        ('Application', {
+            'fields': ('dose_specifique', 'moment_application', 'notes')
+        }),
+    )
+
+
 @admin.register(SeedSupplier)
 class SeedSupplierAdmin(admin.ModelAdmin):
     list_display = ['nom', 'type_fournisseur', 'actif', 'dernier_import']
@@ -663,6 +830,9 @@ class SemisBatchInline(admin.TabularInline):
 
 @admin.register(SeedCollection)
 class SeedCollectionAdmin(admin.ModelAdmin):
+    actions = ["export_seed_collections_csv_action"]
+    change_list_template = "admin/species/seedcollection/change_list.html"
+
     list_display = [
         'organisme', 'variete', 'lot_reference', 'fournisseur',
         'quantite_unite_display', 'stratification_display',
@@ -732,6 +902,16 @@ class SeedCollectionAdmin(admin.ModelAdmin):
         return "-"
     viabilite_display.short_description = "Viabilité"
 
+    @admin.action(description="Exporter en CSV")
+    def export_seed_collections_csv_action(self, request, queryset):
+        return export_seed_collections_csv(queryset)
+
+    def changelist_view(self, request, extra_context=None):
+        if request.GET.get("export") == "csv":
+            cl = self.get_changelist_instance(request)
+            return export_seed_collections_csv(cl.get_queryset(request))
+        return super().changelist_view(request, extra_context)
+
 
 @admin.register(SemisBatch)
 class SemisBatchAdmin(admin.ModelAdmin):
@@ -744,9 +924,14 @@ class SemisBatchAdmin(admin.ModelAdmin):
 
 @admin.register(Specimen)
 class SpecimenAdmin(admin.ModelAdmin):
+    inlines = [EventSpecimenInline, PhotoSpecimenInline]
+    actions = ["export_specimens_csv_action"]
+    change_list_template = "admin/species/specimen/change_list.html"
+
     list_display = [
         'nom',
         'organisme',
+        'garden',
         'zone_jardin',
         'statut',
         'date_plantation',
@@ -757,6 +942,7 @@ class SpecimenAdmin(admin.ModelAdmin):
     list_filter = [
         'statut',
         'source',
+        'garden',
         'zone_jardin',
         'organisme__type_organisme',
         'date_plantation'
@@ -770,7 +956,7 @@ class SpecimenAdmin(admin.ModelAdmin):
         'notes'
     ]
     
-    autocomplete_fields = ['organisme', 'seed_collection']
+    autocomplete_fields = ['organisme', 'seed_collection', 'garden']
     
     date_hierarchy = 'date_plantation'
     
@@ -779,7 +965,7 @@ class SpecimenAdmin(admin.ModelAdmin):
             'fields': ('organisme', 'nom', 'code_identification')
         }),
         ('Localisation', {
-            'fields': ('zone_jardin', 'latitude', 'longitude')
+            'fields': ('garden', 'zone_jardin', 'latitude', 'longitude')
         }),
         ('Plantation', {
             'fields': (
@@ -810,6 +996,16 @@ class SpecimenAdmin(admin.ModelAdmin):
         stars = "⭐" * (obj.sante // 2)
         return stars if stars else "-"
     sante_stars.short_description = "Santé"
+
+    @admin.action(description="Exporter en CSV")
+    def export_specimens_csv_action(self, request, queryset):
+        return export_specimens_csv(queryset)
+
+    def changelist_view(self, request, extra_context=None):
+        if request.GET.get("export") == "csv":
+            cl = self.get_changelist_instance(request)
+            return export_specimens_csv(cl.get_queryset(request))
+        return super().changelist_view(request, extra_context)
 
 @admin.register(Event)
 class EventAdmin(admin.ModelAdmin):
