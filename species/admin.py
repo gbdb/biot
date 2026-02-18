@@ -622,7 +622,7 @@ class UserTagAdmin(admin.ModelAdmin):
 class SprinklerZoneInline(admin.TabularInline):
     model = SprinklerZone
     extra = 0
-    fields = ('nom', 'type_integration', 'webhook_url', 'duree_defaut_minutes', 'actif')
+    fields = ('nom', 'type_integration', 'webhook_url', 'duree_defaut_minutes', 'actif', 'annuler_si_pluie_prevue')
 
 
 @admin.register(Garden)
@@ -646,6 +646,14 @@ class GardenAdmin(admin.ModelAdmin):
         }),
         ('Seuils alerte arrosage', {
             'fields': ('seuil_temp_chaud_c', 'seuil_pluie_faible_mm', 'jours_periode_analyse'),
+            'classes': ('collapse',)
+        }),
+        ('Seuils prévision', {
+            'fields': (
+                'jours_sans_pluie_prevision', 'seuil_gel_c', 'seuil_pluie_forte_mm',
+                'zone_rusticite',
+            ),
+            'description': 'Prévision : pas de pluie N jours, gel, forte pluie, zone hiver.',
             'classes': ('collapse',)
         }),
         ('Notes', {
@@ -681,7 +689,7 @@ class GardenAdmin(admin.ModelAdmin):
 
 @admin.register(SprinklerZone)
 class SprinklerZoneAdmin(admin.ModelAdmin):
-    list_display = ['nom', 'garden', 'type_integration', 'actif', 'webhook_url_court']
+    list_display = ['nom', 'garden', 'type_integration', 'actif', 'annuler_si_pluie_prevue', 'webhook_url_court']
     list_filter = ['garden', 'type_integration', 'actif']
     search_fields = ['nom', 'webhook_url']
     autocomplete_fields = ['garden']
@@ -951,6 +959,7 @@ class SpecimenAdmin(admin.ModelAdmin):
     search_fields = [
         'nom',
         'code_identification',
+        'nfc_tag_uid',
         'organisme__nom_commun',
         'organisme__nom_latin',
         'notes'
@@ -962,7 +971,7 @@ class SpecimenAdmin(admin.ModelAdmin):
     
     fieldsets = (
         ('Identification', {
-            'fields': ('organisme', 'nom', 'code_identification')
+            'fields': ('organisme', 'nom', 'code_identification', 'nfc_tag_uid')
         }),
         ('Localisation', {
             'fields': ('garden', 'zone_jardin', 'latitude', 'longitude')

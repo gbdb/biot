@@ -912,6 +912,25 @@ class Garden(models.Model):
         default=5,
         help_text="Nombre de jours consécutifs à analyser pour l'alerte sécheresse"
     )
+    jours_sans_pluie_prevision = models.IntegerField(
+        default=3,
+        help_text="Nombre de jours sans pluie prévus pour alerter (planifier arrosage avant vacances)"
+    )
+    seuil_gel_c = models.FloatField(
+        default=-2.0,
+        help_text="Température min en dessous de laquelle alerter (gel risque pour fruitiers)"
+    )
+    seuil_pluie_forte_mm = models.FloatField(
+        default=15.0,
+        help_text="Précipitations au-dessus desquelles annuler l'arrosage automatique (mm/jour)"
+    )
+
+    # Zone de rusticité du jardin (pour alerte espèce/jardin en hiver)
+    zone_rusticite = models.CharField(
+        max_length=10,
+        blank=True,
+        help_text="Zone USDA du jardin (ex: 4a) pour alertes protection hivernale"
+    )
 
     notes = models.TextField(blank=True)
     date_ajout = models.DateTimeField(auto_now_add=True)
@@ -975,9 +994,18 @@ class Specimen(models.Model):
         max_length=50,
         blank=True,
         unique=True,
-        help_text="Code unique (ex: PMMDOL-001, ou tag RFID)"
+        help_text="Code unique (ex: PMMDOL-001, code manuel)"
     )
-    
+
+    nfc_tag_uid = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        unique=True,
+        db_index=True,
+        help_text="UID du tag NFC/RFID (ex: 04A1B2C3D4E5F6). Scan → ouvre la fiche."
+    )
+
     # === LOCALISATION ===
     zone_jardin = models.CharField(
         max_length=100,
@@ -1398,6 +1426,10 @@ class SprinklerZone(models.Model):
         help_text="Config supplémentaire (topic MQTT, entity_id HA, etc.)"
     )
     actif = models.BooleanField(default=True)
+    annuler_si_pluie_prevue = models.BooleanField(
+        default=True,
+        help_text="Ne pas déclencher si forte pluie prévue dans les 24-48h"
+    )
 
     duree_defaut_minutes = models.IntegerField(
         default=15,

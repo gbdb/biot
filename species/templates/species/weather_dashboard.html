@@ -65,6 +65,12 @@
   .sprinkler-zone.triggered { background: #c8e6c9; }
   .no-coords { color: #999; font-style: italic; }
   .fetch-btn { margin-bottom: 1rem; }
+  .forecast-section { margin-top: 1.5rem; }
+  .forecast-section h4 { color: #417690; margin-bottom: 0.5rem; }
+  .forecast-alert { padding: 0.6rem 1rem; margin: 0.5rem 0; border-radius: 6px; display: flex; gap: 0.5rem; align-items: flex-start; }
+  .forecast-alert.warning { background: #fff3cd; border: 1px solid #ffc107; }
+  .forecast-alert.info { background: #e7f3ff; border: 1px solid #3498db; }
+  .sprinkler-pause-banner { background: #fff3cd; padding: 1rem; border-radius: 6px; margin-bottom: 1rem; }
 </style>
 {% endblock %}
 
@@ -74,9 +80,21 @@
 <p class="fetch-btn">
   <a href="?refresh=1" class="button">Actualiser les données météo</a>
   <span style="color:#666; margin-left:1rem; font-size:0.9em;">
-    Charge les 14 derniers jours. Nouveaux jardins : mise à jour automatique à la création.
+    Historique 14 j + Prévision 7 j. Nouveaux jardins : mise à jour auto à la création.
   </span>
 </p>
+
+{% if sprinkler_force_zone_id %}
+<div class="sprinkler-pause-banner">
+  <strong>Pluie prévue</strong> — Arrosage annulé automatiquement.
+  <form method="post" action="{% url 'trigger_sprinkler' sprinkler_force_zone_id %}" style="display:inline; margin-left:0.5rem;">
+    {% csrf_token %}
+    <input type="hidden" name="force" value="1">
+    <button type="submit" class="button">Déclencher quand même</button>
+  </form>
+  <a href="?clear_sprinkler_pause=1" style="margin-left:0.5rem;">Fermer</a>
+</div>
+{% endif %}
 
 <div class="weather-dashboard">
   {% for garden in gardens %}
@@ -105,6 +123,18 @@
           <a href="{% url 'admin:species_event_add' %}?specimen=" class="button">📝 Noter un arrosage</a>
         </div>
       </div>
+    </div>
+    {% endif %}
+
+    {% if garden.forecast_alerts %}
+    <div class="forecast-section">
+      <h4>📋 Alertes prévision</h4>
+      {% for a in garden.forecast_alerts %}
+      <div class="forecast-alert {{ a.severity }}">
+        <span>{% if a.severity == 'warning' %}⚠️{% else %}ℹ️{% endif %}</span>
+        <span>{{ a.message }}</span>
+      </div>
+      {% endfor %}
     </div>
     {% endif %}
 
@@ -142,6 +172,34 @@
     </table>
     {% elif garden.a_coordonnees %}
     <p style="color:#666;">Aucune donnée météo. Exécutez <code>python manage.py fetch_weather</code>.</p>
+    {% endif %}
+
+    {% if garden.forecast %}
+    <div class="forecast-section">
+      <h4>🔮 Prévision 7 jours</h4>
+      <table class="weather-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Temp. max</th>
+            <th>Temp. min</th>
+            <th>Pluie</th>
+            <th>Neige</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in garden.forecast %}
+          <tr>
+            <td>{{ d.date|date:"d/m" }}</td>
+            <td class="temp-high">{% if d.temp_max %}{{ d.temp_max|floatformat:0 }}°C{% else %}—{% endif %}</td>
+            <td class="temp-low">{% if d.temp_min %}{{ d.temp_min|floatformat:0 }}°C{% else %}—{% endif %}</td>
+            <td class="precip">{{ d.precipitation_mm|floatformat:0 }} mm</td>
+            <td class="snow">{{ d.snowfall_cm|floatformat:0 }} cm</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
     {% endif %}
 
     {% if garden.sprinkler_zones_actives %}

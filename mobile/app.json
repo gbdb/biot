@@ -1,0 +1,45 @@
+{
+  "expo": {
+    "name": "Jardin Biot",
+    "slug": "jardin-biot",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "jardinbiot",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#1a3c27"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.jardinbiot.mobile",
+      "infoPlist": {
+        "NFCReaderUsageDescription": "Scan de tags NFC pour identifier les spécimens au jardin"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#1a3c27"
+      },
+      "package": "com.jardinbiot.mobile",
+      "permissions": ["android.permission.NFC"]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "react-native-nfc-manager",
+        {
+          "nfcPermission": "Permet de scanner les tags NFC sur les spécimens"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

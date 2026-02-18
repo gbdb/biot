@@ -227,6 +227,186 @@ def _safe_float(arr, index):
         return None
 
 
+def fetch_forecast(garden: Garden, days: int = 7) -> list[dict]:
+    """
+    Récupère la prévision météo (J+1 à J+N).
+    Retourne une liste de dicts {date, temp_min, temp_max, temp_mean, precipitation_mm, rain_mm, snowfall_cm}.
+    """
+    if not garden.a_coordonnees():
+        return []
+
+    params = {
+        "latitude": garden.latitude,
+        "longitude": garden.longitude,
+        "timezone": garden.timezone,
+        "forecast_days": min(days, 16),
+        "daily": [
+            "temperature_2m_max", "temperature_2m_min", "temperature_2m_mean",
+            "precipitation_sum", "rain_sum", "snowfall_sum",
+        ],
+    }
+
+    try:
+        resp = requests.get(FORECAST_URL, params=params, timeout=15)
+        resp.raise_for_status()
+        data = resp.json()
+    except requests.RequestException as e:
+        logger.warning(f"Forecast API failed for {garden}: {e}")
+        return []
+
+    daily = data.get("daily", {})
+    times = daily.get("time", [])
+    today = date.today()
+    result = []
+
+    for i, time_str in enumerate(times):
+        try:
+            day = date.fromisoformat(time_str)
+        except (ValueError, TypeError):
+            continue
+        if day <= today:
+            continue  # only future days
+        result.append({
+            "date": day,
+            "temp_min": _safe_float(daily.get("temperature_2m_min"), i),
+            "temp_max": _safe_float(daily.get("temperature_2m_max"), i),
+            "temp_mean": _safe_float(daily.get("temperature_2m_mean"), i),
+            "precipitation_mm": _safe_float(daily.get("precipitation_sum"), i) or 0.0,
+            "rain_mm": _safe_float(daily.get("rain_sum"), i) or 0.0,
+            "snowfall_cm": _safe_float(daily.get("snowfall_sum"), i) or 0.0,
+        })
+    return result
+
+
+def get_forecast_alerts(garden: Garden, forecast: list[dict]) -> list[dict]:
+    """
+    Analyse la prévision et retourne une liste d'alertes.
+    Chaque alerte: {type, message, severity, ...}
+    """
+    if not forecast:
+        return []
+
+    alerts = []
+    today = date.today()
+    month = today.month
+
+    # 1. Pas de pluie prévue les N prochains jours
+    days_no_rain = 0
+    for d in forecast:
+        if (d.get("precipitation_mm") or 0) < 1.0:
+            days_no_rain += 1
+        else:
+            break
+    seuil = garden.jours_sans_pluie_prevision
+    if days_no_rain >= seuil:
+        alerts.append({
+            "type": "no_rain_forecast",
+            "severity": "info",
+            "message": (
+                f"Aucune pluie prévue dans les {days_no_rain} prochains jours. "
+                "Pensez à arroser avant de partir en vacances."
+            ),
+            "days_no_rain": days_no_rain,
+        })
+
+    # 2. Risque de gel (printemps/tautomne uniquement, pas hiver)
+    # Mois "végétatifs" : mars(3) à mai(5), sept(9) à nov(11)
+    is_growing_season = month in (3, 4, 5, 9, 10, 11)
+    if is_growing_season:
+        gel_seuil = garden.seuil_gel_c
+        for d in forecast:
+            tmin = d.get("temp_min")
+            if tmin is not None and tmin <= gel_seuil:
+                alerts.append({
+                    "type": "frost_risk",
+                    "severity": "warning",
+                    "message": (
+                        f"Risque de gel : {tmin:.0f}°C prévu le {d['date'].strftime('%d/%m')}. "
+                        "Protéger les arbres fruitiers et plantes sensibles."
+                    ),
+                    "date": d["date"],
+                    "temp_min": tmin,
+                })
+                break
+
+    # 3. Forte pluie prévue → annuler sprinklers
+    pluie_seuil = garden.seuil_pluie_forte_mm
+    for d in forecast[:3]:  # prochains 3 jours
+        precip = d.get("precipitation_mm") or 0
+        if precip >= pluie_seuil:
+            alerts.append({
+                "type": "heavy_rain_forecast",
+                "severity": "info",
+                "message": (
+                    f"Fortes précipitations prévues ({precip:.0f} mm) le {d['date'].strftime('%d/%m')}. "
+                    "Mieux vaut annuler l'arrosage automatique."
+                ),
+                "date": d["date"],
+                "precipitation_mm": precip,
+            })
+            break
+
+    # 4. Zone rusticité : jardin 4, espèce 5 → protection hivernale conseillée
+    # Uniquement en hiver (nov à mars)
+    if month in (11, 12, 1, 2, 3) and garden.zone_rusticite:
+        from .models import Specimen
+        from .source_rules import zone_rusticite_order
+
+        jardin_zone = garden.zone_rusticite.strip().lower()
+        if jardin_zone:
+            at_risk = []
+            for s in garden.specimens.select_related("organisme").filter(
+                organisme__zone_rusticite__isnull=False
+            ):
+                org = s.organisme
+                zones = [
+                    z.get("zone") for z in (org.zone_rusticite or [])
+                    if isinstance(z, dict) and z.get("zone")
+                ]
+                for z in zones:
+                    try:
+                        # zone_rusticite_order: plus bas = plus froid. 4a < 5b
+                        if zone_rusticite_order(z) > zone_rusticite_order(jardin_zone):
+                            at_risk.append(f"{org.nom_commun} (zone {z})")
+                            break
+                    except (TypeError, ValueError):
+                        pass
+            if at_risk:
+                alerts.append({
+                    "type": "zone_mismatch_winter",
+                    "severity": "warning",
+                    "message": (
+                        f"Jardin en zone {jardin_zone.upper()}, espèces moins rustiques : "
+                        f"{', '.join(at_risk[:5])}{'...' if len(at_risk) > 5 else ''}. "
+                        "Protection hivernale conseillée."
+                    ),
+                    "specimens": at_risk,
+                })
+
+    return alerts
+
+
+def should_pause_sprinkler(sprinkler_zone) -> tuple[bool, str]:
+    """
+    Vérifie si l'arrosage doit être annulé (forte pluie prévue).
+    Retourne (pause_recommended, reason).
+    """
+    if not sprinkler_zone.annuler_si_pluie_prevue:
+        return False, ""
+
+    garden = sprinkler_zone.garden
+    if not garden.a_coordonnees():
+        return False, ""
+
+    forecast = fetch_forecast(garden, days=3)
+    pluie_seuil = garden.seuil_pluie_forte_mm
+    for d in forecast[:2]:
+        precip = d.get("precipitation_mm") or 0
+        if precip >= pluie_seuil:
+            return True, f"Pluie prévue ({precip:.0f} mm) le {d['date'].strftime('%d/%m')}"
+    return False, ""
+
+
 def fetch_weather_all_gardens(days_back: int = 14) -> dict:
     """
     Récupère la météo pour tous les jardins avec coordonnées.
@@ -294,13 +474,21 @@ def get_watering_alert(garden: Garden) -> dict | None:
     return None
 
 
-def trigger_sprinkler(sprinkler_zone, duree_minutes: int | None = None) -> tuple[bool, str]:
+def trigger_sprinkler(
+    sprinkler_zone, duree_minutes: int | None = None, force: bool = False
+) -> tuple[bool, str, str | None]:
     """
     Déclenche une zone sprinkler via son webhook.
-    Retourne (success, message).
+    Retourne (success, message, pause_reason).
+    Si pause_reason non vide et force=False, ne pas déclencher (pluie prévue).
     """
     if not sprinkler_zone.actif:
-        return False, "Zone désactivée"
+        return False, "Zone désactivée", None
+
+    if not force:
+        pause, reason = should_pause_sprinkler(sprinkler_zone)
+        if pause:
+            return False, "", reason  # callant doit afficher la raison et proposer force
 
     if sprinkler_zone.type_integration == "webhook" and sprinkler_zone.webhook_url:
         duree = duree_minutes or sprinkler_zone.duree_defaut_minutes
@@ -311,8 +499,8 @@ def trigger_sprinkler(sprinkler_zone, duree_minutes: int | None = None) -> tuple
                 timeout=10,
             )
             if resp.ok:
-                return True, f"Arrosage déclenché ({duree} min)"
-            return False, f"HTTP {resp.status_code}"
+                return True, f"Arrosage déclenché ({duree} min)", None
+            return False, f"HTTP {resp.status_code}", None
         except requests.RequestException as e:
-            return False, str(e)
-    return False, "Webhook non configuré"
+            return False, str(e), None
+    return False, "Webhook non configuré", None

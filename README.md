@@ -21,9 +21,7 @@ Ce projet est développé activement pour gérer **Les Jardins Comestibles du Mo
 🌰 **Arbres à noix** - Noisetiers américains  
 🫐 **Arbustes à baies** - Argousiers (Tatjana, Pollmix), Gadelier, Pimbina, Framboises, Rosiers  
 🌿 **Vivaces** - Lobélie cardinale, Thé des bois, Clématite de Virginie  
-🍄 **Champignons** - Mycorh
-
-izes partenaires  
+🍄 **Champignons** - Mycorhizes partenaires  
 💧 **Écosystème aquatique** - Ruisseau naturel traversant le terrain  
 ⛰️ **Terrain** - Pente exposée Est, beaucoup d'ombre, sol forestier
 
@@ -293,6 +291,67 @@ Plus de diversité = plus de stabilité = moins de maladies = meilleure résilie
 - [ ] Prise de photo et ajout instantané
 - [ ] Géolocalisation automatique des spécimens
 - [ ] Voix (dictée d'observations)
+
+---
+
+## 📱 Jardin Biot Mobile App
+
+> Application mobile native pour usage terrain : ajout de spécimens, scan NFC, journal rapide. Conçue pour être utilisée **en extérieur, en plein soleil, avec des gants** — boutons larges, minimum de taps.
+
+L'app mobile complète l'interface web/admin pour le travail au jardin : identification instantanée via NFC, saisie rapide d'événements, galerie photo chronologique.
+
+### Priorités v1
+
+| # | Fonctionnalité | État backend |
+|---|----------------|--------------|
+| 1 | Ajouter un spécimen avec photo | Specimen + Photo ✓ |
+| 2 | Associer un tag NFC à un spécimen | `code_identification` ou `nfc_tag_uid` |
+| 3 | Scanner un tag NFC → fiche instantanée | API lookup par UID |
+| 4 | Logger un événement en 2 taps max | Event model ✓ |
+| 5 | Liste des spécimens avec statut visuel | Specimen.statut ✓ |
+| 6 | Zones et sous-zones | zone_jardin (v1) → modèle Zone (Niveau 2) |
+| 7 | Filtres par zone et statut | API query params |
+| 8 | Journal chronologique par spécimen | Event per specimen ✓ |
+| 9 | Galerie photo chronologique | Photo model ✓ |
+| 10 | Rappels / tâches récurrentes | À venir (Niveau 3) |
+
+### UX critique
+
+- **Usage mobile dehors** : lisible en plein soleil (contraste élevé, tailles de police généreuses)
+- **Utilisable avec des gants** : boutons larges (min 44×44 pt), espacement généreux
+- **Minimum de taps** : workflows courts, actions rapides (ex: scan NFC → 1 tap = fiche)
+
+### Stack technique
+
+- **Frontend mobile** : React Native / Expo
+- **API** : Django REST Framework (JSON)
+- **Auth** : JWT (simplejwt) pour session mobile
+- **NFC** : expo-nfc-provider ou react-native-nfc-manager
+- **Photos** : expo-camera / expo-image-picker
+- **Offline** : AsyncStorage + sync (v1.1)
+
+### Structure du projet
+
+```
+biot/
+├── jardinbiot/     # Backend Django
+├── species/        # App Django + API
+├── mobile/         # App Expo (Jardin Biot Mobile)
+│   ├── app/
+│   ├── package.json
+│   └── ...
+└── README.md
+```
+
+### Démarrage (développement)
+
+```bash
+# Backend (API)
+cd biot && python manage.py runserver
+
+# Mobile
+cd mobile && npx expo start
+```
 
 ---
 
