@@ -1,0 +1,114 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}Réseau de compagnonnage - Jardin bIOT{% endblock %}
+
+{% block extrahead %}
+<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+<style>
+  #companion-network {
+    width: 100%;
+    height: 75vh;
+    min-height: 500px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background: #fafefa;
+  }
+  .companion-legend {
+    display: flex;
+    gap: 2rem;
+    margin: 1rem 0;
+    flex-wrap: wrap;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .legend-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+  }
+  .companion-stats {
+    margin-bottom: 1rem;
+    color: #666;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1>🌳 Réseau de compagnonnage</h1>
+
+<div class="companion-stats">
+  <strong>{{ count_nodes }}</strong> organismes • <strong>{{ count_edges }}</strong> relations
+</div>
+
+<div class="companion-legend">
+  <div class="legend-item">
+    <span class="legend-dot" style="background: #2d5a27;"></span>
+    <span>Relation positive (compagnon bénéfique, fixateur azote, etc.)</span>
+  </div>
+  <div class="legend-item">
+    <span class="legend-dot" style="background: #8b2500;"></span>
+    <span>Relation négative (allélopathie, compétition, etc.)</span>
+  </div>
+</div>
+
+<div id="companion-network"></div>
+
+<p style="margin-top: 1rem; color: #666; font-size: 0.9em;">
+  Glissez pour déplacer les nœuds. Zoom avec la molette. Cliquez sur un lien pour voir les détails.
+</p>
+
+<script>
+  (function() {
+    var nodes = new vis.DataSet({{ nodes_json|safe }});
+    var edges = new vis.DataSet({{ edges_json|safe }});
+
+    var container = document.getElementById('companion-network');
+    var data = { nodes: nodes, edges: edges };
+    var options = {
+      nodes: {
+        shape: 'dot',
+        size: 16,
+        font: {
+          size: 12,
+          face: 'sans-serif',
+        },
+        borderWidth: 2,
+        borderWidthSelected: 3,
+      },
+      edges: {
+        arrows: {
+          to: { enabled: true, scaleFactor: 0.6 }
+        },
+        smooth: {
+          type: 'cubicBezier',
+          roundness: 0.5
+        }
+      },
+      physics: {
+        enabled: true,
+        solver: 'forceAtlas2Based',
+        forceAtlas2Based: {
+          gravitationalConstant: -80,
+          centralGravity: 0.01,
+          springLength: 150,
+          springConstant: 0.08,
+          damping: 0.4,
+          avoidOverlap: 0.5
+        }
+      },
+      interaction: {
+        hover: true,
+        tooltipDelay: 200,
+        dragNodes: true,
+        zoomView: true
+      }
+    };
+
+    var network = new vis.Network(container, data, options);
+  })();
+</script>
+{% endblock %}

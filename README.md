@@ -95,30 +95,28 @@ Plus de diversité = plus de stabilité = moins de maladies = meilleure résilie
   - Photos et timeline complète
   - Historique de santé et d'événements
   - Lien vers collection de semences (pour semis maison)
-- [ ] **Événements** - Journal de bord :
+- [x] **Événements** - Journal de bord (inline sur fiche spécimen) :
   - Plantation, arrosage, taille, fertilisation
   - Observations (floraison, fructification, maladies)
   - Récoltes avec quantités
 
 **Relations Écologiques** 🔗
-- [ ] **Compagnonnage** - Relations entre organismes :
+- [x] **Compagnonnage** - Relations entre organismes :
   - **Positives** : compagnon bénéfique, fixateur azote, attire pollinisateurs, repousse nuisibles
   - **Négatives** : allélopathie (ex: noyer produit juglone toxique pour tomates)
   - **Structurelles** : abri, ombre, coupe-vent, support physique (tuteur vivant)
   - **Symbiotiques** : mycorhizes (champignons ↔ racines)
-- [ ] Force et description détaillée des interactions
-- [ ] Visualisation graphique des réseaux de relations
+- [x] Force et description détaillée des interactions
+- [x] Visualisation graphique des réseaux de relations
 
 **Sols & Amendements** 🌱
-- [ ] Base de données d'amendements :
+- [x] Base de données d'amendements :
   - Compost, fumiers, engrais verts
   - Amendements minéraux (chaux, soufre, roches)
   - Paillis organiques (BRF, feuilles, paille)
-- [ ] Composition NPK et oligo-éléments
-- [ ] Recommandations intelligentes :
-  - Par type de sol (argileux, limoneux, sablonneux)
-  - Par organisme (besoins spécifiques)
-  - Par problématique (sol acide, pauvre, compacté)
+- [x] Composition NPK et oligo-éléments
+- [x] Recommandations Organisme ↔ Amendement (modèle OrganismAmendment)
+- [ ] Recommandations intelligentes avancées (par type de sol, problématique)
 
 **Gestion des Semences** 🌱
 - [x] **Inventaire de graines** - Collections de semences avec :
@@ -142,8 +140,18 @@ Plus de diversité = plus de stabilité = moins de maladies = meilleure résilie
   - ⏳ OpenFarm - légumes et cultures maraîchères
   - ⏳ USDA Plants Database - données botaniques
 - [x] Stockage flexible (JSONField) pour données de sources multiples
-- [ ] Upload et galerie de photos par spécimen
-- [ ] Export de données (CSV, PDF)
+- [x] Upload et galerie de photos par spécimen (inline sur fiche spécimen)
+- [x] Export de données (CSV, PDF)
+- [x] **Jardins et météo** :
+  - Jardins avec adresses et coordonnées
+  - Géocodage automatique : adresse → coordonnées via Open-Meteo + Nominatim
+  - Suivi météo via Open-Meteo (gratuit, sans clé API) :
+    - Températures (min, max, moyenne)
+    - Précipitations (pluie, neige en cm), évapotranspiration FAO (ET0) pour irrigation
+  - Récupération météo auto à la création d'un jardin (signal post_save)
+  - Alertes arrosage : détection « chaud + sec » sur N jours → conseil d'arrosage
+  - Zones sprinkler pour domotique (webhook, MQTT, Home Assistant, IFTTT)
+  - Commande : `python manage.py fetch_weather` (à planifier en cron)
 
 ---
 
@@ -596,7 +604,7 @@ Le projet est en reconstruction active depuis février 2026, basé sur des expé
 - **2027** : Niveaux 4-5 (Faune, IoT, IA)
 - **2028** : Niveau 6 (Communauté, réseau social permacole)
 
-**Mise à jour :** Février 2026 - Modèle Organism créé, architecture de base en place, gestion des semences (SeedCollection, import catalogues)
+**Mise à jour :** Février 2026 - Modèle Organism créé, architecture de base en place, gestion des semences (SeedCollection, import catalogues), jardins et météo (Open-Meteo : températures, pluie, neige, ET0, géocodage, alertes arrosage, zones sprinkler)
 
 ---
 

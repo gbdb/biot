@@ -1,0 +1,28 @@
+{% extends "admin/change_form.html" %}
+{% load i18n admin_urls %}
+
+{% block object-tools-items %}
+  {{ block.super }}
+  {% if original.pk %}
+    {% if original.adresse or original.ville or original.code_postal %}
+    <li>
+      <form method="post" action="{% url 'geocode_garden' original.pk %}" style="display:inline;">
+        {% csrf_token %}
+        <button type="submit" class="button">📍 Remplir lat/long depuis l'adresse</button>
+      </form>
+    </li>
+    {% endif %}
+    {% if original.a_coordonnees %}
+    <li>
+      <a href="{% url 'fetch_garden_weather' original.pk %}" class="viewsitelink">
+        🌤️ Récupérer la météo
+      </a>
+    </li>
+    <li>
+      <a href="{% url 'weather_dashboard' %}" class="viewsitelink">
+        📊 Historique météo
+      </a>
+    </li>
+    {% endif %}
+  {% endif %}
+{% endblock %}

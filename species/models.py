@@ -803,12 +803,161 @@ class Amendment(models.Model):
             npk = f" ({self.azote_n or 0}-{self.phosphore_p or 0}-{self.potassium_k or 0})"
         return f"{self.nom}{npk}"
 
+
+class OrganismAmendment(models.Model):
+    """
+    Recommandation : quel amendement pour quel organisme.
+    Permet de faire des recommandations ciblées par espèce (pas seulement par type).
+    """
+    organisme = models.ForeignKey(
+        'species.Organism',
+        on_delete=models.CASCADE,
+        related_name='amendements_recommandes'
+    )
+    amendment = models.ForeignKey(
+        'species.Amendment',
+        on_delete=models.CASCADE,
+        related_name='organismes_recommandes'
+    )
+
+    PRIORITE_CHOICES = [
+        (1, 'Recommandé'),
+        (2, 'Utile'),
+        (3, 'Optionnel'),
+        (4, 'À éviter'),
+    ]
+    priorite = models.IntegerField(
+        choices=PRIORITE_CHOICES,
+        default=1,
+        help_text="Niveau de recommandation"
+    )
+
+    dose_specifique = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Dose ou fréquence spécifique pour cet organisme"
+    )
+
+    moment_application = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Ex: À la plantation, Printemps, Après fructification"
+    )
+
+    notes = models.TextField(
+        blank=True,
+        help_text="Notes spécifiques à cette combinaison organisme/amendement"
+    )
+
+    date_ajout = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Recommandation Organisme-Amendement"
+        verbose_name_plural = "Recommandations Organisme-Amendement"
+        unique_together = ['organisme', 'amendment']
+        ordering = ['organisme__nom_commun', 'priorite']
+
+    def __str__(self):
+        return f"{self.organisme.nom_commun} ← {self.amendment.nom} ({self.get_priorite_display()})"
+
+
+class Garden(models.Model):
+    """
+    Jardin avec adresse pour le suivi météo et l'automatisation.
+    Chaque jardin a une localisation (adresse ou coordonnées) utilisée pour
+    récupérer les données météo et générer des alertes d'arrosage.
+    """
+    nom = models.CharField(
+        max_length=200,
+        help_text="Nom du jardin (ex: Mont Caprice, Potager urbain)"
+    )
+
+    # === ADRESSE ===
+    adresse = models.CharField(
+        max_length=400,
+        blank=True,
+        help_text="Adresse complète (rue, ville, code postal, pays)"
+    )
+    ville = models.CharField(max_length=100, blank=True)
+    code_postal = models.CharField(max_length=20, blank=True)
+    pays = models.CharField(max_length=100, default="Canada")
+
+    # === COORDONNÉES (pour API météo) ===
+    latitude = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Latitude pour la météo (Open-Meteo)"
+    )
+    longitude = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Longitude pour la météo"
+    )
+    timezone = models.CharField(
+        max_length=50,
+        default="America/Montreal",
+        help_text="Fuseau horaire (ex: America/Montreal)"
+    )
+
+    # === SEUILS ALERTE ARROSAGE ===
+    seuil_temp_chaud_c = models.FloatField(
+        default=25.0,
+        help_text="Température moyenne quotidienne au-dessus de laquelle on considère 'chaud' (°C)"
+    )
+    seuil_pluie_faible_mm = models.FloatField(
+        default=5.0,
+        help_text="Pluie totale en-dessous de laquelle on considère 'sec' sur la période (mm)"
+    )
+    jours_periode_analyse = models.IntegerField(
+        default=5,
+        help_text="Nombre de jours consécutifs à analyser pour l'alerte sécheresse"
+    )
+
+    notes = models.TextField(blank=True)
+    date_ajout = models.DateTimeField(auto_now_add=True)
+    date_modification = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Jardin"
+        verbose_name_plural = "Jardins"
+        ordering = ['nom']
+
+    def __str__(self):
+        return self.nom
+
+    def a_coordonnees(self):
+        """Vérifie si le jardin a des coordonnées pour la météo."""
+        return self.latitude is not None and self.longitude is not None
+
+    def pluie_semaine_mm(self):
+        """Précipitations totales des 7 derniers jours (mm)."""
+        from datetime import date, timedelta
+        start = date.today() - timedelta(days=7)
+        from django.db.models import Sum
+        result = self.weather_records.filter(
+            date__gte=start,
+            date__lte=date.today(),
+        ).aggregate(total=Sum('precipitation_mm'))
+        total = result.get('total')
+        return round(total, 1) if total is not None else None
+
+
 class Specimen(models.Model):
     """
     Un plant/arbre individuel sur le terrain.
     Ex: "Mon Pommier Dolgo #1 près du ruisseau"
     """
     
+    # Lien vers le jardin (optionnel)
+    garden = models.ForeignKey(
+        'species.Garden',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='specimens',
+        help_text="Jardin où se trouve ce spécimen"
+    )
+
     # Lien vers l'espèce/organisme
     organisme = models.ForeignKey(
         'species.Organism',
@@ -1170,3 +1319,97 @@ class Photo(models.Model):
         verbose_name = "Photo"
         verbose_name_plural = "Photos"
         ordering = ['-date_prise', '-date_ajout']
+
+
+class WeatherRecord(models.Model):
+    """
+    Enregistrement météo quotidien par jardin.
+    Cache les données Open-Meteo pour éviter les appels API répétés.
+    """
+    garden = models.ForeignKey(
+        'species.Garden',
+        on_delete=models.CASCADE,
+        related_name='weather_records'
+    )
+    date = models.DateField(db_index=True)
+
+    # Températures °C
+    temp_max = models.FloatField(null=True, blank=True)
+    temp_min = models.FloatField(null=True, blank=True)
+    temp_mean = models.FloatField(null=True, blank=True)
+
+    # Précipitations mm (pluie + neige équivalente)
+    precipitation_mm = models.FloatField(default=0.0, help_text="Précipitations totales (mm)")
+    rain_mm = models.FloatField(null=True, blank=True, help_text="Pluie uniquement (mm)")
+    snowfall_cm = models.FloatField(null=True, blank=True, help_text="Neige (cm)")
+
+    # Évapotranspiration FAO (utile pour irrigation)
+    et0_mm = models.FloatField(null=True, blank=True)
+
+    date_creation = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Enregistrement météo"
+        verbose_name_plural = "Enregistrements météo"
+        unique_together = ['garden', 'date']
+        ordering = ['-date']
+
+    def __str__(self):
+        return f"{self.garden.nom} — {self.date}"
+
+
+class SprinklerZone(models.Model):
+    """
+    Zone d'arrosage / sprinkler pour automatisaton domotique.
+    Permet de déclencher un arrosage via webhook, MQTT, Home Assistant, etc.
+    """
+    garden = models.ForeignKey(
+        'species.Garden',
+        on_delete=models.CASCADE,
+        related_name='sprinkler_zones'
+    )
+    nom = models.CharField(
+        max_length=100,
+        help_text="Ex: Zone potager, Sprinkler Nord, Arrosage serre"
+    )
+
+    # Intégration domotique (flexible)
+    TYPE_INTEGRATION_CHOICES = [
+        ('webhook', 'Webhook (URL)'),
+        ('mqtt', 'MQTT'),
+        ('home_assistant', 'Home Assistant'),
+        ('ifttt', 'IFTTT'),
+        ('autre', 'Autre'),
+    ]
+    type_integration = models.CharField(
+        max_length=30,
+        choices=TYPE_INTEGRATION_CHOICES,
+        default='webhook'
+    )
+
+    # URL webhook ou config (JSON)
+    webhook_url = models.URLField(
+        blank=True,
+        help_text="URL à appeler pour déclencher l'arrosage (POST)"
+    )
+    config = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Config supplémentaire (topic MQTT, entity_id HA, etc.)"
+    )
+    actif = models.BooleanField(default=True)
+
+    duree_defaut_minutes = models.IntegerField(
+        default=15,
+        help_text="Durée d'arrosage par défaut (minutes)"
+    )
+    notes = models.TextField(blank=True)
+    date_ajout = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Zone sprinkler"
+        verbose_name_plural = "Zones sprinkler"
+        ordering = ['garden', 'nom']
+
+    def __str__(self):
+        return f"{self.garden.nom} — {self.nom}"
