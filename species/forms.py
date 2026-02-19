@@ -1,5 +1,45 @@
 from django import forms
+
+from species.models import SeedSupplier
 from species.source_rules import MERGE_FILL_GAPS, MERGE_OVERWRITE
+
+
+class ImportSeedsForm(forms.Form):
+    """Formulaire pour l'import de semences (catalogues fournisseurs) depuis l'admin."""
+
+    file = forms.FileField(
+        label='Fichier à importer',
+        help_text='Formats acceptés: CSV (.csv), JSON (.json)',
+        required=True,
+    )
+    supplier = forms.ModelChoiceField(
+        label='Fournisseur',
+        queryset=SeedSupplier.objects.filter(actif=True).order_by('nom'),
+        required=False,
+        empty_label='— Aucun —',
+        help_text='Associer toutes les semences importées à ce fournisseur',
+    )
+    limit = forms.IntegerField(
+        label='Limite',
+        help_text='Nombre max à importer (0 = tout)',
+        required=False,
+        initial=0,
+        min_value=0,
+    )
+    update_existing = forms.BooleanField(
+        label='Mettre à jour les existantes',
+        required=False,
+        initial=False,
+        help_text='Mettre à jour les collections existantes (même organisme+variété+lot)',
+    )
+
+    def clean_file(self):
+        file = self.cleaned_data.get('file')
+        if file:
+            name = file.name.lower()
+            if not any(name.endswith(ext) for ext in ['.json', '.csv', '.txt']):
+                raise forms.ValidationError('Format non supporté. Utilisez .csv ou .json')
+        return file
 
 
 class ImportPFAFForm(forms.Form):

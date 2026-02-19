@@ -14,7 +14,7 @@ from .export_utils import (
     export_specimens_csv,
     export_seed_collections_csv,
 )
-from .forms import ImportPFAFForm
+from .forms import ImportPFAFForm, ImportSeedsForm
 from .models import (
     Organism, UserTag, CompanionRelation, Amendment, OrganismAmendment,
     Specimen, Event, Photo,
@@ -58,6 +58,15 @@ from .pfaf_mapping import (
     get_available_columns,
     get_row_value,
     load_pfaf_data,
+)
+from .seed_mapping import (
+    SEED_FIELD_ALIASES,
+    get_row_value as seed_get_row_value,
+    load_seed_data,
+    parse_bool,
+    parse_float,
+    parse_int,
+    parse_int_or_range,
 )
 from .source_rules import (
     MERGE_FILL_GAPS,
@@ -179,16 +188,22 @@ class OrganismAdmin(admin.ModelAdmin):
         return response
 
     def changelist_view(self, request, extra_context=None):
-        if request.GET.get("export") == "csv":
+        export_type = request.GET.get("export")
+        if export_type in ("csv", "pdf"):
+            get_copy = request.GET.copy()
+            if "export" in get_copy:
+                del get_copy["export"]
+            request.GET = get_copy
             cl = self.get_changelist_instance(request)
-            return export_organisms_csv_simple(cl.get_queryset(request))
-        if request.GET.get("export") == "pdf":
-            from django.http import HttpResponse
-            cl = self.get_changelist_instance(request)
-            pdf_bytes = export_organisms_pdf(cl.get_queryset(request))
-            response = HttpResponse(pdf_bytes, content_type="application/pdf")
-            response["Content-Disposition"] = 'attachment; filename="organismes.pdf"'
-            return response
+            queryset = cl.get_queryset(request)
+            if export_type == "csv":
+                return export_organisms_csv_simple(queryset)
+            if export_type == "pdf":
+                from django.http import HttpResponse
+                pdf_bytes = export_organisms_pdf(queryset)
+                response = HttpResponse(pdf_bytes, content_type="application/pdf")
+                response["Content-Disposition"] = 'attachment; filename="organismes.pdf"'
+                return response
         return super().changelist_view(request, extra_context)
 
     def get_urls(self):
@@ -916,9 +931,192 @@ class SeedCollectionAdmin(admin.ModelAdmin):
 
     def changelist_view(self, request, extra_context=None):
         if request.GET.get("export") == "csv":
+            get_copy = request.GET.copy()
+            if "export" in get_copy:
+                del get_copy["export"]
+            request.GET = get_copy
             cl = self.get_changelist_instance(request)
             return export_seed_collections_csv(cl.get_queryset(request))
         return super().changelist_view(request, extra_context)
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                'import-csv/',
+                self.admin_site.admin_view(self.import_seeds_view),
+                name='species_seedcollection_import_csv',
+            ),
+        ]
+        return custom_urls + urls
+
+    def import_seeds_view(self, request):
+        """Vue pour l'import de semences CSV/JSON depuis l'admin."""
+        from datetime import datetime
+
+        from django.utils import timezone
+
+        if request.method == 'POST':
+            form = ImportSeedsForm(request.POST, request.FILES)
+            if form.is_valid():
+                uploaded_file = form.cleaned_data['file']
+                supplier = form.cleaned_data.get('supplier')
+                limit = form.cleaned_data.get('limit') or 0
+                update_existing = form.cleaned_data.get('update_existing') or False
+
+                with tempfile.NamedTemporaryFile(delete=False, suffix=Path(uploaded_file.name).suffix) as tmp_file:
+                    for chunk in uploaded_file.chunks():
+                        tmp_file.write(chunk)
+                    tmp_path = Path(tmp_file.name)
+
+                try:
+                    data = load_seed_data(tmp_path)
+                    if not data:
+                        messages.warning(request, 'Aucune donnée trouvée dans le fichier.')
+                        return HttpResponseRedirect(reverse('admin:species_seedcollection_import_csv'))
+                    if limit > 0:
+                        data = data[:limit]
+
+                    created_org, created_seed, updated_seed, skipped, errors = 0, 0, 0, 0, 0
+
+                    for idx, row in enumerate(data, 1):
+                        try:
+                            nom_latin = seed_get_row_value(row, SEED_FIELD_ALIASES['latin_name'], default='')
+                            nom_commun = seed_get_row_value(row, SEED_FIELD_ALIASES['common_name'], default='')
+                            if not nom_latin and not nom_commun:
+                                skipped += 1
+                                continue
+
+                            organisme, org_created = find_or_match_organism(
+                                Organism,
+                                nom_latin=nom_latin,
+                                nom_commun=nom_commun or nom_latin,
+                                defaults={
+                                    'nom_commun': nom_commun or nom_latin,
+                                    'famille': seed_get_row_value(row, SEED_FIELD_ALIASES['family'], default=''),
+                                    'regne': 'plante',
+                                    'type_organisme': 'vivace',
+                                }
+                            )
+                            if org_created:
+                                created_org += 1
+
+                            variete = seed_get_row_value(row, SEED_FIELD_ALIASES['variete'], default='').strip()
+                            lot = seed_get_row_value(row, SEED_FIELD_ALIASES['lot_reference'], default='').strip()
+                            qs = SeedCollection.objects.filter(organisme=organisme)
+                            qs = qs.filter(variete=variete) if variete else qs.filter(variete='')
+                            qs = qs.filter(lot_reference=lot) if lot else qs.filter(lot_reference='')
+                            existing = qs.first()
+
+                            if existing and not update_existing:
+                                skipped += 1
+                                continue
+
+                            def _parse_date(val):
+                                if not val:
+                                    return None
+                                s = str(val).strip()
+                                if not s:
+                                    return None
+                                try:
+                                    y = int(s[:4])
+                                    if 1900 <= y <= 2100:
+                                        from datetime import date
+                                        return date(y, 1, 1)
+                                except (ValueError, IndexError):
+                                    pass
+                                for fmt in ('%Y-%m-%d', '%d/%m/%Y', '%Y/%m/%d', '%d-%m-%Y'):
+                                    try:
+                                        return datetime.strptime(s, fmt).date()
+                                    except ValueError:
+                                        continue
+                                return None
+
+                            def _parse_strat_temp(val):
+                                if not val:
+                                    return ''
+                                v = str(val).lower()
+                                if 'froid' in v or 'cold' in v:
+                                    return 'froide'
+                                if 'chaud' in v or 'warm' in v or 'hot' in v:
+                                    return 'chaude_puis_froide' if 'puis' in v or 'then' in v else 'chaude'
+                                return ''
+
+                            def _parse_unite(val):
+                                if not val:
+                                    return 'graines'
+                                v = str(val).lower().strip()
+                                m = {'g': 'g', 'grammes': 'g', 'ml': 'ml', 'sachet': 'sachet', 's': 'sachet'}
+                                return m.get(v, 'graines')
+
+                            seed_data = {
+                                'organisme': organisme,
+                                'variete': variete,
+                                'lot_reference': lot,
+                                'fournisseur': supplier,
+                                'quantite': parse_float(seed_get_row_value(row, SEED_FIELD_ALIASES['quantite'], default=None, coerce_str=False)),
+                                'unite': _parse_unite(seed_get_row_value(row, SEED_FIELD_ALIASES['unite'], default='graines')),
+                                'date_recolte': _parse_date(seed_get_row_value(row, SEED_FIELD_ALIASES['date_recolte'], default='')),
+                                'duree_vie_annees': parse_float(seed_get_row_value(row, SEED_FIELD_ALIASES['duree_vie_annees'], default=None, coerce_str=False)),
+                                'germination_lab_pct': parse_float(seed_get_row_value(row, SEED_FIELD_ALIASES['germination_lab_pct'], default=None, coerce_str=False)),
+                                'stratification_requise': parse_bool(seed_get_row_value(row, SEED_FIELD_ALIASES['stratification_requise'], default='')),
+                                'stratification_duree_jours': parse_int_or_range(seed_get_row_value(row, SEED_FIELD_ALIASES['stratification_duree_jours'], default=None, coerce_str=False)),
+                                'stratification_temp': _parse_strat_temp(seed_get_row_value(row, SEED_FIELD_ALIASES['stratification_temp'], default='')),
+                                'stratification_notes': seed_get_row_value(row, SEED_FIELD_ALIASES['stratification_notes'], default=''),
+                                'temps_germination_jours_min': parse_int(seed_get_row_value(row, SEED_FIELD_ALIASES['temps_germination_jours_min'], default=None, coerce_str=False)),
+                                'temps_germination_jours_max': parse_int_or_range(seed_get_row_value(row, SEED_FIELD_ALIASES['temps_germination_jours_max'], default=None, coerce_str=False)),
+                                'temperature_optimal_min': parse_float(seed_get_row_value(row, SEED_FIELD_ALIASES['temperature_optimal_min'], default=None, coerce_str=False)),
+                                'temperature_optimal_max': parse_float(seed_get_row_value(row, SEED_FIELD_ALIASES['temperature_optimal_max'], default=None, coerce_str=False)),
+                                'pretraitement': seed_get_row_value(row, SEED_FIELD_ALIASES['pretraitement'], default=''),
+                                'data_sources': {'import': {k: (v if isinstance(v, (str, int, float, bool)) else str(v)) for k, v in row.items() if v is not None}},
+                            }
+
+                            if existing:
+                                for k, v in seed_data.items():
+                                    if k == 'organisme':
+                                        continue
+                                    if k == 'data_sources':
+                                        existing.data_sources = dict(existing.data_sources or {})
+                                        existing.data_sources['import'] = v.get('import', v)
+                                        continue
+                                    setattr(existing, k, v)
+                                existing.save()
+                                updated_seed += 1
+                            else:
+                                SeedCollection.objects.create(**seed_data)
+                                created_seed += 1
+
+                        except Exception:
+                            errors += 1
+
+                    if supplier and (created_seed + updated_seed) > 0:
+                        supplier.dernier_import = timezone.now()
+                        supplier.save(update_fields=['dernier_import'])
+
+                    msg = (
+                        f'Import terminé: {created_seed} créées, {updated_seed} mises à jour, '
+                        f'{created_org} organismes créés, {skipped} ignorées'
+                    )
+                    if errors:
+                        msg += f', {errors} erreurs'
+                    messages.success(request, msg)
+                    return HttpResponseRedirect(reverse('admin:species_seedcollection_changelist'))
+
+                except Exception as e:
+                    messages.error(request, f'Erreur lors de l\'import: {str(e)}')
+                finally:
+                    if tmp_path.exists():
+                        tmp_path.unlink()
+        else:
+            form = ImportSeedsForm()
+
+        context = {
+            'form': form,
+            'opts': self.model._meta,
+            'has_view_permission': self.has_view_permission(request, None),
+            'title': 'Importer des semences (CSV/JSON)',
+        }
+        return render(request, 'admin/species/seedcollection/import_seeds.html', context)
 
 
 @admin.register(SemisBatch)
@@ -1012,6 +1210,10 @@ class SpecimenAdmin(admin.ModelAdmin):
 
     def changelist_view(self, request, extra_context=None):
         if request.GET.get("export") == "csv":
+            get_copy = request.GET.copy()
+            if "export" in get_copy:
+                del get_copy["export"]
+            request.GET = get_copy
             cl = self.get_changelist_instance(request)
             return export_specimens_csv(cl.get_queryset(request))
         return super().changelist_view(request, extra_context)

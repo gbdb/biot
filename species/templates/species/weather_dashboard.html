@@ -204,7 +204,7 @@
 
     {% if garden.sprinkler_zones_actives %}
     <div class="sprinkler-zones">
-      <strong>Zones sprinkler :</strong>
+      <strong>Sprinklers system :</strong>
       {% for zone in garden.sprinkler_zones_actives %}
       <span class="sprinkler-zone">{{ zone.nom }} ({{ zone.duree_defaut_minutes }} min)</span>
       {% endfor %}

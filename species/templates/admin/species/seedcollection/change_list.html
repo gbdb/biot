@@ -4,6 +4,11 @@
 {% block object-tools-items %}
     {{ block.super }}
     <li>
+        <a href="{% url 'admin:species_seedcollection_import_csv' %}" class="addlink">
+            📤 Importer CSV
+        </a>
+    </li>
+    <li>
         <a href="{{ request.path }}?export=csv{% if request.GET %}&{{ request.GET.urlencode }}{% endif %}" class="viewsitelink">
             📥 Exporter CSV
         </a>
