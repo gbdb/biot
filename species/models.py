@@ -618,8 +618,8 @@ class SeedCollection(models.Model):
     date_modification = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "Collection de semences"
-        verbose_name_plural = "Collections de semences"
+        verbose_name = "Mes Semences"
+        verbose_name_plural = "Mes Semences"
         ordering = ['organisme__nom_commun', 'variete']
 
     def __str__(self):
@@ -690,8 +690,8 @@ class SemisBatch(models.Model):
     date_ajout = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name = "Batch de semis"
-        verbose_name_plural = "Batches de semis"
+        verbose_name = "Mes semis"
+        verbose_name_plural = "Mes semis"
         ordering = ['-date_semis']
 
     def __str__(self):
@@ -1377,8 +1377,8 @@ class WeatherRecord(models.Model):
     date_creation = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name = "Enregistrement météo"
-        verbose_name_plural = "Enregistrements météo"
+        verbose_name = "Météo"
+        verbose_name_plural = "Météo"
         unique_together = ['garden', 'date']
         ordering = ['-date']
 
@@ -1439,8 +1439,8 @@ class SprinklerZone(models.Model):
     date_ajout = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name = "Zone sprinkler"
-        verbose_name_plural = "Zones sprinkler"
+        verbose_name = "Sprinkler system"
+        verbose_name_plural = "Sprinklers system"
         ordering = ['garden', 'nom']
 
     def __str__(self):

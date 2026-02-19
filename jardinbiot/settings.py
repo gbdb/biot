@@ -43,7 +43,7 @@ ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=[])
 # Application definition
 
 INSTALLED_APPS = [
-    'django.contrib.admin',
+    'jardinbiot.admin_apps.JardinBiotAdminConfig',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
@@ -161,3 +161,15 @@ REST_FRAMEWORK = {
 
 # CORS - autoriser l'app mobile Expo (dev et prod)
 CORS_ALLOW_ALL_ORIGINS = env('CORS_ALLOW_ALL_ORIGINS')
+
+# Admin - regroupement et ordre du menu
+ADMIN_REORDER = [
+    # Mon BIOT
+    {'app': 'species', 'label': 'Mon BIOT', 'models': ('Garden', 'Organism', 'Specimen', 'SemisBatch', 'Photo')},
+    # Contrôles
+    {'app': 'species', 'label': 'Contrôles', 'models': ('Event', 'WeatherRecord', 'SprinklerZone')},
+    # Configurations et importation de données
+    {'app': 'species', 'label': 'Configurations et importation de données', 'models': ('UserTag', 'CompanionRelation', 'OrganismAmendment', 'SeedSupplier', 'SeedCollection', 'Amendment')},
+    # Apps Django par défaut
+    {'app': 'auth', 'label': 'Authentification'},
+]
