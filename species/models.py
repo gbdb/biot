@@ -993,6 +993,7 @@ class Specimen(models.Model):
     code_identification = models.CharField(
         max_length=50,
         blank=True,
+        null=True,
         unique=True,
         help_text="Code unique (ex: PMMDOL-001, code manuel)"
     )
