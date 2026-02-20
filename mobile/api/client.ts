@@ -165,6 +165,15 @@ export async function updateSpecimen(id: number, data: Partial<SpecimenCreateUpd
   return handleResponse<SpecimenDetail>(res);
 }
 
+export async function duplicateSpecimen(id: number): Promise<SpecimenDetail> {
+  const res = await fetch(`${API_BASE_URL}${ENDPOINTS.specimens}${id}/duplicate/`, {
+    method: 'POST',
+    headers: await authHeaders(),
+    body: JSON.stringify({}),
+  });
+  return handleResponse<SpecimenDetail>(res);
+}
+
 // --- Specimen events ---
 export async function getSpecimenEvents(specimenId: number): Promise<Event[]> {
   const res = await fetch(`${API_BASE_URL}${ENDPOINTS.specimens}${specimenId}/events/`, {

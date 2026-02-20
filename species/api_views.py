@@ -114,6 +114,34 @@ class SpecimenViewSet(viewsets.ModelViewSet):
             status=status.HTTP_201_CREATED,
         )
 
+    @action(detail=True, methods=['post'])
+    def duplicate(self, request, pk=None):
+        """POST /api/specimens/{id}/duplicate/ → crée une copie avec les mêmes données (sans tag/code)."""
+        specimen = self.get_object()
+        data = {
+            'organisme': specimen.organisme_id,
+            'garden': specimen.garden_id,
+            'nom': f"{specimen.nom} (copie)",
+            'zone_jardin': specimen.zone_jardin,
+            'latitude': specimen.latitude,
+            'longitude': specimen.longitude,
+            'date_plantation': specimen.date_plantation,
+            'age_plantation': specimen.age_plantation,
+            'source': specimen.source,
+            'pepiniere_fournisseur': specimen.pepiniere_fournisseur,
+            'seed_collection': specimen.seed_collection_id,
+            'statut': specimen.statut,
+            'sante': specimen.sante,
+            'hauteur_actuelle': specimen.hauteur_actuelle,
+            'premiere_fructification': specimen.premiere_fructification,
+            'notes': specimen.notes,
+        }
+        serializer = SpecimenCreateUpdateSerializer(data=data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        new_specimen = serializer.save()
+        output = SpecimenDetailSerializer(new_specimen, context={'request': request})
+        return Response(output.data, status=status.HTTP_201_CREATED)
+
 
 # --- Organism ViewSet (lecture) ---
 class OrganismViewSet(viewsets.ReadOnlyModelViewSet):

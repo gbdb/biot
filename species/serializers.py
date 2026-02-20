@@ -73,6 +73,13 @@ class SpecimenCreateUpdateSerializer(serializers.ModelSerializer):
             'nfc_tag_uid': {'required': False, 'allow_blank': True},
         }
 
+    def validate_code_identification(self, value):
+        """Normaliser '' → None pour éviter conflits unique (plusieurs NULL autorisés)."""
+        if value is None:
+            return None
+        s = str(value).strip()
+        return s if s else None
+
     def validate_nfc_tag_uid(self, value):
         """Normaliser '' → None pour éviter conflits unique (plusieurs NULL autorisés)."""
         if value is None:

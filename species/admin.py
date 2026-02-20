@@ -1133,6 +1133,7 @@ class SpecimenAdmin(admin.ModelAdmin):
     inlines = [EventSpecimenInline, PhotoSpecimenInline]
     actions = ["export_specimens_csv_action"]
     change_list_template = "admin/species/specimen/change_list.html"
+    change_form_template = "admin/species/specimen/change_form.html"
 
     list_display = [
         'nom',
@@ -1217,6 +1218,36 @@ class SpecimenAdmin(admin.ModelAdmin):
             cl = self.get_changelist_instance(request)
             return export_specimens_csv(cl.get_queryset(request))
         return super().changelist_view(request, extra_context)
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom = [
+            path(
+                '<path:object_id>/duplicate/',
+                self.admin_site.admin_view(self.duplicate_specimen_view),
+                name='species_specimen_duplicate',
+            ),
+        ]
+        return custom + urls
+
+    def duplicate_specimen_view(self, request, object_id):
+        """Crée une copie du spécimen et redirige vers son formulaire d'édition."""
+        from django.shortcuts import get_object_or_404
+        specimen = get_object_or_404(Specimen, pk=object_id)
+        copy_fields = [
+            'organisme', 'garden', 'zone_jardin', 'latitude', 'longitude',
+            'date_plantation', 'age_plantation', 'source', 'pepiniere_fournisseur',
+            'seed_collection', 'statut', 'sante', 'hauteur_actuelle',
+            'premiere_fructification', 'notes',
+        ]
+        data = {f: getattr(specimen, f) for f in copy_fields}
+        data['nom'] = f"{specimen.nom} (copie)"
+        data['code_identification'] = None
+        data['nfc_tag_uid'] = None
+        new_specimen = Specimen.objects.create(**data)
+        messages.success(request, f'Spécimen dupliqué : "{new_specimen.nom}"')
+        url = reverse('admin:species_specimen_change', args=[new_specimen.pk])
+        return HttpResponseRedirect(url)
 
 @admin.register(Event)
 class EventAdmin(admin.ModelAdmin):
@@ -1306,9 +1337,11 @@ class PhotoAdmin(admin.ModelAdmin):
     
     date_hierarchy = 'date_prise'
     
+    readonly_fields = ['image_preview']
+    
     fieldsets = (
         ('Image', {
-            'fields': ('image', 'type_photo', 'titre', 'description', 'date_prise')
+            'fields': ('image_preview', 'image', 'type_photo', 'titre', 'description', 'date_prise')
         }),
         ('Lié à', {
             'fields': ('organisme', 'specimen', 'event')
@@ -1317,13 +1350,23 @@ class PhotoAdmin(admin.ModelAdmin):
     
     def miniature(self, obj):
         if obj.image:
-            from django.utils.html import format_html
             return format_html(
-            '<img src="{}" width="80" height="80" style="object-fit: cover; border-radius: 4px;" />',
-            obj.image.url
-        )
+                '<img src="{}" width="80" height="80" style="object-fit: cover; border-radius: 4px;" />',
+                obj.image.url
+            )
         return "-"
     miniature.short_description = ""
+
+    def image_preview(self, obj):
+        """Large preview of the image on the change form."""
+        if obj and obj.image:
+            return format_html(
+                '<img src="{}" style="max-width: 560px; max-height: 420px; width: auto; height: auto; '
+                'object-fit: contain; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);" alt="Aperçu" />',
+                obj.image.url
+            )
+        return format_html('<p style="color: #888;">Aucune image — enregistrez pour voir l’aperçu.</p>')
+    image_preview.short_description = "Aperçu"
 
     def get_sujet(self, obj):
         if obj.specimen:

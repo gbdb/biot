@@ -552,10 +552,10 @@ Accédez à l'application : `http://localhost` (ou votre domaine configuré)
 *(En construction - contributions bienvenues!)*
 
 - [x] [Guide de mapping semenciers](docs/seed-supplier-mapping.md) - Préparer vos catalogues CSV/JSON pour l'import
+- [x] [Guide de déploiement](DEPLOYMENT.md) - Proxmox, Gunicorn, Nginx, PostgreSQL
 - [ ] Guide d'utilisation
 - [ ] Guide de contribution
 - [ ] Documentation API
-- [ ] Guide de déploiement complet
 - [ ] Tutoriels vidéo
 
 ---
