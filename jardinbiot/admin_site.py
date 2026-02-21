@@ -8,6 +8,10 @@ from admin_reorder import ReorderingAdminSite, _build_new_order
 class JardinBiotAdminSite(ReorderingAdminSite):
     """AdminSite compatible Django 5 : get_app_list accepte app_label."""
 
+    site_header = "BIOT : Administration"
+    site_title = "BIOT : Administration"
+    index_title = "Administration"
+
     def get_app_list(self, request, app_label=None):
         """
         Django 5 appelle get_app_list(request, app_label) pour la page app_index.
