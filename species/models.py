@@ -1279,6 +1279,8 @@ class Photo(models.Model):
         ('reproduction_graines', 'Reproduction - graines'),
         ('port_general', 'Port général et silhouette hiver'),
         ('problemes', 'Problèmes courants (maladies, parasites)'),
+        ('avant', 'Avant (ex: avant taille)'),
+        ('apres', 'Après (ex: après taille)'),
         ('autre', 'Autre'),
     ]
     

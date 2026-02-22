@@ -8,6 +8,8 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from django.shortcuts import get_object_or_404
+
 from .models import Organism, Garden, Specimen, Event, Photo
 from .serializers import (
     OrganismMinimalSerializer,
@@ -17,6 +19,7 @@ from .serializers import (
     SpecimenCreateUpdateSerializer,
     EventSerializer,
     EventCreateSerializer,
+    EventUpdateSerializer,
     PhotoSerializer,
     PhotoCreateSerializer,
 )
@@ -97,6 +100,84 @@ class SpecimenViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(EventSerializer(serializer.instance).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['get', 'patch', 'delete'], url_path='events/(?P<event_pk>[^/.]+)')
+    def event_detail(self, request, pk=None, event_pk=None):
+        """GET/PATCH/DELETE un événement spécifique."""
+        specimen = self.get_object()
+        event = get_object_or_404(Event, pk=event_pk, specimen=specimen)
+        if request.method == 'GET':
+            serializer = EventSerializer(event)
+            return Response(serializer.data)
+        if request.method == 'DELETE':
+            event.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        serializer = EventUpdateSerializer(event, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(EventSerializer(serializer.instance).data)
+
+    @action(detail=True, methods=['get'], url_path='events/(?P<event_pk>[^/.]+)/apply-to-zone-preview')
+    def event_apply_to_zone_preview(self, request, pk=None, event_pk=None):
+        """Retourne le nombre de spécimens dans la même zone (pour afficher le bouton)."""
+        specimen = self.get_object()
+        event = get_object_or_404(Event, pk=event_pk, specimen=specimen)
+        if not specimen.zone_jardin or not specimen.zone_jardin.strip():
+            return Response({'zone': None, 'count': 0})
+        zone = specimen.zone_jardin.strip()
+        count = Specimen.objects.filter(
+            garden=specimen.garden,
+            zone_jardin__iexact=zone,
+        ).exclude(pk=specimen.pk).count()
+        return Response({'zone': zone, 'count': count})
+
+    @action(detail=True, methods=['post'], url_path='events/(?P<event_pk>[^/.]+)/apply-to-zone')
+    def event_apply_to_zone(self, request, pk=None, event_pk=None):
+        """Applique un événement à tous les spécimens de la même zone (même garden + zone_jardin)."""
+        specimen = self.get_object()
+        event = get_object_or_404(Event, pk=event_pk, specimen=specimen)
+        if not specimen.zone_jardin or not specimen.zone_jardin.strip():
+            return Response(
+                {'detail': 'Ce spécimen n\'a pas de zone définie.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        zone = specimen.zone_jardin.strip()
+        targets = Specimen.objects.filter(
+            garden=specimen.garden,
+            zone_jardin__iexact=zone,
+        ).exclude(pk=specimen.pk)
+        created = 0
+        for target in targets:
+            Event.objects.create(
+                specimen=target,
+                type_event=event.type_event,
+                date=event.date,
+                heure=event.heure,
+                titre=event.titre or '',
+                description=event.description or '',
+                quantite=event.quantite,
+                unite=event.unite or '',
+                produit_utilise=event.produit_utilise or '',
+            )
+            created += 1
+        return Response({'created': created, 'zone': zone}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['get', 'post'], url_path='events/(?P<event_pk>[^/.]+)/photos')
+    def event_photos(self, request, pk=None, event_pk=None):
+        """GET/POST photos liées à un événement."""
+        specimen = self.get_object()
+        event = get_object_or_404(Event, pk=event_pk, specimen=specimen)
+        if request.method == 'GET':
+            photos_qs = Photo.objects.filter(event=event).order_by('-date_prise', '-date_ajout')
+            serializer = PhotoSerializer(photos_qs, many=True, context={'request': request})
+            return Response(serializer.data)
+        serializer = PhotoCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        photo = serializer.save(specimen=specimen, event=event)
+        return Response(
+            PhotoSerializer(photo, context={'request': request}).data,
+            status=status.HTTP_201_CREATED,
+        )
 
     @action(detail=True, methods=['get', 'post'])
     def photos(self, request, pk=None):
