@@ -1,7 +1,16 @@
 import { View, Text, StyleSheet } from 'react-native';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function HomeScreen() {
+  const router = useRouter();
+  const { logout } = useAuth();
+
+  const handleLogout = async () => {
+    await logout();
+    router.replace('/login');
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>🌳 Jardin Biot</Text>
@@ -12,6 +21,9 @@ export default function HomeScreen() {
       <Link href="/(tabs)/specimens" style={styles.link}>
         Voir les spécimens
       </Link>
+      <Text style={styles.logout} onPress={handleLogout}>
+        Se déconnecter
+      </Text>
     </View>
   );
 }
@@ -52,5 +64,10 @@ const styles = StyleSheet.create({
   link: {
     fontSize: 16,
     color: '#1a3c27',
+  },
+  logout: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 24,
   },
 });

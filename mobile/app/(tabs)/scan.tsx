@@ -1,7 +1,10 @@
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { getSpecimenByNfc } from '@/api/client';
+
+const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
 export default function ScanScreen() {
   const router = useRouter();
@@ -13,6 +16,13 @@ export default function ScanScreen() {
       if (Platform.OS === 'web') {
         setStatus('error');
         setMessage('Le scan NFC n\'est pas disponible sur le web. Utilisez l\'app sur téléphone.');
+        return;
+      }
+      if (isExpoGo) {
+        setStatus('error');
+        setMessage(
+          'Le scan NFC nécessite un build natif. Lancez "npx expo run:ios" (ou run:android) au lieu d\'Expo Go.',
+        );
         return;
       }
       let NfcManager: typeof import('react-native-nfc-manager').default;

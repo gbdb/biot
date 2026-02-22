@@ -1,9 +1,11 @@
-import { View, Text, StyleSheet, FlatList } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { useEffect, useState } from 'react';
+import { useRouter } from 'expo-router';
 import { getGardens } from '@/api/client';
 import type { GardenMinimal } from '@/types/api';
 
 export default function GardensScreen() {
+  const router = useRouter();
   const [gardens, setGardens] = useState<GardenMinimal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -37,10 +39,16 @@ export default function GardensScreen() {
       keyExtractor={(item) => String(item.id)}
       contentContainerStyle={styles.list}
       renderItem={({ item }) => (
-        <View style={styles.card}>
+        <TouchableOpacity
+          style={styles.card}
+          onPress={() => router.push(`/garden/${item.id}`)}
+          activeOpacity={0.7}
+        >
           <Text style={styles.cardTitle}>{item.nom}</Text>
-          <Text style={styles.cardSubtitle}>{item.ville} — {item.adresse}</Text>
-        </View>
+          <Text style={styles.cardSubtitle}>
+            {[item.ville, item.adresse].filter(Boolean).join(' — ') || '—'}
+          </Text>
+        </TouchableOpacity>
       )}
     />
   );

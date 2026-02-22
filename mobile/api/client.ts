@@ -85,6 +85,14 @@ async function handleResponse<T>(res: Response): Promise<T> {
   return data as T;
 }
 
+/** Extract results from DRF paginated response { count, next, previous, results } */
+function unwrapPaginated<T>(data: unknown): T[] {
+  if (data && typeof data === 'object' && 'results' in data && Array.isArray((data as { results: unknown }).results)) {
+    return (data as { results: T[] }).results;
+  }
+  return Array.isArray(data) ? data : [];
+}
+
 // --- Auth ---
 export async function login(username: string, password: string): Promise<TokenPair> {
   const res = await fetch(`${API_BASE_URL}${ENDPOINTS.auth.token}`, {
@@ -137,7 +145,8 @@ export async function getSpecimens(params?: {
   const qs = searchParams.toString();
   const url = `${API_BASE_URL}${ENDPOINTS.specimens}${qs ? `?${qs}` : ''}`;
   const res = await fetch(url, { headers: await authHeaders() });
-  return handleResponse<SpecimenList[]>(res);
+  const data = await handleResponse<unknown>(res);
+  return unwrapPaginated<SpecimenList>(data);
 }
 
 export async function getSpecimen(id: number): Promise<SpecimenDetail> {
@@ -191,6 +200,101 @@ export async function createSpecimenEvent(specimenId: number, data: EventCreate)
   return handleResponse<Event>(res);
 }
 
+export async function getSpecimenEvent(specimenId: number, eventId: number): Promise<Event> {
+  const res = await fetch(`${API_BASE_URL}${ENDPOINTS.specimens}${specimenId}/events/${eventId}/`, {
+    headers: await authHeaders(),
+  });
+  return handleResponse<Event>(res);
+}
+
+export async function updateSpecimenEvent(
+  specimenId: number,
+  eventId: number,
+  data: Partial<EventCreate>
+): Promise<Event> {
+  const res = await fetch(`${API_BASE_URL}${ENDPOINTS.specimens}${specimenId}/events/${eventId}/`, {
+    method: 'PATCH',
+    headers: await authHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse<Event>(res);
+}
+
+export async function getEventApplyToZonePreview(
+  specimenId: number,
+  eventId: number
+): Promise<{ zone: string | null; count: number }> {
+  const res = await fetch(
+    `${API_BASE_URL}${ENDPOINTS.specimens}${specimenId}/events/${eventId}/apply-to-zone-preview/`,
+    { headers: await authHeaders() }
+  );
+  return handleResponse<{ zone: string | null; count: number }>(res);
+}
+
+export async function applyEventToZone(
+  specimenId: number,
+  eventId: number
+): Promise<{ created: number; zone: string }> {
+  const res = await fetch(
+    `${API_BASE_URL}${ENDPOINTS.specimens}${specimenId}/events/${eventId}/apply-to-zone/`,
+    { method: 'POST', headers: await authHeaders() }
+  );
+  return handleResponse<{ created: number; zone: string }>(res);
+}
+
+export async function deleteSpecimenEvent(specimenId: number, eventId: number): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}${ENDPOINTS.specimens}${specimenId}/events/${eventId}/`, {
+    method: 'DELETE',
+    headers: await authHeaders(),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    let err: ApiError;
+    try {
+      err = JSON.parse(text) as ApiError;
+    } catch {
+      throw new Error(res.statusText || 'Erreur');
+    }
+    throw new Error(err.detail || err.message || `Erreur ${res.status}`);
+  }
+}
+
+export async function getEventPhotos(specimenId: number, eventId: number): Promise<Photo[]> {
+  const res = await fetch(
+    `${API_BASE_URL}${ENDPOINTS.specimens}${specimenId}/events/${eventId}/photos/`,
+    { headers: await authHeaders() }
+  );
+  return handleResponse<Photo[]>(res);
+}
+
+export async function uploadEventPhoto(
+  specimenId: number,
+  eventId: number,
+  data: PhotoCreate
+): Promise<Photo> {
+  const formData = new FormData();
+  const img = data.image as { uri: string; type?: string; name?: string };
+  formData.append('image', {
+    uri: img.uri,
+    type: img.type || 'image/jpeg',
+    name: img.name || 'photo.jpg',
+  } as unknown as Blob);
+  if (data.type_photo) formData.append('type_photo', data.type_photo);
+  if (data.titre) formData.append('titre', data.titre || '');
+  if (data.description) formData.append('description', data.description || '');
+  if (data.date_prise) formData.append('date_prise', data.date_prise);
+
+  const token = await getAccessToken();
+  const headers: Record<string, string> = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const res = await fetch(
+    `${API_BASE_URL}${ENDPOINTS.specimens}${specimenId}/events/${eventId}/photos/`,
+    { method: 'POST', headers, body: formData }
+  );
+  return handleResponse<Photo>(res);
+}
+
 // --- Specimen photos ---
 export async function getSpecimenPhotos(specimenId: number): Promise<Photo[]> {
   const res = await fetch(`${API_BASE_URL}${ENDPOINTS.specimens}${specimenId}/photos/`, {
@@ -237,7 +341,8 @@ export async function getOrganisms(params?: { search?: string; type?: string }):
   const qs = searchParams.toString();
   const url = `${API_BASE_URL}${ENDPOINTS.organisms}${qs ? `?${qs}` : ''}`;
   const res = await fetch(url, { headers: await authHeaders() });
-  return handleResponse<OrganismMinimal[]>(res);
+  const data = await handleResponse<unknown>(res);
+  return unwrapPaginated<OrganismMinimal>(data);
 }
 
 // --- Gardens ---
@@ -245,5 +350,13 @@ export async function getGardens(): Promise<GardenMinimal[]> {
   const res = await fetch(`${API_BASE_URL}${ENDPOINTS.gardens}`, {
     headers: await authHeaders(),
   });
-  return handleResponse<GardenMinimal[]>(res);
+  const data = await handleResponse<unknown>(res);
+  return unwrapPaginated<GardenMinimal>(data);
+}
+
+export async function getGarden(id: number): Promise<GardenMinimal> {
+  const res = await fetch(`${API_BASE_URL}${ENDPOINTS.gardens}${id}/`, {
+    headers: await authHeaders(),
+  });
+  return handleResponse<GardenMinimal>(res);
 }

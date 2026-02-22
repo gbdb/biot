@@ -127,6 +127,21 @@ class EventCreateSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
+class EventUpdateSerializer(serializers.ModelSerializer):
+    """Mise à jour d'un événement."""
+
+    class Meta:
+        model = Event
+        fields = [
+            'type_event', 'date', 'heure', 'titre', 'description',
+            'quantite', 'unite', 'produit_utilise',
+        ]
+        extra_kwargs = {
+            'type_event': {'required': False},
+            'date': {'required': False},
+        }
+
+
 # --- Photo ---
 class PhotoSerializer(serializers.ModelSerializer):
     """Photo (lecture)."""
@@ -148,7 +163,7 @@ class PhotoSerializer(serializers.ModelSerializer):
 
 
 class PhotoCreateSerializer(serializers.ModelSerializer):
-    """Upload de photo."""
+    """Upload de photo (specimen ou event)."""
 
     class Meta:
         model = Photo

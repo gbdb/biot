@@ -9,17 +9,34 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  Image,
+  Alert,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
+import * as ImagePicker from 'expo-image-picker';
 import {
   getSpecimen,
   getSpecimenEvents,
   duplicateSpecimen,
   createSpecimenEvent,
+  updateSpecimenEvent,
+  deleteSpecimenEvent,
+  getEventPhotos,
+  uploadEventPhoto,
+  getEventApplyToZonePreview,
+  applyEventToZone,
 } from '@/api/client';
-import type { SpecimenDetail, Event, EventType } from '@/types/api';
+import { API_BASE_URL } from '@/constants/config';
+import type { SpecimenDetail, Event, EventType, Photo } from '@/types/api';
 import { SPECIMEN_STATUT_LABELS, EVENT_TYPE_LABELS } from '@/types/api';
+
+const PHOTO_TYPE_LABELS: Record<string, string> = {
+  avant: '📷 Avant',
+  apres: '📷 Après',
+  autre: '📷 Autre',
+};
 
 const EVENT_TYPES: EventType[] = [
   'observation',
@@ -57,6 +74,18 @@ function AddEventModal({
   const [typeEvent, setTypeEvent] = useState<EventType>('observation');
   const [titre, setTitre] = useState('');
   const [description, setDescription] = useState('');
+  const [createdEvent, setCreatedEvent] = useState<Event | null>(null);
+  const [createdPhotos, setCreatedPhotos] = useState<PhotoOrPending[]>([]);
+  const [addPhotoModalVisible, setAddPhotoModalVisible] = useState(false);
+
+  const resetAndClose = () => {
+    setCreatedEvent(null);
+    setCreatedPhotos([]);
+    setTitre('');
+    setDescription('');
+    setTypeEvent('observation');
+    onClose();
+  };
 
   const handleSubmit = async () => {
     setSubmitting(true);
@@ -66,102 +95,185 @@ function AddEventModal({
         titre: titre.trim() || undefined,
         description: description.trim() || undefined,
       });
-      onSuccess(newEvent);
-      setTitre('');
-      setDescription('');
-      setTypeEvent('observation');
+      setCreatedEvent(newEvent);
     } catch {
-      // Erreur gérée silencieusement (ou toast à ajouter)
+      /* ignore */
     } finally {
       setSubmitting(false);
     }
   };
 
+  const handleDone = () => {
+    if (createdEvent) {
+      onSuccess(createdEvent);
+    }
+    resetAndClose();
+  };
+
   if (!visible) return null;
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent
-      onRequestClose={onClose}
-    >
+    <Modal visible={visible} animationType="slide" onRequestClose={createdEvent ? handleDone : onClose}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={modalStyles.overlay}
+        style={fullScreenModalStyles.container}
       >
-        <TouchableOpacity
-          style={modalStyles.backdrop}
-          activeOpacity={1}
-          onPress={onClose}
-        />
-        <View
-          style={modalStyles.content}
-          onStartShouldSetResponder={() => true}
-        >
-          <Text style={modalStyles.title}>Ajouter un événement</Text>
-          <ScrollView
-            style={modalStyles.typeGrid}
-            showsVerticalScrollIndicator={false}
+        <View style={fullScreenModalStyles.header}>
+          <TouchableOpacity
+            onPress={createdEvent ? handleDone : onClose}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
-            {EVENT_TYPES.map((t) => (
+            <Text style={fullScreenModalStyles.closeBtn}>✕</Text>
+          </TouchableOpacity>
+          <Text style={fullScreenModalStyles.headerTitle}>
+            {createdEvent ? 'Ajouter des photos' : 'Ajouter un événement'}
+          </Text>
+          <View style={{ width: 28 }} />
+        </View>
+        <ScrollView
+          style={fullScreenModalStyles.scroll}
+          contentContainerStyle={fullScreenModalStyles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {!createdEvent ? (
+            <>
+              <View style={modalStyles.typeGrid}>
+                {EVENT_TYPES.map((t) => (
+                  <TouchableOpacity
+                    key={t}
+                    style={[
+                      modalStyles.typeButton,
+                      typeEvent === t && modalStyles.typeButtonSelected,
+                    ]}
+                    onPress={() => setTypeEvent(t)}
+                  >
+                    <Text
+                      style={[
+                        modalStyles.typeButtonText,
+                        typeEvent === t && modalStyles.typeButtonTextSelected,
+                      ]}
+                    >
+                      {EVENT_TYPE_LABELS[t]}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <TextInput
+                style={modalStyles.input}
+                placeholder="Titre (optionnel)"
+                value={titre}
+                onChangeText={setTitre}
+                placeholderTextColor="#888"
+              />
+              <TextInput
+                style={[modalStyles.input, modalStyles.textArea]}
+                placeholder="Description (optionnel)"
+                value={description}
+                onChangeText={setDescription}
+                multiline
+                numberOfLines={2}
+                placeholderTextColor="#888"
+              />
               <TouchableOpacity
-                key={t}
-                style={[
-                  modalStyles.typeButton,
-                  typeEvent === t && modalStyles.typeButtonSelected,
-                ]}
-                onPress={() => setTypeEvent(t)}
+                style={fullScreenModalStyles.submitButton}
+                onPress={handleSubmit}
+                disabled={submitting}
               >
-                <Text
-                  style={[
-                    modalStyles.typeButtonText,
-                    typeEvent === t && modalStyles.typeButtonTextSelected,
-                  ]}
-                >
-                  {EVENT_TYPE_LABELS[t]}
+                <Text style={fullScreenModalStyles.submitButtonText}>
+                  {submitting ? 'Enregistrement...' : 'Enregistrer'}
                 </Text>
               </TouchableOpacity>
-            ))}
-          </ScrollView>
-          <TextInput
-            style={modalStyles.input}
-            placeholder="Titre (optionnel)"
-            value={titre}
-            onChangeText={setTitre}
-            placeholderTextColor="#888"
-          />
-          <TextInput
-            style={[modalStyles.input, modalStyles.textArea]}
-            placeholder="Description (optionnel)"
-            value={description}
-            onChangeText={setDescription}
-            multiline
-            numberOfLines={2}
-            placeholderTextColor="#888"
-          />
-          <View style={modalStyles.actions}>
-            <TouchableOpacity
-              style={[modalStyles.button, modalStyles.cancelButton]}
-              onPress={onClose}
-            >
-              <Text style={modalStyles.cancelButtonText}>Annuler</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[modalStyles.button, modalStyles.submitButton]}
-              onPress={handleSubmit}
-              disabled={submitting}
-            >
-              <Text style={modalStyles.submitButtonText}>
-                {submitting ? 'Enregistrement...' : 'Enregistrer'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+            </>
+          ) : (
+            <>
+              <Text style={eventDetailStyles.photoTitle}>Photos ({createdPhotos.length})</Text>
+              <View style={eventDetailStyles.photoList}>
+                {createdPhotos.map((p) => {
+                  const thumbUri = getPhotoThumbUri(p);
+                  return (
+                    <View key={p.id} style={eventDetailStyles.photoItem}>
+                      {thumbUri ? (
+                        <Image source={{ uri: thumbUri }} style={eventDetailStyles.photoThumb} />
+                      ) : (
+                        <View style={[eventDetailStyles.photoThumb, { justifyContent: 'center', alignItems: 'center' }]}>
+                          <ActivityIndicator size="small" color="#1a3c27" />
+                        </View>
+                      )}
+                      <Text style={eventDetailStyles.photoTag}>
+                        {p.type_photo ? (PHOTO_TYPE_LABELS[p.type_photo] || p.type_photo) : 'Photo'}
+                      </Text>
+                    </View>
+                  );
+                })}
+                <TouchableOpacity
+                  style={eventDetailStyles.addPhotoBtn}
+                  onPress={() => setAddPhotoModalVisible(true)}
+                >
+                  <Text style={eventDetailStyles.addPhotoText}>+ Photo</Text>
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity style={fullScreenModalStyles.submitButton} onPress={handleDone}>
+                <Text style={fullScreenModalStyles.submitButtonText}>Terminé</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </ScrollView>
       </KeyboardAvoidingView>
+
+      {createdEvent && (
+        <AddEventPhotoModal
+          visible={addPhotoModalVisible}
+          specimenId={specimenId}
+          eventId={createdEvent.id}
+          onClose={() => setAddPhotoModalVisible(false)}
+          onPendingPick={(localUri, typePhoto) => {
+            const id = `pending-${Date.now()}`;
+            setCreatedPhotos((prev) => [{ id, localUri, type_photo: typePhoto }, ...prev]);
+            return id;
+          }}
+          onSuccess={(photo, pendingId) => {
+            setCreatedPhotos((prev) => {
+              const without = pendingId ? prev.filter((x) => x.id !== pendingId) : prev;
+              return [photo, ...without];
+            });
+            setAddPhotoModalVisible(false);
+          }}
+          onUploadFailed={(pendingId) => {
+            setCreatedPhotos((prev) => prev.filter((x) => x.id !== pendingId));
+          }}
+        />
+      )}
     </Modal>
   );
 }
+
+const fullScreenModalStyles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#fff' },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingTop: 48,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    backgroundColor: '#f5f5f0',
+  },
+  closeBtn: { fontSize: 24, color: '#1a3c27', fontWeight: '300' },
+  headerTitle: { fontSize: 18, fontWeight: '600', color: '#1a3c27' },
+  scroll: { flex: 1 },
+  scrollContent: { padding: 20, paddingBottom: 40 },
+  submitButton: {
+    marginTop: 24,
+    padding: 16,
+    backgroundColor: '#1a3c27',
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  submitButtonText: { fontSize: 18, fontWeight: '600', color: '#fff' },
+});
 
 const modalStyles = StyleSheet.create({
   overlay: {
@@ -186,14 +298,16 @@ const modalStyles = StyleSheet.create({
     marginBottom: 16,
   },
   typeGrid: {
-    maxHeight: 200,
-    marginBottom: 12,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
   },
   typeButton: {
     padding: 12,
     backgroundColor: '#f0f0eb',
     borderRadius: 10,
-    marginBottom: 8,
+    minWidth: '47%',
   },
   typeButtonSelected: {
     backgroundColor: '#1a3c27',
@@ -245,6 +359,527 @@ const modalStyles = StyleSheet.create({
   },
 });
 
+const ZONE_GUIDANCE_EVENTS: EventType[] = ['taille', 'transplantation'];
+
+function EventDetailModal({
+  visible,
+  event,
+  specimenId,
+  specimen,
+  onClose,
+  onEventUpdate,
+  onEventDelete,
+}: {
+  visible: boolean;
+  event: Event | null;
+  specimenId: number;
+  specimen: SpecimenDetail;
+  onClose: () => void;
+  onEventUpdate: (updated: Event) => void;
+  onEventDelete: (eventId: number) => void;
+}) {
+  const [editMode, setEditMode] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [photos, setPhotos] = useState<PhotoOrPending[]>([]);
+  const [loadingPhotos, setLoadingPhotos] = useState(false);
+  const [zonePreview, setZonePreview] = useState<{ zone: string; count: number } | null>(null);
+  const [applyingToZone, setApplyingToZone] = useState(false);
+  const [typeEvent, setTypeEvent] = useState<EventType>('observation');
+  const [titre, setTitre] = useState('');
+  const [description, setDescription] = useState('');
+  const [photoModalVisible, setPhotoModalVisible] = useState(false);
+
+  const showZoneGuidance = event && ZONE_GUIDANCE_EVENTS.includes(event.type_event);
+
+  useEffect(() => {
+    if (visible && event) {
+      setTypeEvent(event.type_event);
+      setTitre(event.titre || '');
+      setDescription(event.description || '');
+      setEditMode(false);
+    }
+  }, [visible, event]);
+
+  useEffect(() => {
+    if (visible && event) {
+      setLoadingPhotos(true);
+      getEventPhotos(specimenId, event.id)
+        .then((p) => setPhotos(p as PhotoOrPending[]))
+        .catch(() => setPhotos([]))
+        .finally(() => setLoadingPhotos(false));
+    }
+  }, [visible, event, specimenId]);
+
+  useEffect(() => {
+    if (visible && event && specimen.zone_jardin) {
+      getEventApplyToZonePreview(specimenId, event.id)
+        .then((p) => {
+          if (p.zone && p.count > 0) setZonePreview({ zone: p.zone, count: p.count });
+          else setZonePreview(null);
+        })
+        .catch(() => setZonePreview(null));
+    } else {
+      setZonePreview(null);
+    }
+  }, [visible, event, specimenId, specimen.zone_jardin]);
+
+  const handleSave = async () => {
+    if (!event) return;
+    setSaving(true);
+    try {
+      const updated = await updateSpecimenEvent(specimenId, event.id, {
+        type_event: typeEvent,
+        titre: titre.trim() || undefined,
+        description: description.trim() || undefined,
+      });
+      onEventUpdate(updated);
+      setEditMode(false);
+    } catch {
+      /* ignore */
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleApplyToZone = async () => {
+    if (!event) return;
+    setApplyingToZone(true);
+    try {
+      const result = await applyEventToZone(specimenId, event.id);
+      Alert.alert(
+        'Zone mise à jour',
+        `Événement appliqué à ${result.created} spécimen${result.created > 1 ? 's' : ''} dans la zone « ${result.zone} ».`
+      );
+      setZonePreview(null);
+    } catch {
+      Alert.alert('Erreur', 'Impossible d\'appliquer l\'événement à la zone.');
+    } finally {
+      setApplyingToZone(false);
+    }
+  };
+
+  const handleDelete = () => {
+    if (!event) return;
+    Alert.alert(
+      'Supprimer l\'événement',
+      'Êtes-vous sûr de vouloir supprimer cet événement ?',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await deleteSpecimenEvent(specimenId, event.id);
+              onEventDelete(event.id);
+            } catch (err) {
+              Alert.alert(
+                'Erreur',
+                err instanceof Error ? err.message : 'Impossible de supprimer l\'événement.'
+              );
+            } finally {
+              setDeleting(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  if (!visible || !event) return null;
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={modalStyles.overlay}
+      >
+        <TouchableOpacity style={modalStyles.backdrop} activeOpacity={1} onPress={onClose} />
+        <View style={[modalStyles.content, { maxHeight: '90%' }]} onStartShouldSetResponder={() => true}>
+          <Text style={modalStyles.title}>{EVENT_TYPE_LABELS[event.type_event]}</Text>
+          <Text style={eventDetailStyles.date}>📅 {event.date}</Text>
+
+          {editMode ? (
+            <>
+              <ScrollView style={eventDetailStyles.typeGrid} showsVerticalScrollIndicator={false}>
+                {EVENT_TYPES.map((t) => (
+                  <TouchableOpacity
+                    key={t}
+                    style={[
+                      modalStyles.typeButton,
+                      typeEvent === t && modalStyles.typeButtonSelected,
+                    ]}
+                    onPress={() => setTypeEvent(t)}
+                  >
+                    <Text
+                      style={[
+                        modalStyles.typeButtonText,
+                        typeEvent === t && modalStyles.typeButtonTextSelected,
+                      ]}
+                    >
+                      {EVENT_TYPE_LABELS[t]}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              <TextInput
+                style={modalStyles.input}
+                placeholder="Titre"
+                value={titre}
+                onChangeText={setTitre}
+                placeholderTextColor="#888"
+              />
+              <TextInput
+                style={[modalStyles.input, modalStyles.textArea]}
+                placeholder="Description"
+                value={description}
+                onChangeText={setDescription}
+                multiline
+                numberOfLines={2}
+                placeholderTextColor="#888"
+              />
+              <View style={modalStyles.actions}>
+                <TouchableOpacity
+                  style={[modalStyles.button, modalStyles.cancelButton]}
+                  onPress={() => setEditMode(false)}
+                >
+                  <Text style={modalStyles.cancelButtonText}>Annuler</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[modalStyles.button, modalStyles.submitButton]}
+                  onPress={handleSave}
+                  disabled={saving}
+                >
+                  <Text style={modalStyles.submitButtonText}>
+                    {saving ? 'Enregistrement...' : 'Enregistrer'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          ) : (
+            <>
+              {event.titre ? <Text style={eventDetailStyles.field}>{event.titre}</Text> : null}
+              {event.description ? (
+                <Text style={eventDetailStyles.desc}>{event.description}</Text>
+              ) : null}
+
+              <Text style={eventDetailStyles.photoTitle}>Photos</Text>
+              {loadingPhotos ? (
+                <ActivityIndicator size="small" color="#1a3c27" />
+              ) : (
+                <View style={eventDetailStyles.photoList}>
+                  {photos.map((p) => {
+                    const thumbUri = getPhotoThumbUri(p);
+                    return (
+                      <View key={p.id} style={eventDetailStyles.photoItem}>
+                        {thumbUri ? (
+                          <Image source={{ uri: thumbUri }} style={eventDetailStyles.photoThumb} />
+                        ) : (
+                          <View style={[eventDetailStyles.photoThumb, { justifyContent: 'center', alignItems: 'center' }]}>
+                            <ActivityIndicator size="small" color="#1a3c27" />
+                          </View>
+                        )}
+                        <Text style={eventDetailStyles.photoTag}>
+                          {p.type_photo ? (PHOTO_TYPE_LABELS[p.type_photo] || p.type_photo) : 'Photo'}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                  <TouchableOpacity
+                    style={eventDetailStyles.addPhotoBtn}
+                    onPress={() => setPhotoModalVisible(true)}
+                  >
+                    <Text style={eventDetailStyles.addPhotoText}>+ Photo</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {zonePreview && (
+                <>
+                  <TouchableOpacity
+                    style={eventDetailStyles.applyToZoneButton}
+                    onPress={handleApplyToZone}
+                    disabled={applyingToZone}
+                  >
+                    <Ionicons name="layers-outline" size={20} color="#1a3c27" />
+                    <Text style={eventDetailStyles.applyToZoneText}>
+                      {applyingToZone
+                        ? 'Application...'
+                        : `Appliquer à la zone (${zonePreview.count} spécimen${zonePreview.count > 1 ? 's' : ''})`}
+                    </Text>
+                  </TouchableOpacity>
+                  {showZoneGuidance && (
+                    <Text style={eventDetailStyles.zoneGuidance}>
+                      💡 Cet événement concerne souvent un spécimen précis. Vous pouvez tout de même l'appliquer à la zone.
+                    </Text>
+                  )}
+                </>
+              )}
+              <View style={modalStyles.actions}>
+                <TouchableOpacity
+                  style={[modalStyles.button, modalStyles.cancelButton]}
+                  onPress={onClose}
+                >
+                  <Text style={modalStyles.cancelButtonText}>Fermer</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[modalStyles.button, modalStyles.submitButton]}
+                  onPress={() => setEditMode(true)}
+                  disabled={deleting}
+                >
+                  <Text style={modalStyles.submitButtonText}>Modifier</Text>
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity
+                style={eventDetailStyles.deleteButton}
+                onPress={handleDelete}
+                disabled={deleting}
+              >
+                <Ionicons name="trash-outline" size={20} color="#c44" />
+                <Text style={eventDetailStyles.deleteButtonText}>
+                  {deleting ? 'Suppression...' : 'Supprimer l\'événement'}
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+      </KeyboardAvoidingView>
+
+      <AddEventPhotoModal
+        visible={photoModalVisible}
+        specimenId={specimenId}
+        eventId={event.id}
+        onClose={() => setPhotoModalVisible(false)}
+        onPendingPick={(localUri, typePhoto) => {
+          const id = `pending-${Date.now()}`;
+          setPhotos((prev) => [{ id, localUri, type_photo: typePhoto }, ...prev]);
+          return id;
+        }}
+        onSuccess={(photo, pendingId) => {
+          setPhotos((prev) => {
+            const without = pendingId ? prev.filter((x) => x.id !== pendingId) : prev;
+            return [photo, ...without];
+          });
+          setPhotoModalVisible(false);
+        }}
+        onUploadFailed={(pendingId) => {
+          setPhotos((prev) => prev.filter((x) => x.id !== pendingId));
+        }}
+      />
+    </Modal>
+  );
+}
+
+type PhotoOrPending = Photo | { id: string; localUri: string; type_photo: string; titre?: string };
+
+function getPhotoThumbUri(p: PhotoOrPending): string | null {
+  if ('localUri' in p) return p.localUri;
+  if (p.image_url?.startsWith('http')) return p.image_url;
+  if (p.image) return `${API_BASE_URL}${p.image}`;
+  return null;
+}
+
+async function pickAndUpload(
+  source: 'camera' | 'library',
+  specimenId: number,
+  eventId: number,
+  typePhoto: string,
+  setUploading: (v: boolean) => void,
+  onPendingPick?: (localUri: string, typePhoto: string) => string
+): Promise<{ photo: Photo; pendingId: string | null } | null> {
+  if (source === 'camera') {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') return null;
+  } else {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') return null;
+  }
+  const launcher = source === 'camera' ? ImagePicker.launchCameraAsync : ImagePicker.launchImageLibraryAsync;
+  const result = await launcher({
+    mediaTypes: ['images'],
+    allowsEditing: true,
+    aspect: [4, 3],
+    quality: 0.8,
+  });
+  if (result.canceled || !result.assets?.[0]) return null;
+  const asset = result.assets[0];
+  const pendingId = onPendingPick?.(asset.uri, typePhoto) ?? null;
+  setUploading(true);
+  try {
+    const photo = await uploadEventPhoto(specimenId, eventId, {
+      image: {
+        uri: asset.uri,
+        type: asset.mimeType || 'image/jpeg',
+        name: 'photo.jpg',
+      },
+      type_photo: typePhoto,
+      titre: PHOTO_TYPE_LABELS[typePhoto] || typePhoto,
+    });
+    return { photo, pendingId };
+  } catch {
+    return { photo: null, pendingId };
+  } finally {
+    setUploading(false);
+  }
+}
+
+function AddEventPhotoModal({
+  visible,
+  specimenId,
+  eventId,
+  onClose,
+  onSuccess,
+  onPendingPick,
+  onUploadFailed,
+}: {
+  visible: boolean;
+  specimenId: number;
+  eventId: number;
+  onClose: () => void;
+  onSuccess: (photo: Photo, pendingId?: string) => void;
+  onPendingPick?: (localUri: string, typePhoto: string) => string;
+  onUploadFailed?: (pendingId: string) => void;
+}) {
+  const [typePhoto, setTypePhoto] = useState<string>('avant');
+  const [uploading, setUploading] = useState(false);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+
+  const handlePick = async (source: 'camera' | 'library') => {
+    const result = await pickAndUpload(source, specimenId, eventId, typePhoto, setUploading, onPendingPick);
+    if (result?.photo) {
+      setUploadSuccess(true);
+      setTimeout(() => {
+        onSuccess(result.photo!, result.pendingId ?? undefined);
+        onClose();
+      }, 1200);
+    } else if (result?.pendingId) {
+      onUploadFailed?.(result.pendingId);
+      Alert.alert('Erreur', 'Impossible d\'envoyer la photo. Vérifiez votre connexion.');
+    }
+  };
+
+  if (!visible) return null;
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={modalStyles.overlay}>
+        <TouchableOpacity style={modalStyles.backdrop} activeOpacity={1} onPress={onClose} />
+        <View style={modalStyles.content} onStartShouldSetResponder={() => true}>
+          <Text style={modalStyles.title}>Ajouter une photo</Text>
+          <Text style={eventDetailStyles.tagLabel}>Tag (avant/après)</Text>
+          <View style={eventDetailStyles.tagRow}>
+            {['avant', 'apres', 'autre'].map((t) => (
+              <TouchableOpacity
+                key={t}
+                style={[
+                  modalStyles.typeButton,
+                  typePhoto === t && modalStyles.typeButtonSelected,
+                ]}
+                onPress={() => setTypePhoto(t)}
+              >
+                <Text
+                  style={[
+                    modalStyles.typeButtonText,
+                    typePhoto === t && modalStyles.typeButtonTextSelected,
+                  ]}
+                >
+                  {PHOTO_TYPE_LABELS[t] || t}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <View style={eventDetailStyles.photoSourceRow}>
+            <TouchableOpacity
+              style={eventDetailStyles.photoSourceBtn}
+              onPress={() => handlePick('camera')}
+              disabled={uploading}
+            >
+              <Ionicons name="camera" size={36} color="#1a3c27" />
+              <Text style={eventDetailStyles.photoSourceLabel}>Prendre une photo</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={eventDetailStyles.photoSourceBtn}
+              onPress={() => handlePick('library')}
+              disabled={uploading}
+            >
+              <Ionicons name="images" size={36} color="#1a3c27" />
+              <Text style={eventDetailStyles.photoSourceLabel}>Galerie</Text>
+            </TouchableOpacity>
+          </View>
+          {uploadSuccess && (
+            <Text style={eventDetailStyles.successText}>✓ Photo enregistrée !</Text>
+          )}
+          {uploading && <ActivityIndicator size="small" color="#1a3c27" style={{ marginTop: 12 }} />}
+          <TouchableOpacity style={[modalStyles.button, modalStyles.cancelButton]} onPress={onClose}>
+            <Text style={modalStyles.cancelButtonText}>Fermer</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const eventDetailStyles = StyleSheet.create({
+  date: { fontSize: 14, color: '#666', marginBottom: 12 },
+  field: { fontSize: 16, color: '#1a3c27', marginBottom: 8 },
+  desc: { fontSize: 14, color: '#555', marginBottom: 16 },
+  photoTitle: { fontSize: 16, fontWeight: '600', color: '#1a3c27', marginBottom: 8 },
+  photoList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
+  photoItem: { alignItems: 'center' },
+  photoThumb: { width: 64, height: 64, borderRadius: 8, backgroundColor: '#eee' },
+  photoTag: { fontSize: 10, color: '#666', marginTop: 4 },
+  addPhotoBtn: {
+    width: 64,
+    height: 64,
+    borderRadius: 8,
+    backgroundColor: '#f0f0eb',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addPhotoText: { fontSize: 14, color: '#1a3c27' },
+  typeGrid: { maxHeight: 160, marginBottom: 12 },
+  tagLabel: { fontSize: 14, color: '#666', marginBottom: 8 },
+  tagRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 12 },
+  photoSourceRow: { flexDirection: 'row', gap: 16, marginVertical: 16 },
+  photoSourceBtn: {
+    flex: 1,
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#f0f0eb',
+    borderRadius: 12,
+  },
+  photoSourceLabel: { fontSize: 12, color: '#1a3c27', marginTop: 8 },
+  successText: { fontSize: 16, color: '#2e7d32', marginTop: 12, textAlign: 'center' },
+  deleteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: 12,
+    marginTop: 8,
+  },
+  deleteButtonText: { fontSize: 14, color: '#c44' },
+  applyToZoneButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    backgroundColor: '#e8f5e9',
+    borderRadius: 10,
+    marginBottom: 8,
+  },
+  applyToZoneText: { fontSize: 14, color: '#1a3c27', fontWeight: '500' },
+  zoneGuidance: {
+    fontSize: 12,
+    color: '#666',
+    fontStyle: 'italic',
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+});
+
 export default function SpecimenDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -255,6 +890,8 @@ export default function SpecimenDetailScreen() {
   const [duplicating, setDuplicating] = useState(false);
   const [eventModalVisible, setEventModalVisible] = useState(false);
   const [eventSubmitting, setEventSubmitting] = useState(false);
+  const [eventDetailModalVisible, setEventDetailModalVisible] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -315,11 +952,19 @@ export default function SpecimenDetailScreen() {
           <Text style={styles.empty}>Aucun événement</Text>
         ) : (
           events.slice(0, 10).map((ev) => (
-            <View key={ev.id} style={styles.eventRow}>
+            <TouchableOpacity
+              key={ev.id}
+              style={styles.eventRow}
+              onPress={() => {
+                setSelectedEvent(ev);
+                setEventDetailModalVisible(true);
+              }}
+              activeOpacity={0.7}
+            >
               <Text style={styles.eventType}>{EVENT_TYPE_LABELS[ev.type_event]}</Text>
               <Text style={styles.eventDate}>{ev.date}</Text>
               {ev.titre ? <Text style={styles.eventTitre}>{ev.titre}</Text> : null}
-            </View>
+            </TouchableOpacity>
           ))
         )}
         <TouchableOpacity
@@ -339,6 +984,24 @@ export default function SpecimenDetailScreen() {
         }}
         submitting={eventSubmitting}
         setSubmitting={setEventSubmitting}
+      />
+      <EventDetailModal
+        visible={eventDetailModalVisible}
+        event={selectedEvent}
+        specimenId={specimen.id}
+        specimen={specimen}
+        onClose={() => {
+          setEventDetailModalVisible(false);
+          setSelectedEvent(null);
+        }}
+        onEventUpdate={(updated) => {
+          setEvents(events.map((e) => (e.id === updated.id ? updated : e)));
+        }}
+        onEventDelete={(eventId) => {
+          setEvents((prev) => prev.filter((e) => e.id !== eventId));
+          setEventDetailModalVisible(false);
+          setSelectedEvent(null);
+        }}
       />
       <TouchableOpacity
         style={[styles.duplicateButton, duplicating && styles.duplicateButtonDisabled]}
