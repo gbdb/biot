@@ -9,6 +9,68 @@ export interface OrganismMinimal {
   nom_commun: string;
   nom_latin: string;
   type_organisme: string;
+  is_favori?: boolean;
+}
+
+export interface OrganismDetail extends OrganismMinimal {
+  famille: string;
+  regne: string;
+  besoin_eau: string;
+  besoin_soleil: string;
+  zone_rusticite?: { zone: string; source?: string }[];
+  sol_drainage: string;
+  sol_richesse: string;
+  hauteur_max: number | null;
+  largeur_max: number | null;
+  vitesse_croissance: string;
+  comestible: boolean;
+  parties_comestibles: string;
+  toxicite: string;
+  type_noix: string;
+  age_fructification: number | null;
+  periode_recolte: string;
+  pollinisation: string;
+  production_annuelle: string;
+  fixateur_azote: boolean;
+  accumulateur_dynamique: boolean;
+  mellifere: boolean;
+  produit_juglone: boolean;
+  indigene: boolean;
+  description: string;
+  notes: string;
+  usages_autres: string;
+  is_favori?: boolean;
+}
+
+export interface OrganismUpdate {
+  nom_commun: string;
+  nom_latin: string;
+  famille?: string;
+  regne?: string;
+  type_organisme: string;
+  besoin_eau?: string;
+  besoin_soleil?: string;
+  sol_drainage?: string;
+  sol_richesse?: string;
+  hauteur_max?: number | null;
+  largeur_max?: number | null;
+  vitesse_croissance?: string;
+  comestible?: boolean;
+  parties_comestibles?: string;
+  toxicite?: string;
+  type_noix?: string;
+  age_fructification?: number | null;
+  periode_recolte?: string;
+  pollinisation?: string;
+  production_annuelle?: string;
+  fixateur_azote?: boolean;
+  accumulateur_dynamique?: boolean;
+  mellifere?: boolean;
+  produit_juglone?: boolean;
+  indigene?: boolean;
+  description?: string;
+  notes?: string;
+  usages_autres?: string;
 }
 
 // --- Garden ---
@@ -53,14 +115,15 @@ export interface SpecimenList {
   organisme: number;
   organisme_nom: string;
   organisme_nom_latin: string;
-  garden: number;
-  garden_nom: string;
+  garden: number | null;
+  garden_nom: string | null;
   zone_jardin: string | null;
   statut: SpecimenStatut;
   sante: number;
   date_plantation: string | null;
   latitude: number | null;
   longitude: number | null;
+  is_favori?: boolean;
 }
 
 export interface SpecimenDetail {
@@ -69,7 +132,7 @@ export interface SpecimenDetail {
   code_identification: string | null;
   nfc_tag_uid: string | null;
   organisme: OrganismMinimal;
-  garden: GardenMinimal;
+  garden: GardenMinimal | null;
   zone_jardin: string | null;
   latitude: number | null;
   longitude: number | null;
@@ -84,11 +147,12 @@ export interface SpecimenDetail {
   notes: string | null;
   date_ajout: string;
   date_modification: string;
+  is_favori?: boolean;
 }
 
 export interface SpecimenCreateUpdate {
   organisme: number;
-  garden: number;
+  garden: number | null;
   nom?: string;
   code_identification?: string;
   nfc_tag_uid?: string;
