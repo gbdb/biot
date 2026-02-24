@@ -17,6 +17,12 @@ export default function HomeScreen() {
       <Link href="/(tabs)/scan" style={styles.cta}>
         Scanner un tag NFC
       </Link>
+      <Link href="/specimen/create" style={styles.subCta}>
+        Ajouter un spécimen
+      </Link>
+      <Link href="/observation/quick" style={styles.quickObsCta}>
+        Observation rapide (espèce inconnue)
+      </Link>
       <Link href="/(tabs)/specimens" style={styles.link}>
         Voir les spécimens
       </Link>
@@ -57,6 +63,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 28,
     borderRadius: 12,
     marginBottom: 16,
+    minWidth: 200,
+    textAlign: 'center',
+  },
+  subCta: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1a3c27',
+    backgroundColor: '#e8f0eb',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    marginBottom: 12,
+    minWidth: 200,
+    textAlign: 'center',
+  },
+  quickObsCta: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#4a6741',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    marginBottom: 12,
     minWidth: 200,
     textAlign: 'center',
   },

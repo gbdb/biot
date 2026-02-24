@@ -11,14 +11,18 @@ import {
   Platform,
   Image,
   Alert,
+  useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
+import { useEffect, useState, useCallback } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import {
   getSpecimen,
   getSpecimenEvents,
+  getSpecimenPhotos,
+  uploadSpecimenPhoto,
+  deleteSpecimenPhoto,
   duplicateSpecimen,
   createSpecimenEvent,
   updateSpecimenEvent,
@@ -27,6 +31,8 @@ import {
   uploadEventPhoto,
   getEventApplyToZonePreview,
   applyEventToZone,
+  addSpecimenFavorite,
+  removeSpecimenFavorite,
 } from '@/api/client';
 import { API_BASE_URL } from '@/constants/config';
 import type { SpecimenDetail, Event, EventType, Photo } from '@/types/api';
@@ -891,6 +897,14 @@ export default function SpecimenDetailScreen() {
   const [eventSubmitting, setEventSubmitting] = useState(false);
   const [eventDetailModalVisible, setEventDetailModalVisible] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [isFavori, setIsFavori] = useState(false);
+  const [favoriToggling, setFavoriToggling] = useState(false);
+  const [specimenPhotos, setSpecimenPhotos] = useState<Photo[]>([]);
+  const [loadingPhotos, setLoadingPhotos] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [fullscreenPhoto, setFullscreenPhoto] = useState<Photo | null>(null);
+  const [deletingPhoto, setDeletingPhoto] = useState(false);
+  const { width: screenWidth } = useWindowDimensions();
 
   useEffect(() => {
     if (!id) return;
@@ -900,14 +914,46 @@ export default function SpecimenDetailScreen() {
       setLoading(false);
       return;
     }
+    setLoading(true);
     Promise.all([getSpecimen(numId), getSpecimenEvents(numId)])
       .then(([s, e]) => {
         setSpecimen(s);
         setEvents(e);
+        setIsFavori(s.is_favori ?? false);
       })
       .catch((err) => setError(err instanceof Error ? err.message : 'Erreur'))
       .finally(() => setLoading(false));
   }, [id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!id || !specimen) return;
+      const numId = parseInt(id, 10);
+      if (isNaN(numId)) return;
+      getSpecimen(numId)
+        .then((s) => {
+          setSpecimen(s);
+          setIsFavori(s.is_favori ?? false);
+        })
+        .catch(() => {});
+      getSpecimenEvents(numId)
+        .then(setEvents)
+        .catch(() => {});
+    }, [id, specimen?.id])
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!id) return;
+      const numId = parseInt(id, 10);
+      if (isNaN(numId)) return;
+      setLoadingPhotos(true);
+      getSpecimenPhotos(numId)
+        .then(setSpecimenPhotos)
+        .catch(() => setSpecimenPhotos([]))
+        .finally(() => setLoadingPhotos(false));
+    }, [id])
+  );
 
   if (loading) {
     return (
@@ -925,18 +971,215 @@ export default function SpecimenDetailScreen() {
     );
   }
 
+  const pickAndUploadSpecimenPhoto = async (source: 'camera' | 'library') => {
+    if (!specimen) return;
+    if (source === 'camera') {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') return;
+    } else {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') return;
+    }
+    const launcher =
+      source === 'camera' ? ImagePicker.launchCameraAsync : ImagePicker.launchImageLibraryAsync;
+    const result = await launcher({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+    if (result.canceled || !result.assets?.[0]) return;
+    const asset = result.assets[0];
+    setUploadingPhoto(true);
+    try {
+      const photo = await uploadSpecimenPhoto(specimen.id, {
+        image: {
+          uri: asset.uri,
+          type: asset.mimeType || 'image/jpeg',
+          name: 'photo.jpg',
+        },
+        type_photo: 'autre',
+        titre: 'Photo du spécimen',
+      });
+      setSpecimenPhotos((prev) => [photo, ...prev]);
+    } catch {
+      Alert.alert('Erreur', 'Impossible d\'envoyer la photo.');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handleAddSpecimenPhoto = () => {
+    Alert.alert('Ajouter une photo', 'Choisir la source', [
+      { text: 'Annuler', style: 'cancel' },
+      { text: 'Appareil photo', onPress: () => pickAndUploadSpecimenPhoto('camera') },
+      { text: 'Galerie', onPress: () => pickAndUploadSpecimenPhoto('library') },
+    ]);
+  };
+
+  const getSpecimenPhotoUri = (p: Photo): string | null => {
+    if (p.image_url?.startsWith('http')) return p.image_url;
+    if (p.image) return `${API_BASE_URL}${p.image}`;
+    return null;
+  };
+
+  const handleToggleFavori = async () => {
+    if (!specimen || favoriToggling) return;
+    setFavoriToggling(true);
+    const wasFavori = isFavori;
+    setIsFavori(!wasFavori);
+    try {
+      if (wasFavori) {
+        await removeSpecimenFavorite(specimen.id);
+      } else {
+        await addSpecimenFavorite(specimen.id);
+      }
+    } catch {
+      setIsFavori(wasFavori);
+    } finally {
+      setFavoriToggling(false);
+    }
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.header}>
-        <Text style={styles.title}>{specimen.nom}</Text>
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>{specimen.nom}</Text>
+          <View style={styles.titleActions}>
+            <TouchableOpacity
+              onPress={() => router.push(`/specimen/edit/${specimen.id}`)}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              style={styles.iconButton}
+            >
+              <Ionicons name="pencil" size={22} color="#666" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleToggleFavori}
+              disabled={favoriToggling}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              style={styles.favoriButton}
+            >
+              <Ionicons
+                name={isFavori ? 'star' : 'star-outline'}
+                size={28}
+                color={isFavori ? '#f0c040' : '#666'}
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
         <Text style={styles.organism}>
           {specimen.organisme.nom_commun} ({specimen.organisme.nom_latin})
         </Text>
         <Text style={styles.statut}>{SPECIMEN_STATUT_LABELS[specimen.statut]}</Text>
       </View>
+      <View style={styles.photoSection}>
+        {loadingPhotos ? (
+          <ActivityIndicator size="small" color="#1a3c27" style={styles.photoLoader} />
+        ) : (
+          <>
+            {specimenPhotos.map((p) => {
+              const uri = getSpecimenPhotoUri(p);
+              if (!uri) return null;
+              const photoWidth = screenWidth - 40;
+              return (
+                <TouchableOpacity
+                  key={p.id}
+                  onPress={() => setFullscreenPhoto(p)}
+                  activeOpacity={0.9}
+                  style={styles.photoWrapper}
+                >
+                  <Image
+                    source={{ uri }}
+                    style={[styles.specimenPhoto, { width: photoWidth, height: photoWidth * 0.75 }]}
+                    resizeMode="cover"
+                  />
+                </TouchableOpacity>
+              );
+            })}
+            <TouchableOpacity
+              style={styles.addPhotoButton}
+              onPress={handleAddSpecimenPhoto}
+              disabled={uploadingPhoto}
+            >
+              {uploadingPhoto ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="camera-outline" size={24} color="#fff" />
+                  <Text style={styles.addPhotoText}>Ajouter une photo</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </>
+        )}
+      </View>
+      <Modal
+        visible={!!fullscreenPhoto}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setFullscreenPhoto(null)}
+      >
+        <View style={styles.fullscreenOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setFullscreenPhoto(null)}
+          >
+            {fullscreenPhoto && (
+              <Image
+                source={{ uri: getSpecimenPhotoUri(fullscreenPhoto) ?? '' }}
+                style={styles.fullscreenImage}
+                resizeMode="contain"
+              />
+            )}
+          </TouchableOpacity>
+          {fullscreenPhoto && (
+            <TouchableOpacity
+              style={styles.fullscreenDeleteButton}
+              onPress={() => {
+                if (!specimen || deletingPhoto) return;
+                Alert.alert(
+                  'Supprimer la photo',
+                  'Êtes-vous sûr de vouloir supprimer cette photo ?',
+                  [
+                    { text: 'Annuler', style: 'cancel' },
+                    {
+                      text: 'Supprimer',
+                      style: 'destructive',
+                      onPress: async () => {
+                        setDeletingPhoto(true);
+                        try {
+                          await deleteSpecimenPhoto(specimen.id, fullscreenPhoto.id);
+                          setSpecimenPhotos((prev) => prev.filter((ph) => ph.id !== fullscreenPhoto.id));
+                          setFullscreenPhoto(null);
+                        } catch {
+                          Alert.alert('Erreur', 'Impossible de supprimer la photo.');
+                        } finally {
+                          setDeletingPhoto(false);
+                        }
+                      },
+                    },
+                  ]
+                );
+              }}
+              disabled={deletingPhoto}
+            >
+              {deletingPhoto ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="trash-outline" size={22} color="#fff" />
+                  <Text style={styles.fullscreenDeleteText}>Supprimer</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
+      </Modal>
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Infos</Text>
-        <Text style={styles.info}>Jardin : {specimen.garden.nom}</Text>
+        <Text style={styles.info}>Jardin : {specimen.garden?.nom ?? 'Non assigné'}</Text>
         {specimen.zone_jardin && (
           <Text style={styles.info}>Zone : {specimen.zone_jardin}</Text>
         )}
@@ -1043,10 +1286,28 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: 24,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
   title: {
+    flex: 1,
     fontSize: 24,
     fontWeight: 'bold',
     color: '#1a3c27',
+  },
+  titleActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  iconButton: {
+    padding: 4,
+  },
+  favoriButton: {
+    padding: 4,
   },
   organism: {
     fontSize: 16,
@@ -1057,6 +1318,64 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginTop: 8,
+  },
+  photoSection: {
+    marginBottom: 24,
+  },
+  photoLoader: {
+    marginVertical: 16,
+  },
+  photoWrapper: {
+    marginBottom: 12,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  specimenPhoto: {
+    borderRadius: 12,
+  },
+  addPhotoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: 14,
+    backgroundColor: '#1a3c27',
+    borderRadius: 10,
+    marginTop: 4,
+  },
+  addPhotoText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  fullscreenOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullscreenImage: {
+    width: '100%',
+    height: '100%',
+  },
+  fullscreenDeleteButton: {
+    position: 'absolute',
+    bottom: 40,
+    left: 20,
+    right: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: 14,
+    backgroundColor: '#c44',
+    borderRadius: 12,
+    zIndex: 10,
+  },
+  fullscreenDeleteText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
   },
   section: {
     marginBottom: 24,

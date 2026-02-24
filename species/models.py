@@ -1,4 +1,6 @@
+from django.conf import settings
 from django.db import models
+
 
 class Organism(models.Model):
     """
@@ -1138,6 +1140,45 @@ class Specimen(models.Model):
         return self.age_plantation
     
     age_annees.short_description = "Âge (années)"
+
+
+class SpecimenFavorite(models.Model):
+    """Favoris utilisateur pour les spécimens."""
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='specimen_favorites',
+    )
+    specimen = models.ForeignKey(
+        'species.Specimen',
+        on_delete=models.CASCADE,
+        related_name='favorited_by',
+    )
+
+    class Meta:
+        unique_together = [['user', 'specimen']]
+        verbose_name = "Spécimen favori"
+        verbose_name_plural = "Spécimens favoris"
+
+
+class OrganismFavorite(models.Model):
+    """Favoris utilisateur pour les espèces (organismes)."""
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='organism_favorites',
+    )
+    organism = models.ForeignKey(
+        'species.Organism',
+        on_delete=models.CASCADE,
+        related_name='favorited_by',
+    )
+
+    class Meta:
+        unique_together = [['user', 'organism']]
+        verbose_name = "Espèce favorie"
+        verbose_name_plural = "Espèces favorites"
+
 
 class Event(models.Model):
     """

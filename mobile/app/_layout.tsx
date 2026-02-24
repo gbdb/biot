@@ -38,12 +38,40 @@ function RootLayoutNav() {
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen
+          name="specimen/create"
+          options={{ title: 'Nouveau spécimen' }}
+        />
+        <Stack.Screen
+          name="observation/quick"
+          options={{ title: 'Observation rapide' }}
+        />
+        <Stack.Screen
           name="specimen/[id]"
           options={{ title: 'Fiche spécimen' }}
         />
         <Stack.Screen
+          name="specimen/edit/[id]"
+          options={{ title: 'Modifier le spécimen' }}
+        />
+        <Stack.Screen
           name="garden/[id]"
           options={{ title: 'Détail jardin' }}
+        />
+        <Stack.Screen
+          name="scan"
+          options={{ title: 'Scan NFC' }}
+        />
+        <Stack.Screen
+          name="species/create"
+          options={{ title: 'Nouvelle espèce' }}
+        />
+        <Stack.Screen
+          name="species/[id]"
+          options={{ title: 'Fiche espèce' }}
+        />
+        <Stack.Screen
+          name="species/edit/[id]"
+          options={{ title: 'Modifier l\'espèce' }}
         />
       </Stack>
     </>

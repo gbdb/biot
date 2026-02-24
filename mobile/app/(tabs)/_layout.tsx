@@ -1,4 +1,39 @@
-import { Tabs } from 'expo-router';
+import { View, Text, TouchableOpacity } from 'react-native';
+import { Tabs, useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+
+function SpecimensHeaderRight() {
+  const router = useRouter();
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 16, gap: 8 }}>
+      <TouchableOpacity
+        onPress={() => router.push('/scan')}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+      >
+        <Ionicons name="scan-outline" size={24} color="#fff" />
+      </TouchableOpacity>
+      <TouchableOpacity
+        onPress={() => router.push('/specimen/create')}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+      >
+        <Text style={{ fontSize: 24, color: '#fff', fontWeight: '300' }}>+</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+function SpeciesHeaderRight() {
+  const router = useRouter();
+  return (
+    <TouchableOpacity
+      onPress={() => router.push('/species/create')}
+      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+      style={{ marginRight: 16 }}
+    >
+      <Text style={{ fontSize: 24, color: '#fff', fontWeight: '300' }}>+</Text>
+    </TouchableOpacity>
+  );
+}
 
 export default function TabLayout() {
   return (
@@ -18,10 +53,11 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="scan"
+        name="species"
         options={{
-          title: 'Scan NFC',
-          tabBarLabel: 'Scan',
+          title: 'Espèces',
+          tabBarLabel: 'Espèces',
+          headerRight: () => <SpeciesHeaderRight />,
         }}
       />
       <Tabs.Screen
@@ -29,6 +65,7 @@ export default function TabLayout() {
         options={{
           title: 'Spécimens',
           tabBarLabel: 'Spécimens',
+          headerRight: () => <SpecimensHeaderRight />,
         }}
       />
       <Tabs.Screen

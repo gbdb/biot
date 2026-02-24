@@ -3,16 +3,19 @@ Vues API REST pour l'app mobile Jardin Biot.
 Endpoints: specimens, events, photos, organisms, gardens, NFC lookup.
 """
 from django.db.models import Q
-from rest_framework import status, viewsets
+from rest_framework import status, viewsets, mixins
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
-
 from django.shortcuts import get_object_or_404
 
-from .models import Organism, Garden, Specimen, Event, Photo
+from .models import Organism, Garden, Specimen, SpecimenFavorite, OrganismFavorite, Event, Photo
 from .serializers import (
     OrganismMinimalSerializer,
+    OrganismDetailSerializer,
+    OrganismCreateSerializer,
+    OrganismUpdateSerializer,
     GardenMinimalSerializer,
     SpecimenListSerializer,
     SpecimenDetailSerializer,
@@ -83,7 +86,42 @@ class SpecimenViewSet(viewsets.ModelViewSet):
                 | Q(code_identification__icontains=search)
                 | Q(organisme__nom_commun__icontains=search)
             )
+        favoris = self.request.query_params.get('favoris')
+        if favoris and self.request.user.is_authenticated:
+            fav_ids = SpecimenFavorite.objects.filter(user=self.request.user).values_list('specimen_id', flat=True)
+            qs = qs.filter(pk__in=fav_ids)
+        sante = self.request.query_params.get('sante')
+        if sante:
+            try:
+                sante_val = int(sante)
+                qs = qs.filter(sante=sante_val)
+            except ValueError:
+                pass
         return qs
+
+    @action(detail=False, methods=['get'], url_path='zones')
+    def zones(self, request):
+        """Returns distinct zone_jardin values from specimens."""
+        zones = (
+            Specimen.objects.exclude(zone_jardin__isnull=True)
+            .exclude(zone_jardin='')
+            .values_list('zone_jardin', flat=True)
+            .distinct()
+            .order_by('zone_jardin')
+        )
+        return Response(list(zones))
+
+    @action(detail=True, methods=['post', 'delete'], url_path='favoris')
+    def favoris(self, request, pk=None):
+        """POST = add favorite, DELETE = remove favorite."""
+        specimen = self.get_object()
+        if not request.user.is_authenticated:
+            return Response({'detail': 'Authentification requise'}, status=status.HTTP_401_UNAUTHORIZED)
+        if request.method == 'POST':
+            SpecimenFavorite.objects.get_or_create(user=request.user, specimen=specimen)
+            return Response({'detail': 'Ajouté aux favoris'}, status=status.HTTP_200_OK)
+        SpecimenFavorite.objects.filter(user=request.user, specimen=specimen).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=['get', 'post'])
     def events(self, request, pk=None):
@@ -195,6 +233,14 @@ class SpecimenViewSet(viewsets.ModelViewSet):
             status=status.HTTP_201_CREATED,
         )
 
+    @action(detail=True, methods=['delete'], url_path='photos/(?P<photo_pk>[^/.]+)')
+    def photo_detail(self, request, pk=None, photo_pk=None):
+        """DELETE une photo du spécimen."""
+        specimen = self.get_object()
+        photo = get_object_or_404(Photo, pk=photo_pk, specimen=specimen)
+        photo.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     @action(detail=True, methods=['post'])
     def duplicate(self, request, pk=None):
         """POST /api/specimens/{id}/duplicate/ → crée une copie avec les mêmes données (sans tag/code)."""
@@ -224,12 +270,40 @@ class SpecimenViewSet(viewsets.ModelViewSet):
         return Response(output.data, status=status.HTTP_201_CREATED)
 
 
-# --- Organism ViewSet (lecture) ---
-class OrganismViewSet(viewsets.ReadOnlyModelViewSet):
-    """Liste et détail des organismes (pour créer un spécimen)."""
+class OrganismPagination(PageNumberPagination):
+    """50 espèces par page pour infinite scroll."""
+    page_size = 50
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+
+# --- Organism ViewSet (lecture + création + mise à jour) ---
+class OrganismViewSet(
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.CreateModelMixin,
+    mixins.UpdateModelMixin,
+    viewsets.GenericViewSet,
+):
+    """Liste, détail, création et mise à jour des organismes (espèces)."""
 
     queryset = Organism.objects.order_by('nom_commun')
-    serializer_class = OrganismMinimalSerializer
+    pagination_class = OrganismPagination
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return OrganismCreateSerializer
+        if self.action in ('update', 'partial_update'):
+            return OrganismUpdateSerializer
+        if self.action == 'retrieve':
+            return OrganismDetailSerializer
+        return OrganismMinimalSerializer
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        if self.action == 'create' and self.request:
+            context['force_create'] = self.request.data.get('force_create', False)
+        return context
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -241,7 +315,58 @@ class OrganismViewSet(viewsets.ReadOnlyModelViewSet):
         type_org = self.request.query_params.get('type')
         if type_org:
             qs = qs.filter(type_organisme=type_org)
+        favoris = self.request.query_params.get('favoris')
+        if favoris and self.request.user.is_authenticated:
+            fav_ids = OrganismFavorite.objects.filter(user=self.request.user).values_list('organism_id', flat=True)
+            qs = qs.filter(pk__in=fav_ids)
+        soleil = self.request.query_params.get('soleil')
+        if soleil:
+            qs = qs.filter(besoin_soleil=soleil)
+        zone_usda = self.request.query_params.get('zone_usda')
+        if zone_usda:
+            try:
+                z = int(zone_usda)
+                q_zone = Q()
+                for i in range(1, min(z + 1, 14)):
+                    for s in ('a', 'b'):
+                        q_zone |= Q(zone_rusticite__icontains=f'"zone": "{i}{s}"')
+                    q_zone |= Q(zone_rusticite__icontains=f'"zone": "{i}"')
+                qs = qs.filter(q_zone)
+            except ValueError:
+                pass
+        fruits = self.request.query_params.get('fruits')
+        if fruits:
+            qs = qs.filter(
+                type_organisme__in=['arbre_fruitier', 'arbuste_fruitier', 'arbuste_baies']
+            )
+        noix = self.request.query_params.get('noix')
+        if noix:
+            qs = qs.filter(type_organisme='arbre_noix')
         return qs
+
+    @action(detail=True, methods=['post', 'delete'], url_path='favoris')
+    def favoris(self, request, pk=None):
+        """POST = add favorite, DELETE = remove favorite."""
+        organism = self.get_object()
+        if not request.user.is_authenticated:
+            return Response({'detail': 'Authentification requise'}, status=status.HTTP_401_UNAUTHORIZED)
+        if request.method == 'POST':
+            OrganismFavorite.objects.get_or_create(user=request.user, organism=organism)
+            return Response({'detail': 'Ajouté aux favoris'}, status=status.HTTP_200_OK)
+        OrganismFavorite.objects.filter(user=request.user, organism=organism).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, url_path='inconnu')
+    def inconnu(self, request):
+        """Organisme système pour observations rapides (espèce non identifiée)."""
+        org = Organism.objects.filter(nom_commun='Espèce non identifiée').first()
+        if not org:
+            return Response(
+                {'detail': 'Organisme "Espèce non identifiée" introuvable. Exécutez les migrations.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        serializer = OrganismMinimalSerializer(org)
+        return Response(serializer.data)
 
 
 # --- Garden ViewSet (lecture) ---

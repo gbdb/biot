@@ -23,7 +23,10 @@
         "backgroundColor": "#1a3c27"
       },
       "package": "com.jardinbiot.mobile",
-      "permissions": ["android.permission.NFC"]
+      "permissions": [
+        "android.permission.NFC",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -35,6 +38,12 @@
         "react-native-nfc-manager",
         {
           "nfcPermission": "Permet de scanner les tags NFC sur les spécimens"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Enregistrer la position GPS des observations (jardin, forêt, randonnée)"
         }
       ]
     ],
