@@ -1,6 +1,6 @@
 # 🌳 Jardin bIOT
 
-> **Plateforme open-source de design et gestion de forêts comestibles et écosystèmes permacoles**
+> **Plateforme open-source de design et gestion de forêts comestibles et écosystèmes permacoles!**
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%203.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Python](https://img.shields.io/badge/Python-3.11+-green.svg)](https://www.python.org/)
