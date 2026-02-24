@@ -461,6 +461,7 @@ function EventDetailModal({
 
   const handleDelete = () => {
     if (!event) return;
+    const eventIdToDelete = event.id;
     Alert.alert(
       'Supprimer l\'événement',
       'Êtes-vous sûr de vouloir supprimer cet événement ?',
@@ -469,19 +470,17 @@ function EventDetailModal({
         {
           text: 'Supprimer',
           style: 'destructive',
-          onPress: async () => {
+          onPress: () => {
             setDeleting(true);
-            try {
-              await deleteSpecimenEvent(specimenId, event.id);
-              onEventDelete(event.id);
-            } catch (err) {
-              Alert.alert(
-                'Erreur',
-                err instanceof Error ? err.message : 'Impossible de supprimer l\'événement.'
-              );
-            } finally {
-              setDeleting(false);
-            }
+            deleteSpecimenEvent(specimenId, eventIdToDelete)
+              .then(() => {
+                onEventDelete(eventIdToDelete);
+              })
+              .catch((err) => {
+                const msg = err instanceof Error ? err.message : 'Impossible de supprimer l\'événement.';
+                Alert.alert('Erreur', msg);
+              })
+              .finally(() => setDeleting(false));
           },
         },
       ]

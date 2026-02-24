@@ -1,14 +1,13 @@
 import { View, Text, StyleSheet } from 'react-native';
-import { Link, useRouter } from 'expo-router';
+import { Link } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function HomeScreen() {
-  const router = useRouter();
   const { logout } = useAuth();
 
   const handleLogout = async () => {
     await logout();
-    router.replace('/login');
+    // La redirection vers /login est gérée par <Redirect> dans _layout.tsx
   };
 
   return (

@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 import { isAuthenticated, logout as apiLogout } from '@/api/client';
 
 type AuthContextType = {
@@ -20,6 +21,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     checkAuth();
+  }, [checkAuth]);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state: AppStateStatus) => {
+      if (state === 'active') checkAuth();
+    });
+    return () => sub.remove();
   }, [checkAuth]);
 
   const setAuthenticated = useCallback((v: boolean) => {
