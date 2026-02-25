@@ -71,6 +71,7 @@ export default function SpeciesScreen() {
   const [favorisFilter, setFavorisFilter] = useState(false);
   const [fruitsFilter, setFruitsFilter] = useState(false);
   const [noixFilter, setNoixFilter] = useState(false);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
   const fetchOrganisms = useCallback(
     async (pageNum: number, append: boolean) => {
@@ -99,6 +100,7 @@ export default function SpeciesScreen() {
           }
           setHasMore(more);
           setPage(pageNum + 1);
+          setHasLoadedOnce(true);
         })
         .catch((err) => setError(err instanceof Error ? err.message : 'Erreur'))
         .finally(() => {
@@ -198,7 +200,7 @@ export default function SpeciesScreen() {
     setNoixFilter(false);
   };
 
-  if (loading && organisms.length === 0) {
+  if (loading && organisms.length === 0 && !hasLoadedOnce) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color="#1a3c27" />
@@ -206,7 +208,7 @@ export default function SpeciesScreen() {
     );
   }
 
-  if (error && organisms.length === 0) {
+  if (error && organisms.length === 0 && !hasLoadedOnce) {
     return (
       <View style={styles.centered}>
         <Text style={styles.error}>{error}</Text>
@@ -225,6 +227,15 @@ export default function SpeciesScreen() {
           placeholderTextColor="#888"
           autoCapitalize="none"
         />
+        {search.length > 0 && (
+          <TouchableOpacity
+            onPress={() => setSearch('')}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            style={styles.searchClear}
+          >
+            <Ionicons name="close-circle" size={24} color="#888" />
+          </TouchableOpacity>
+        )}
       </View>
 
       <ScrollView
@@ -378,8 +389,12 @@ export default function SpeciesScreen() {
           </View>
         )}
         ListEmptyComponent={
-          <Text style={styles.emptyText}>
-            {search || hasActiveFilters ? 'Aucune espèce trouvée' : 'Chargement...'}
+          <Text style={[styles.emptyText, error && styles.error]}>
+            {error
+              ? error
+              : search || hasActiveFilters
+                ? 'Aucune espèce trouvée'
+                : 'Chargement...'}
           </Text>
         }
       />
@@ -575,6 +590,10 @@ const styles = StyleSheet.create({
     color: '#1a3c27',
     borderWidth: 1,
     borderColor: '#e0e0e0',
+  },
+  searchClear: {
+    padding: 4,
+    justifyContent: 'center',
   },
   pillsScroll: { minHeight: 56 },
   pillsRow: {

@@ -346,7 +346,24 @@ def get_forecast_alerts(garden: Garden, forecast: list[dict]) -> list[dict]:
             })
             break
 
-    # 4. Zone rusticité : jardin 4, espèce 5 → protection hivernale conseillée
+    # 4. Température élevée prévue (canicule)
+    seuil_chaud = getattr(garden, 'seuil_temp_elevee_c', None) or 32.0
+    for d in forecast[:5]:
+        tmax = d.get("temp_max")
+        if tmax is not None and tmax >= seuil_chaud:
+            alerts.append({
+                "type": "high_temp_forecast",
+                "severity": "warning",
+                "message": (
+                    f"Température élevée prévue : {tmax:.0f}°C le {d['date'].strftime('%d/%m')}. "
+                    "Pensez à arroser et protéger les plantes sensibles."
+                ),
+                "date": d["date"],
+                "temp_max": tmax,
+            })
+            break
+
+    # 5. Zone rusticité : jardin 4, espèce 5 → protection hivernale conseillée
     # Uniquement en hiver (nov à mars)
     if month in (11, 12, 1, 2, 3) and garden.zone_rusticite:
         from .models import Specimen

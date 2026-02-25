@@ -124,6 +124,9 @@ export interface SpecimenList {
   latitude: number | null;
   longitude: number | null;
   is_favori?: boolean;
+  photo_principale_url?: string | null;
+  /** Présent uniquement pour l'endpoint nearby */
+  distance_km?: number;
 }
 
 export interface SpecimenDetail {
@@ -148,6 +151,8 @@ export interface SpecimenDetail {
   date_ajout: string;
   date_modification: string;
   is_favori?: boolean;
+  photo_principale?: number | null;
+  photo_principale_url?: string | null;
 }
 
 export interface SpecimenCreateUpdate {
@@ -232,6 +237,48 @@ export interface EventCreate {
   quantite?: number | null;
   unite?: string | null;
   produit_utilise?: string;
+}
+
+// --- Reminder ---
+export type ReminderType =
+  | 'arrosage'
+  | 'suivi_maladie'
+  | 'taille'
+  | 'suivi_general'
+  | 'cueillette';
+
+export type ReminderAlerteType = 'email' | 'popup' | 'son';
+
+export const REMINDER_TYPE_LABELS: Record<ReminderType, string> = {
+  arrosage: '💧 Arrosage',
+  suivi_maladie: '🦠 Suivi de maladie',
+  taille: '✂️ Taille',
+  suivi_general: '👁️ Suivi général',
+  cueillette: '🧺 Cueillette',
+};
+
+export const REMINDER_ALERTE_LABELS: Record<ReminderAlerteType, string> = {
+  email: '📧 Email',
+  popup: '🔔 Popup',
+  son: '🔊 Son',
+};
+
+export interface Reminder {
+  id: number;
+  type_rappel: ReminderType;
+  date_rappel: string;
+  type_alerte: ReminderAlerteType;
+  titre: string;
+  description: string;
+  date_ajout: string;
+}
+
+export interface ReminderCreate {
+  type_rappel: ReminderType;
+  date_rappel: string;
+  type_alerte?: ReminderAlerteType;
+  titre?: string;
+  description?: string;
 }
 
 // --- Photo ---

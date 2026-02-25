@@ -3,7 +3,7 @@ Serializers pour l'API REST (app mobile Jardin Biot).
 """
 from rest_framework import serializers
 
-from .models import Organism, Garden, Specimen, SpecimenFavorite, OrganismFavorite, Event, Photo, UserTag
+from .models import Organism, Garden, Specimen, SpecimenFavorite, OrganismFavorite, Event, Reminder, Photo, UserTag
 from .source_rules import (
     find_organism_by_latin_fuzzy,
     find_organism_by_common_name,
@@ -176,6 +176,13 @@ class GardenMinimalSerializer(serializers.ModelSerializer):
         fields = ['id', 'nom', 'ville', 'adresse', 'latitude', 'longitude']
 
 
+def _get_photo_url(request, photo):
+    """Retourne l'URL absolue d'une photo ou None."""
+    if not photo or not photo.image or not request:
+        return None
+    return request.build_absolute_uri(photo.image.url)
+
+
 # --- Specimen ---
 class SpecimenListSerializer(serializers.ModelSerializer):
     """Liste des spécimens avec organisme et statut."""
@@ -184,6 +191,7 @@ class SpecimenListSerializer(serializers.ModelSerializer):
     organisme_nom_latin = serializers.CharField(source='organisme.nom_latin', read_only=True)
     garden_nom = serializers.SerializerMethodField()
     is_favori = serializers.SerializerMethodField()
+    photo_principale_url = serializers.SerializerMethodField()
 
     def get_garden_nom(self, obj):
         return obj.garden.nom if obj.garden else None
@@ -194,12 +202,20 @@ class SpecimenListSerializer(serializers.ModelSerializer):
             return False
         return SpecimenFavorite.objects.filter(user=request.user, specimen=obj).exists()
 
+    def get_photo_principale_url(self, obj):
+        request = self.context.get('request')
+        if obj.photo_principale:
+            return _get_photo_url(request, obj.photo_principale)
+        # Fallback: première photo du spécimen
+        first = obj.photos.first()
+        return _get_photo_url(request, first) if first else None
+
     class Meta:
         model = Specimen
         fields = [
             'id', 'nom', 'code_identification', 'nfc_tag_uid', 'organisme', 'organisme_nom',
             'organisme_nom_latin', 'garden', 'garden_nom', 'zone_jardin', 'statut', 'sante',
-            'date_plantation', 'latitude', 'longitude', 'is_favori',
+            'date_plantation', 'latitude', 'longitude', 'is_favori', 'photo_principale_url',
         ]
 
 
@@ -209,12 +225,20 @@ class SpecimenDetailSerializer(serializers.ModelSerializer):
     organisme = OrganismMinimalSerializer(read_only=True)
     garden = GardenMinimalSerializer(read_only=True, allow_null=True)
     is_favori = serializers.SerializerMethodField()
+    photo_principale_url = serializers.SerializerMethodField()
 
     def get_is_favori(self, obj):
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:
             return False
         return SpecimenFavorite.objects.filter(user=request.user, specimen=obj).exists()
+
+    def get_photo_principale_url(self, obj):
+        request = self.context.get('request')
+        if obj.photo_principale:
+            return _get_photo_url(request, obj.photo_principale)
+        first = obj.photos.first()
+        return _get_photo_url(request, first) if first else None
 
     class Meta:
         model = Specimen
@@ -223,6 +247,7 @@ class SpecimenDetailSerializer(serializers.ModelSerializer):
             'zone_jardin', 'latitude', 'longitude', 'date_plantation', 'age_plantation',
             'source', 'pepiniere_fournisseur', 'statut', 'sante', 'hauteur_actuelle',
             'premiere_fructification', 'notes', 'date_ajout', 'date_modification', 'is_favori',
+            'photo_principale_url', 'photo_principale',
         ]
 
 
@@ -308,6 +333,50 @@ class EventUpdateSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'type_event': {'required': False},
             'date': {'required': False},
+        }
+
+
+# --- Reminder ---
+class ReminderSerializer(serializers.ModelSerializer):
+    """Rappel (lecture)."""
+
+    class Meta:
+        model = Reminder
+        fields = [
+            'id', 'type_rappel', 'date_rappel', 'type_alerte',
+            'titre', 'description', 'date_ajout',
+        ]
+
+
+class ReminderCreateSerializer(serializers.ModelSerializer):
+    """Création de rappel."""
+
+    class Meta:
+        model = Reminder
+        fields = [
+            'type_rappel', 'date_rappel', 'type_alerte',
+            'titre', 'description',
+        ]
+        extra_kwargs = {
+            'type_rappel': {'required': True},
+            'date_rappel': {'required': True},
+            'type_alerte': {'required': False, 'default': 'popup'},
+        }
+
+    def create(self, validated_data):
+        validated_data['specimen'] = self.context['specimen']
+        return super().create(validated_data)
+
+
+class ReminderUpdateSerializer(serializers.ModelSerializer):
+    """Mise à jour d'un rappel."""
+
+    class Meta:
+        model = Reminder
+        fields = ['type_rappel', 'date_rappel', 'type_alerte', 'titre', 'description']
+        extra_kwargs = {
+            'type_rappel': {'required': False},
+            'date_rappel': {'required': False},
         }
 
 

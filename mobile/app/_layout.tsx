@@ -73,6 +73,7 @@ function RootLayoutNav() {
           name="species/edit/[id]"
           options={{ title: 'Modifier l\'espèce' }}
         />
+        <Stack.Screen name="specimens" options={{ headerShown: false }} />
       </Stack>
     </>
   );

@@ -11,6 +11,8 @@ import type {
   SpecimenCreateUpdate,
   Event,
   EventCreate,
+  Reminder,
+  ReminderCreate,
   Photo,
   PhotoCreate,
   OrganismMinimal,
@@ -194,6 +196,23 @@ export async function getSpecimenZones(): Promise<string[]> {
   return handleResponse<string[]>(res);
 }
 
+export async function getSpecimensNearby(params: {
+  lat: number;
+  lng: number;
+  radius?: number;
+  limit?: number;
+}): Promise<SpecimenList[]> {
+  const searchParams = new URLSearchParams();
+  searchParams.set('lat', String(params.lat));
+  searchParams.set('lng', String(params.lng));
+  if (params.radius != null) searchParams.set('radius', String(params.radius));
+  if (params.limit != null) searchParams.set('limit', String(params.limit));
+  const res = await fetchWithAuth(
+    `${API_BASE_URL}${ENDPOINTS.specimens}nearby/?${searchParams.toString()}`
+  );
+  return handleResponse<SpecimenList[]>(res);
+}
+
 export async function addSpecimenFavorite(id: number): Promise<void> {
   const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.specimens}${id}/favoris/`, {
     method: 'POST',
@@ -310,6 +329,38 @@ export async function applyEventToZone(
   return handleResponse<{ created: number; zone: string }>(res);
 }
 
+// --- Specimen reminders ---
+export async function getSpecimenReminders(specimenId: number): Promise<Reminder[]> {
+  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.specimens}${specimenId}/reminders/`);
+  return handleResponse<Reminder[]>(res);
+}
+
+export async function createSpecimenReminder(specimenId: number, data: ReminderCreate): Promise<Reminder> {
+  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.specimens}${specimenId}/reminders/`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return handleResponse<Reminder>(res);
+}
+
+export async function deleteSpecimenReminder(specimenId: number, reminderId: number): Promise<void> {
+  const res = await fetchWithAuth(
+    `${API_BASE_URL}${ENDPOINTS.specimens}${specimenId}/reminders/${reminderId}/`,
+    { method: 'DELETE' }
+  );
+  if (!res.ok && res.status !== 204) {
+    const text = await res.text();
+    let err: ApiError;
+    try {
+      err = text ? (JSON.parse(text) as ApiError) : {};
+    } catch {
+      throw new Error(`Erreur ${res.status}: ${text || res.statusText}`);
+    }
+    const msg = err.detail ?? err.message ?? `Erreur ${res.status}`;
+    throw new Error(String(msg));
+  }
+}
+
 export async function deleteSpecimenEvent(specimenId: number, eventId: number): Promise<void> {
   const url = `${API_BASE_URL}${ENDPOINTS.specimens}${specimenId}/events/${eventId}/`;
   const res = await fetchWithAuth(url, { method: 'DELETE' });
@@ -365,6 +416,24 @@ export async function uploadEventPhoto(
 export async function getSpecimenPhotos(specimenId: number): Promise<Photo[]> {
   const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.specimens}${specimenId}/photos/`);
   return handleResponse<Photo[]>(res);
+}
+
+export async function setSpecimenDefaultPhoto(specimenId: number, photoId: number): Promise<void> {
+  const res = await fetchWithAuth(
+    `${API_BASE_URL}${ENDPOINTS.specimens}${specimenId}/photos/${photoId}/set-default/`,
+    { method: 'POST' }
+  );
+  if (!res.ok) {
+    const text = await res.text();
+    let err: ApiError;
+    try {
+      err = text ? (JSON.parse(text) as ApiError) : {};
+    } catch {
+      throw new Error(`Erreur ${res.status}: ${text || res.statusText}`);
+    }
+    const msg = err.detail ?? err.message ?? `Erreur ${res.status}`;
+    throw new Error(String(msg));
+  }
 }
 
 export async function deleteSpecimenPhoto(specimenId: number, photoId: number): Promise<void> {
@@ -554,4 +623,38 @@ export async function getGardens(): Promise<GardenMinimal[]> {
 export async function getGarden(id: number): Promise<GardenMinimal> {
   const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.gardens}${id}/`);
   return handleResponse<GardenMinimal>(res);
+}
+
+// --- Reminders upcoming (page d'accueil) ---
+export interface ReminderUpcoming {
+  id: number;
+  type_rappel: string;
+  date_rappel: string;
+  type_alerte: string;
+  titre: string;
+  description: string;
+  specimen: {
+    id: number;
+    nom: string;
+    organisme_nom: string;
+    photo_url: string | null;
+  };
+}
+
+export async function getRemindersUpcoming(): Promise<ReminderUpcoming[]> {
+  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.remindersUpcoming}`);
+  return handleResponse<ReminderUpcoming[]>(res);
+}
+
+// --- Weather alerts (page d'accueil) ---
+export interface WeatherAlert {
+  type: string;
+  icon: string;
+  message: string;
+  garden_nom: string;
+}
+
+export async function getWeatherAlerts(): Promise<WeatherAlert[]> {
+  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.weatherAlerts}`);
+  return handleResponse<WeatherAlert[]>(res);
 }

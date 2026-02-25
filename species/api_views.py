@@ -1,7 +1,10 @@
 """
 Vues API REST pour l'app mobile Jardin Biot.
-Endpoints: specimens, events, photos, organisms, gardens, NFC lookup.
+Endpoints: specimens, events, reminders, photos, organisms, gardens, NFC lookup.
 """
+from datetime import date
+from math import radians, sin, cos, sqrt, atan2
+
 from django.db.models import Q
 from rest_framework import status, viewsets, mixins
 from rest_framework.pagination import PageNumberPagination
@@ -10,7 +13,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
 
-from .models import Organism, Garden, Specimen, SpecimenFavorite, OrganismFavorite, Event, Photo
+from .models import Organism, Garden, Specimen, SpecimenFavorite, OrganismFavorite, Event, Reminder, Photo
 from .serializers import (
     OrganismMinimalSerializer,
     OrganismDetailSerializer,
@@ -23,6 +26,9 @@ from .serializers import (
     EventSerializer,
     EventCreateSerializer,
     EventUpdateSerializer,
+    ReminderSerializer,
+    ReminderCreateSerializer,
+    ReminderUpdateSerializer,
     PhotoSerializer,
     PhotoCreateSerializer,
 )
@@ -56,7 +62,9 @@ class SpecimenByNfcView(APIView):
 class SpecimenViewSet(viewsets.ModelViewSet):
     """CRUD spécimens + liste avec filtres."""
 
-    queryset = Specimen.objects.select_related('organisme', 'garden').order_by('-date_plantation', 'nom')
+    queryset = Specimen.objects.select_related(
+        'organisme', 'garden', 'photo_principale'
+    ).prefetch_related('photos').order_by('-date_plantation', 'nom')
 
     def get_serializer_class(self):
         if self.action in ('list',):
@@ -111,6 +119,76 @@ class SpecimenViewSet(viewsets.ModelViewSet):
         )
         return Response(list(zones))
 
+    @action(detail=False, methods=['get'], url_path='nearby')
+    def nearby(self, request):
+        """
+        Spécimens à proximité d'une position GPS.
+        Query params: lat, lng (requis), radius (mètres, défaut 500), limit (défaut 50).
+        Retourne la liste triée par distance avec distance_km sur chaque item.
+        """
+        lat = request.query_params.get('lat')
+        lng = request.query_params.get('lng')
+        if not lat or not lng:
+            return Response(
+                {'detail': 'Paramètres lat et lng requis'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            lat_f = float(lat)
+            lng_f = float(lng)
+        except ValueError:
+            return Response(
+                {'detail': 'lat et lng doivent être des nombres'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        radius_m = 1000.0  # 1 km par défaut (couvre vergers, forêts comestibles)
+        if 'radius' in request.query_params:
+            try:
+                radius_m = float(request.query_params.get('radius'))
+            except (ValueError, TypeError):
+                pass
+        limit = 50
+        if 'limit' in request.query_params:
+            try:
+                limit = int(request.query_params.get('limit'))
+            except (ValueError, TypeError):
+                pass
+
+        def haversine_km(lat1, lon1, lat2, lon2):
+            R = 6371  # Rayon Terre en km
+            lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+            dlat = lat2 - lat1
+            dlon = lon2 - lon1
+            a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
+            c = 2 * atan2(sqrt(a), sqrt(1 - a))
+            return R * c
+
+        specimens = list(
+            Specimen.objects.filter(
+                latitude__isnull=False,
+                longitude__isnull=False,
+            )
+            .select_related('organisme', 'garden', 'photo_principale')
+            .prefetch_related('photos')
+        )
+        with_dist = [
+            (s, haversine_km(lat_f, lng_f, s.latitude, s.longitude))
+            for s in specimens
+        ]
+        with_dist = [(s, d) for s, d in with_dist if d * 1000 <= radius_m]
+        with_dist.sort(key=lambda x: x[1])
+        with_dist = with_dist[:limit]
+
+        serializer = SpecimenListSerializer(
+            [s for s, _ in with_dist],
+            many=True,
+            context={'request': request},
+        )
+        data = serializer.data
+        for i, (_, dist) in enumerate(with_dist):
+            data[i]['distance_km'] = round(dist, 4)
+        return Response(data)
+
     @action(detail=True, methods=['post', 'delete'], url_path='favoris')
     def favoris(self, request, pk=None):
         """POST = add favorite, DELETE = remove favorite."""
@@ -122,6 +200,38 @@ class SpecimenViewSet(viewsets.ModelViewSet):
             return Response({'detail': 'Ajouté aux favoris'}, status=status.HTTP_200_OK)
         SpecimenFavorite.objects.filter(user=request.user, specimen=specimen).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=['get', 'post'])
+    def reminders(self, request, pk=None):
+        """GET/POST rappels du spécimen."""
+        specimen = self.get_object()
+        if request.method == 'GET':
+            reminders = specimen.rappels.order_by('date_rappel', 'date_ajout')[:50]
+            serializer = ReminderSerializer(reminders, many=True)
+            return Response(serializer.data)
+        serializer = ReminderCreateSerializer(
+            data=request.data,
+            context={'specimen': specimen},
+        )
+        serializer.is_valid(raise_exception=True)
+        reminder = serializer.save(specimen=specimen)
+        return Response(ReminderSerializer(reminder).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['get', 'patch', 'delete'], url_path='reminders/(?P<reminder_pk>[^/.]+)')
+    def reminder_detail(self, request, pk=None, reminder_pk=None):
+        """GET/PATCH/DELETE un rappel spécifique."""
+        specimen = self.get_object()
+        reminder = get_object_or_404(Reminder, pk=reminder_pk, specimen=specimen)
+        if request.method == 'GET':
+            serializer = ReminderSerializer(reminder)
+            return Response(serializer.data)
+        if request.method == 'DELETE':
+            reminder.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        serializer = ReminderUpdateSerializer(reminder, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(ReminderSerializer(reminder).data)
 
     @action(detail=True, methods=['get', 'post'])
     def events(self, request, pk=None):
@@ -240,6 +350,15 @@ class SpecimenViewSet(viewsets.ModelViewSet):
         photo = get_object_or_404(Photo, pk=photo_pk, specimen=specimen)
         photo.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=['post'], url_path='photos/(?P<photo_pk>[^/.]+)/set-default')
+    def photo_set_default(self, request, pk=None, photo_pk=None):
+        """Définit cette photo comme photo par défaut du spécimen."""
+        specimen = self.get_object()
+        photo = get_object_or_404(Photo, pk=photo_pk, specimen=specimen)
+        specimen.photo_principale = photo
+        specimen.save(update_fields=['photo_principale', 'date_modification'])
+        return Response({'detail': 'Photo par défaut définie'}, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'])
     def duplicate(self, request, pk=None):
@@ -375,3 +494,103 @@ class GardenViewSet(viewsets.ReadOnlyModelViewSet):
 
     queryset = Garden.objects.order_by('nom')
     serializer_class = GardenMinimalSerializer
+
+
+# --- Rappels à venir (page d'accueil) ---
+class RemindersUpcomingView(APIView):
+    """
+    GET /api/reminders/upcoming/
+    Retourne les rappels à venir pour les spécimens favoris de l'utilisateur.
+    Chaque rappel inclut les infos du spécimen (nom, photo) pour affichage thumbnail.
+    """
+    def get(self, request):
+        if not request.user.is_authenticated:
+            return Response({'detail': 'Authentification requise'}, status=status.HTTP_401_UNAUTHORIZED)
+        today = date.today()
+        fav_ids = SpecimenFavorite.objects.filter(user=request.user).values_list('specimen_id', flat=True)
+        reminders = (
+            Reminder.objects.filter(
+                specimen_id__in=fav_ids,
+                date_rappel__gte=today,
+            )
+            .select_related('specimen', 'specimen__organisme', 'specimen__photo_principale')
+            .prefetch_related('specimen__photos')
+            .order_by('date_rappel', 'date_ajout')[:30]
+        )
+        result = []
+        for r in reminders:
+            s = r.specimen
+            photo_url = None
+            if s.photo_principale and s.photo_principale.image and request:
+                photo_url = request.build_absolute_uri(s.photo_principale.image.url)
+            else:
+                photos = list(s.photos.all())
+                if photos and photos[0].image and request:
+                    photo_url = request.build_absolute_uri(photos[0].image.url)
+            result.append({
+                'id': r.id,
+                'type_rappel': r.type_rappel,
+                'date_rappel': str(r.date_rappel),
+                'type_alerte': r.type_alerte,
+                'titre': r.titre or '',
+                'description': r.description or '',
+                'specimen': {
+                    'id': s.id,
+                    'nom': s.nom,
+                    'organisme_nom': s.organisme.nom_commun,
+                    'photo_url': photo_url,
+                },
+            })
+        return Response(result)
+
+
+# --- Alertes météo (page d'accueil) ---
+class WeatherAlertsView(APIView):
+    """
+    GET /api/weather-alerts/
+    Retourne les alertes météo pour les jardins ayant des spécimens.
+    a) Pas de pluie depuis longtemps → icône avertissement
+    b) Gel prévu ou survenu → icône flocon
+    c) Température élevée prévue → icône canicule (seuil configurable admin)
+    """
+    def get(self, request):
+        if not request.user.is_authenticated:
+            return Response({'detail': 'Authentification requise'}, status=status.HTTP_401_UNAUTHORIZED)
+        from .weather_service import (
+            fetch_forecast,
+            get_forecast_alerts,
+            get_watering_alert,
+        )
+        gardens = Garden.objects.filter(
+            latitude__isnull=False,
+            longitude__isnull=False,
+        ).filter(specimens__isnull=False).distinct()
+        alerts = []
+        for g in gardens:
+            # Alerte arrosage (chaud + sec)
+            watering = get_watering_alert(g)
+            if watering:
+                alerts.append({
+                    'type': 'no_rain',
+                    'icon': 'warning',
+                    'message': watering['message'],
+                    'garden_nom': g.nom,
+                })
+            # Prévisions et alertes
+            forecast = fetch_forecast(g, days=7)
+            forecast_alerts = get_forecast_alerts(g, forecast)
+            for fa in forecast_alerts:
+                icon = 'warning'
+                if fa.get('type') == 'frost_risk':
+                    icon = 'snowflake'
+                elif fa.get('type') == 'high_temp_forecast':
+                    icon = 'thermometer'
+                elif fa.get('type') == 'no_rain_forecast':
+                    icon = 'water'
+                alerts.append({
+                    'type': fa.get('type', 'info'),
+                    'icon': icon,
+                    'message': fa.get('message', ''),
+                    'garden_nom': g.nom,
+                })
+        return Response(alerts[:20])  # Limite pour éviter trop d'alertes

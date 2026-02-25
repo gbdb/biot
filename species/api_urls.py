@@ -9,6 +9,8 @@ from .api_views import (
     SpecimenViewSet,
     OrganismViewSet,
     GardenViewSet,
+    RemindersUpcomingView,
+    WeatherAlertsView,
 )
 
 router = DefaultRouter()
@@ -18,5 +20,7 @@ router.register(r'gardens', GardenViewSet, basename='garden')
 
 urlpatterns = [
     path('specimens/by-nfc/<str:uid>/', SpecimenByNfcView.as_view(), name='specimen-by-nfc'),
+    path('reminders/upcoming/', RemindersUpcomingView.as_view(), name='reminders-upcoming'),
+    path('weather-alerts/', WeatherAlertsView.as_view(), name='weather-alerts'),
     path('', include(router.urls)),
 ]
