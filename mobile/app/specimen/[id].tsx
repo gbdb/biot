@@ -17,26 +17,32 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useEffect, useState, useCallback } from 'react';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import {
   getSpecimen,
   getSpecimenEvents,
+  getSpecimenReminders,
   getSpecimenPhotos,
   uploadSpecimenPhoto,
   deleteSpecimenPhoto,
+  setSpecimenDefaultPhoto,
   duplicateSpecimen,
   createSpecimenEvent,
+  createSpecimenReminder,
   updateSpecimenEvent,
   deleteSpecimenEvent,
+  deleteSpecimenReminder,
   getEventPhotos,
   uploadEventPhoto,
   getEventApplyToZonePreview,
   applyEventToZone,
   addSpecimenFavorite,
   removeSpecimenFavorite,
+  updateSpecimen,
 } from '@/api/client';
 import { API_BASE_URL } from '@/constants/config';
-import type { SpecimenDetail, Event, EventType, Photo } from '@/types/api';
-import { SPECIMEN_STATUT_LABELS, EVENT_TYPE_LABELS } from '@/types/api';
+import type { SpecimenDetail, Event, EventType, Photo, Reminder, ReminderType, ReminderAlerteType } from '@/types/api';
+import { SPECIMEN_STATUT_LABELS, EVENT_TYPE_LABELS, REMINDER_TYPE_LABELS, REMINDER_ALERTE_LABELS } from '@/types/api';
 
 const PHOTO_TYPE_LABELS: Record<string, string> = {
   avant: '📷 Avant',
@@ -62,11 +68,26 @@ const EVENT_TYPES: EventType[] = [
   'autre',
 ];
 
+const REMINDER_TYPES: ReminderType[] = [
+  'arrosage',
+  'suivi_maladie',
+  'taille',
+  'suivi_general',
+  'cueillette',
+];
+
+const REMINDER_ALERTE_TYPES: ReminderAlerteType[] = ['email', 'popup', 'son'];
+
+function formatDateForInput(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
 function AddEventModal({
   visible,
   specimenId,
   onClose,
   onSuccess,
+  onReminderSuccess,
   submitting,
   setSubmitting,
 }: {
@@ -74,10 +95,15 @@ function AddEventModal({
   specimenId: number;
   onClose: () => void;
   onSuccess: (event: Event) => void;
+  onReminderSuccess?: (reminder: Reminder) => void;
   submitting: boolean;
   setSubmitting: (v: boolean) => void;
 }) {
+  const [mode, setMode] = useState<'event' | 'reminder'>('event');
   const [typeEvent, setTypeEvent] = useState<EventType>('observation');
+  const [typeRappel, setTypeRappel] = useState<ReminderType>('arrosage');
+  const [dateRappel, setDateRappel] = useState(() => formatDateForInput(new Date()));
+  const [typeAlerte, setTypeAlerte] = useState<ReminderAlerteType>('popup');
   const [titre, setTitre] = useState('');
   const [description, setDescription] = useState('');
   const [createdEvent, setCreatedEvent] = useState<Event | null>(null);
@@ -90,10 +116,14 @@ function AddEventModal({
     setTitre('');
     setDescription('');
     setTypeEvent('observation');
+    setTypeRappel('arrosage');
+    setDateRappel(formatDateForInput(new Date()));
+    setTypeAlerte('popup');
+    setMode('event');
     onClose();
   };
 
-  const handleSubmit = async () => {
+  const handleSubmitEvent = async () => {
     setSubmitting(true);
     try {
       const newEvent = await createSpecimenEvent(specimenId, {
@@ -102,6 +132,25 @@ function AddEventModal({
         description: description.trim() || undefined,
       });
       setCreatedEvent(newEvent);
+    } catch {
+      /* ignore */
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleSubmitReminder = async () => {
+    setSubmitting(true);
+    try {
+      const newReminder = await createSpecimenReminder(specimenId, {
+        type_rappel: typeRappel,
+        date_rappel: dateRappel,
+        type_alerte: typeAlerte,
+        titre: titre.trim() || undefined,
+        description: description.trim() || undefined,
+      });
+      onReminderSuccess?.(newReminder);
+      resetAndClose();
     } catch {
       /* ignore */
     } finally {
@@ -132,7 +181,7 @@ function AddEventModal({
             <Text style={fullScreenModalStyles.closeBtn}>✕</Text>
           </TouchableOpacity>
           <Text style={fullScreenModalStyles.headerTitle}>
-            {createdEvent ? 'Ajouter des photos' : 'Ajouter un événement'}
+            {createdEvent ? 'Ajouter des photos' : mode === 'reminder' ? 'Ajouter un rappel' : 'Ajouter un événement'}
           </Text>
           <View style={{ width: 28 }} />
         </View>
@@ -144,27 +193,106 @@ function AddEventModal({
         >
           {!createdEvent ? (
             <>
-              <View style={modalStyles.typeGrid}>
-                {EVENT_TYPES.map((t) => (
-                  <TouchableOpacity
-                    key={t}
-                    style={[
-                      modalStyles.typeButton,
-                      typeEvent === t && modalStyles.typeButtonSelected,
-                    ]}
-                    onPress={() => setTypeEvent(t)}
-                  >
-                    <Text
-                      style={[
-                        modalStyles.typeButtonText,
-                        typeEvent === t && modalStyles.typeButtonTextSelected,
-                      ]}
-                    >
-                      {EVENT_TYPE_LABELS[t]}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+              <View style={modalStyles.modeRow}>
+                <TouchableOpacity
+                  style={[modalStyles.modeButton, mode === 'event' && modalStyles.modeButtonSelected]}
+                  onPress={() => setMode('event')}
+                >
+                  <Text style={[modalStyles.modeButtonText, mode === 'event' && modalStyles.modeButtonTextSelected]}>
+                    Événement
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[modalStyles.modeButton, mode === 'reminder' && modalStyles.modeButtonSelected]}
+                  onPress={() => setMode('reminder')}
+                >
+                  <Text style={[modalStyles.modeButtonText, mode === 'reminder' && modalStyles.modeButtonTextSelected]}>
+                    Rappel
+                  </Text>
+                </TouchableOpacity>
               </View>
+
+              {mode === 'event' ? (
+                <>
+                  <View style={modalStyles.typeGrid}>
+                    {EVENT_TYPES.map((t) => (
+                      <TouchableOpacity
+                        key={t}
+                        style={[
+                          modalStyles.typeButton,
+                          typeEvent === t && modalStyles.typeButtonSelected,
+                        ]}
+                        onPress={() => setTypeEvent(t)}
+                      >
+                        <Text
+                          style={[
+                            modalStyles.typeButtonText,
+                            typeEvent === t && modalStyles.typeButtonTextSelected,
+                          ]}
+                        >
+                          {EVENT_TYPE_LABELS[t]}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </>
+              ) : (
+                <>
+                  <Text style={modalStyles.label}>Type de rappel</Text>
+                  <View style={modalStyles.typeGrid}>
+                    {REMINDER_TYPES.map((t) => (
+                      <TouchableOpacity
+                        key={t}
+                        style={[
+                          modalStyles.typeButton,
+                          typeRappel === t && modalStyles.typeButtonSelected,
+                        ]}
+                        onPress={() => setTypeRappel(t)}
+                      >
+                        <Text
+                          style={[
+                            modalStyles.typeButtonText,
+                            typeRappel === t && modalStyles.typeButtonTextSelected,
+                          ]}
+                        >
+                          {REMINDER_TYPE_LABELS[t]}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <Text style={modalStyles.label}>Date de rappel</Text>
+                  <TextInput
+                    style={modalStyles.input}
+                    placeholder="YYYY-MM-DD"
+                    value={dateRappel}
+                    onChangeText={setDateRappel}
+                    placeholderTextColor="#888"
+                  />
+                  <Text style={modalStyles.label}>Type d'alerte</Text>
+                  <View style={modalStyles.tagRow}>
+                    {REMINDER_ALERTE_TYPES.map((t) => (
+                      <TouchableOpacity
+                        key={t}
+                        style={[
+                          modalStyles.typeButton,
+                          typeAlerte === t && modalStyles.typeButtonSelected,
+                        ]}
+                        onPress={() => setTypeAlerte(t)}
+                      >
+                        <Text
+                          style={[
+                            modalStyles.typeButtonText,
+                            typeAlerte === t && modalStyles.typeButtonTextSelected,
+                          ]}
+                        >
+                          {REMINDER_ALERTE_LABELS[t]}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </>
+              )}
+
               <TextInput
                 style={modalStyles.input}
                 placeholder="Titre (optionnel)"
@@ -183,7 +311,7 @@ function AddEventModal({
               />
               <TouchableOpacity
                 style={fullScreenModalStyles.submitButton}
-                onPress={handleSubmit}
+                onPress={mode === 'reminder' ? handleSubmitReminder : handleSubmitEvent}
                 disabled={submitting}
               >
                 <Text style={fullScreenModalStyles.submitButtonText}>
@@ -302,6 +430,41 @@ const modalStyles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#1a3c27',
     marginBottom: 16,
+  },
+  modeRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  modeButton: {
+    flex: 1,
+    padding: 14,
+    backgroundColor: '#f0f0eb',
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  modeButtonSelected: {
+    backgroundColor: '#1a3c27',
+  },
+  modeButtonText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  modeButtonTextSelected: {
+    color: '#fff',
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1a3c27',
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  tagRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
   },
   typeGrid: {
     flexDirection: 'row',
@@ -890,6 +1053,7 @@ export default function SpecimenDetailScreen() {
   const router = useRouter();
   const [specimen, setSpecimen] = useState<SpecimenDetail | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
+  const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [duplicating, setDuplicating] = useState(false);
@@ -904,6 +1068,9 @@ export default function SpecimenDetailScreen() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [fullscreenPhoto, setFullscreenPhoto] = useState<Photo | null>(null);
   const [deletingPhoto, setDeletingPhoto] = useState(false);
+  const [settingDefaultPhoto, setSettingDefaultPhoto] = useState(false);
+  const [defaultPhotoId, setDefaultPhotoId] = useState<number | null>(null);
+  const [updatingGps, setUpdatingGps] = useState(false);
   const { width: screenWidth } = useWindowDimensions();
 
   useEffect(() => {
@@ -915,11 +1082,13 @@ export default function SpecimenDetailScreen() {
       return;
     }
     setLoading(true);
-    Promise.all([getSpecimen(numId), getSpecimenEvents(numId)])
-      .then(([s, e]) => {
+    Promise.all([getSpecimen(numId), getSpecimenEvents(numId), getSpecimenReminders(numId)])
+      .then(([s, e, r]) => {
         setSpecimen(s);
         setEvents(e);
+        setReminders(r);
         setIsFavori(s.is_favori ?? false);
+        setDefaultPhotoId(s.photo_principale ?? null);
       })
       .catch((err) => setError(err instanceof Error ? err.message : 'Erreur'))
       .finally(() => setLoading(false));
@@ -934,10 +1103,14 @@ export default function SpecimenDetailScreen() {
         .then((s) => {
           setSpecimen(s);
           setIsFavori(s.is_favori ?? false);
+          setDefaultPhotoId(s.photo_principale ?? null);
         })
         .catch(() => {});
       getSpecimenEvents(numId)
         .then(setEvents)
+        .catch(() => {});
+      getSpecimenReminders(numId)
+        .then(setReminders)
         .catch(() => {});
     }, [id, specimen?.id])
   );
@@ -1078,25 +1251,27 @@ export default function SpecimenDetailScreen() {
           <ActivityIndicator size="small" color="#1a3c27" style={styles.photoLoader} />
         ) : (
           <>
-            {specimenPhotos.map((p) => {
-              const uri = getSpecimenPhotoUri(p);
-              if (!uri) return null;
-              const photoWidth = screenWidth - 40;
-              return (
-                <TouchableOpacity
-                  key={p.id}
-                  onPress={() => setFullscreenPhoto(p)}
-                  activeOpacity={0.9}
-                  style={styles.photoWrapper}
-                >
-                  <Image
-                    source={{ uri }}
-                    style={[styles.specimenPhoto, { width: photoWidth, height: photoWidth * 0.75 }]}
-                    resizeMode="cover"
-                  />
-                </TouchableOpacity>
-              );
-            })}
+            <View style={styles.photoGrid}>
+              {specimenPhotos.map((p) => {
+                const uri = getSpecimenPhotoUri(p);
+                if (!uri) return null;
+                const photoWidth = (screenWidth - 48) / 2;
+                return (
+                  <TouchableOpacity
+                    key={p.id}
+                    onPress={() => setFullscreenPhoto(p)}
+                    activeOpacity={0.9}
+                    style={styles.photoWrapper}
+                  >
+                    <Image
+                      source={{ uri }}
+                      style={[styles.specimenPhoto, { width: photoWidth, height: photoWidth * 0.75 }]}
+                      resizeMode="cover"
+                    />
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
             <TouchableOpacity
               style={styles.addPhotoButton}
               onPress={handleAddSpecimenPhoto}
@@ -1135,45 +1310,82 @@ export default function SpecimenDetailScreen() {
             )}
           </TouchableOpacity>
           {fullscreenPhoto && (
-            <TouchableOpacity
-              style={styles.fullscreenDeleteButton}
-              onPress={() => {
-                if (!specimen || deletingPhoto) return;
-                Alert.alert(
-                  'Supprimer la photo',
-                  'Êtes-vous sûr de vouloir supprimer cette photo ?',
-                  [
-                    { text: 'Annuler', style: 'cancel' },
-                    {
-                      text: 'Supprimer',
-                      style: 'destructive',
-                      onPress: async () => {
-                        setDeletingPhoto(true);
-                        try {
-                          await deleteSpecimenPhoto(specimen.id, fullscreenPhoto.id);
-                          setSpecimenPhotos((prev) => prev.filter((ph) => ph.id !== fullscreenPhoto.id));
-                          setFullscreenPhoto(null);
-                        } catch {
-                          Alert.alert('Erreur', 'Impossible de supprimer la photo.');
-                        } finally {
-                          setDeletingPhoto(false);
-                        }
+            <View style={styles.fullscreenActions}>
+              <TouchableOpacity
+                style={[
+                  styles.fullscreenActionButton,
+                  defaultPhotoId === fullscreenPhoto.id && styles.fullscreenActionButtonDisabled,
+                ]}
+                onPress={async () => {
+                  if (!specimen || settingDefaultPhoto || defaultPhotoId === fullscreenPhoto.id) return;
+                  setSettingDefaultPhoto(true);
+                  try {
+                    await setSpecimenDefaultPhoto(specimen.id, fullscreenPhoto.id);
+                    setDefaultPhotoId(fullscreenPhoto.id);
+                  } catch {
+                    Alert.alert('Erreur', 'Impossible de définir la photo par défaut.');
+                  } finally {
+                    setSettingDefaultPhoto(false);
+                  }
+                }}
+                disabled={settingDefaultPhoto || defaultPhotoId === fullscreenPhoto.id}
+              >
+                {settingDefaultPhoto && defaultPhotoId !== fullscreenPhoto.id ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons
+                      name={defaultPhotoId === fullscreenPhoto.id ? 'star' : 'star-outline'}
+                      size={20}
+                      color="#fff"
+                    />
+                    <Text style={styles.fullscreenActionText}>
+                      {defaultPhotoId === fullscreenPhoto.id ? 'Photo par défaut' : 'Définir par défaut'}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.fullscreenActionButton, styles.fullscreenDeleteButton]}
+                onPress={() => {
+                  if (!specimen || deletingPhoto) return;
+                  Alert.alert(
+                    'Supprimer la photo',
+                    'Êtes-vous sûr de vouloir supprimer cette photo ?',
+                    [
+                      { text: 'Annuler', style: 'cancel' },
+                      {
+                        text: 'Supprimer',
+                        style: 'destructive',
+                        onPress: async () => {
+                          setDeletingPhoto(true);
+                          try {
+                            await deleteSpecimenPhoto(specimen.id, fullscreenPhoto.id);
+                            setSpecimenPhotos((prev) => prev.filter((ph) => ph.id !== fullscreenPhoto.id));
+                            if (defaultPhotoId === fullscreenPhoto.id) setDefaultPhotoId(null);
+                            setFullscreenPhoto(null);
+                          } catch {
+                            Alert.alert('Erreur', 'Impossible de supprimer la photo.');
+                          } finally {
+                            setDeletingPhoto(false);
+                          }
+                        },
                       },
-                    },
-                  ]
-                );
-              }}
-              disabled={deletingPhoto}
-            >
-              {deletingPhoto ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <>
-                  <Ionicons name="trash-outline" size={22} color="#fff" />
-                  <Text style={styles.fullscreenDeleteText}>Supprimer</Text>
-                </>
-              )}
-            </TouchableOpacity>
+                    ]
+                  );
+                }}
+                disabled={deletingPhoto}
+              >
+                {deletingPhoto ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="trash-outline" size={22} color="#fff" />
+                    <Text style={styles.fullscreenDeleteText}>Supprimer</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
           )}
         </View>
       </Modal>
@@ -1186,7 +1398,86 @@ export default function SpecimenDetailScreen() {
         {specimen.date_plantation && (
           <Text style={styles.info}>Planté le : {specimen.date_plantation}</Text>
         )}
+        <View style={styles.gpsRow}>
+          <Text style={styles.info}>
+            GPS : {specimen.latitude != null && specimen.longitude != null
+              ? `${specimen.latitude.toFixed(5)}, ${specimen.longitude.toFixed(5)}`
+              : 'Non renseigné'}
+          </Text>
+          <TouchableOpacity
+            style={[styles.revalidateGpsButton, updatingGps && styles.revalidateGpsButtonDisabled]}
+            onPress={async () => {
+              if (updatingGps) return;
+              setUpdatingGps(true);
+              try {
+                const { status } = await Location.requestForegroundPermissionsAsync();
+                if (status !== 'granted') {
+                  Alert.alert('Localisation refusée', 'Autorisez l\'accès à la position pour revalider les coordonnées.');
+                  return;
+                }
+                const pos = await Location.getCurrentPositionAsync({
+                  accuracy: Location.Accuracy.Balanced,
+                });
+                const updated = await updateSpecimen(specimen.id, {
+                  latitude: pos.coords.latitude,
+                  longitude: pos.coords.longitude,
+                });
+                setSpecimen(updated);
+              } catch (err) {
+                Alert.alert('Erreur', err instanceof Error ? err.message : 'Impossible d\'obtenir la position.');
+              } finally {
+                setUpdatingGps(false);
+              }
+            }}
+            disabled={updatingGps}
+          >
+            {updatingGps ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <>
+                <Ionicons name="locate" size={18} color="#fff" />
+                <Text style={styles.revalidateGpsText}>Revalider les coordonnées GPS</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
         {specimen.notes && <Text style={styles.notes}>{specimen.notes}</Text>}
+      </View>
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Rappels</Text>
+        {reminders.length === 0 ? (
+          <Text style={styles.empty}>Aucun rappel</Text>
+        ) : (
+          reminders.map((r) => (
+            <TouchableOpacity
+              key={r.id}
+              style={styles.eventRow}
+              onLongPress={() => {
+                Alert.alert(
+                  'Supprimer le rappel',
+                  'Êtes-vous sûr de vouloir supprimer ce rappel ?',
+                  [
+                    { text: 'Annuler', style: 'cancel' },
+                    {
+                      text: 'Supprimer',
+                      style: 'destructive',
+                      onPress: () => {
+                        deleteSpecimenReminder(specimen.id, r.id)
+                          .then(() => setReminders((prev) => prev.filter((x) => x.id !== r.id)))
+                          .catch(() => Alert.alert('Erreur', 'Impossible de supprimer le rappel.'));
+                      },
+                    },
+                  ]
+                );
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.eventType}>{REMINDER_TYPE_LABELS[r.type_rappel]}</Text>
+              <Text style={styles.eventDate}>📅 {r.date_rappel} • {REMINDER_ALERTE_LABELS[r.type_alerte]}</Text>
+              {r.titre ? <Text style={styles.eventTitre}>{r.titre}</Text> : null}
+            </TouchableOpacity>
+          ))
+        )}
       </View>
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Événements récents</Text>
@@ -1222,6 +1513,10 @@ export default function SpecimenDetailScreen() {
         onClose={() => setEventModalVisible(false)}
         onSuccess={(newEvent) => {
           setEvents([newEvent, ...events]);
+          setEventModalVisible(false);
+        }}
+        onReminderSuccess={(newReminder) => {
+          setReminders((prev) => [newReminder, ...prev]);
           setEventModalVisible(false);
         }}
         submitting={eventSubmitting}
@@ -1322,11 +1617,15 @@ const styles = StyleSheet.create({
   photoSection: {
     marginBottom: 24,
   },
+  photoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
   photoLoader: {
     marginVertical: 16,
   },
   photoWrapper: {
-    marginBottom: 12,
     borderRadius: 12,
     overflow: 'hidden',
   },
@@ -1358,19 +1657,36 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  fullscreenDeleteButton: {
+  fullscreenActions: {
     position: 'absolute',
     bottom: 40,
     left: 20,
     right: 20,
     flexDirection: 'row',
+    gap: 12,
+    zIndex: 10,
+  },
+  fullscreenActionButton: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
     padding: 14,
-    backgroundColor: '#c44',
+    backgroundColor: '#1a3c27',
     borderRadius: 12,
-    zIndex: 10,
+  },
+  fullscreenActionButtonDisabled: {
+    backgroundColor: '#4a6741',
+    opacity: 0.9,
+  },
+  fullscreenActionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  fullscreenDeleteButton: {
+    backgroundColor: '#c44',
   },
   fullscreenDeleteText: {
     fontSize: 16,
@@ -1391,6 +1707,20 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 4,
   },
+  gpsRow: { marginTop: 8, marginBottom: 4 },
+  revalidateGpsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: '#4a6741',
+    borderRadius: 10,
+  },
+  revalidateGpsButtonDisabled: { opacity: 0.7 },
+  revalidateGpsText: { fontSize: 14, fontWeight: '600', color: '#fff' },
   notes: {
     fontSize: 14,
     color: '#555',

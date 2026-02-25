@@ -922,6 +922,12 @@ class Garden(models.Model):
         default=-2.0,
         help_text="Température min en dessous de laquelle alerter (gel risque pour fruitiers)"
     )
+    seuil_temp_elevee_c = models.FloatField(
+        default=32.0,
+        null=True,
+        blank=True,
+        help_text="Température max au-dessus de laquelle alerter (canicule). Configurable dans admin."
+    )
     seuil_pluie_forte_mm = models.FloatField(
         default=15.0,
         help_text="Précipitations au-dessus desquelles annuler l'arrosage automatique (mm/jour)"
@@ -1115,6 +1121,16 @@ class Specimen(models.Model):
         blank=True,
         help_text="Observations, particularités, historique"
     )
+
+    # Photo affichée par défaut (ex: sur la page d'accueil, listes)
+    photo_principale = models.ForeignKey(
+        'species.Photo',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='specimens_photo_principale',
+        help_text="Photo affichée par défaut pour ce spécimen"
+    )
     
     # === MÉTADONNÉES ===
     date_ajout = models.DateTimeField(auto_now_add=True)
@@ -1292,7 +1308,69 @@ class Event(models.Model):
         if self.titre:
             return f"{emoji} {self.specimen.nom} - {self.titre} ({self.date})"
         return f"{emoji} {self.specimen.nom} - {self.get_type_event_display()} ({self.date})"
-    
+
+
+class Reminder(models.Model):
+    """
+    Rappel lié à un spécimen.
+    Créé depuis la création d'événement (option supplémentaire).
+    """
+    specimen = models.ForeignKey(
+        'species.Specimen',
+        on_delete=models.CASCADE,
+        related_name='rappels',
+    )
+
+    TYPE_RAPPEL_CHOICES = [
+        ('arrosage', '💧 Arrosage'),
+        ('suivi_maladie', '🦠 Suivi de maladie'),
+        ('taille', '✂️ Taille'),
+        ('suivi_general', '👁️ Suivi général'),
+        ('cueillette', '🧺 Cueillette'),
+    ]
+    type_rappel = models.CharField(
+        max_length=20,
+        choices=TYPE_RAPPEL_CHOICES,
+    )
+
+    date_rappel = models.DateField(
+        help_text="Date du rappel",
+    )
+
+    TYPE_ALERTE_CHOICES = [
+        ('email', 'Email'),
+        ('popup', 'Popup'),
+        ('son', 'Son'),
+    ]
+    type_alerte = models.CharField(
+        max_length=10,
+        choices=TYPE_ALERTE_CHOICES,
+        default='popup',
+    )
+
+    titre = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Titre court (optionnel)",
+    )
+    description = models.TextField(
+        blank=True,
+        help_text="Description (optionnel)",
+    )
+
+    date_ajout = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Rappel"
+        verbose_name_plural = "Rappels"
+        ordering = ['date_rappel', 'date_ajout']
+
+    def __str__(self):
+        emoji = dict(self.TYPE_RAPPEL_CHOICES).get(self.type_rappel, '⏰')
+        label = self.titre or self.get_type_rappel_display()
+        return f"{emoji} {self.specimen.nom} - {label} ({self.date_rappel})"
+
+
 class Photo(models.Model):
     """
     Photo d'un organisme ou d'un spécimen.

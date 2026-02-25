@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
+import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { NfcScanModal } from '@/components/NfcScanModal';
 import { createSpecimen, getOrganisms, getGardens } from '@/api/client';
@@ -217,6 +218,9 @@ export default function SpecimenCreateScreen() {
   const [gardenModalVisible, setGardenModalVisible] = useState(false);
   const [nfcScanModalVisible, setNfcScanModalVisible] = useState(false);
   const [gardens, setGardens] = useState<GardenMinimal[]>([]);
+  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [capturingLocation, setCapturingLocation] = useState(false);
 
   useEffect(() => {
     getGardens()
@@ -264,6 +268,10 @@ export default function SpecimenCreateScreen() {
       if (zoneJardin.trim()) data.zone_jardin = zoneJardin.trim();
       if (notes.trim()) data.notes = notes.trim();
       if (nfcTagUid.trim()) data.nfc_tag_uid = nfcTagUid.trim();
+      if (location) {
+        data.latitude = location.lat;
+        data.longitude = location.lng;
+      }
 
       const created = await createSpecimen(data);
       router.replace(`/specimen/${created.id}`);
@@ -348,6 +356,61 @@ export default function SpecimenCreateScreen() {
             onChangeText={setZoneJardin}
             placeholderTextColor="#888"
           />
+
+          <Text style={styles.label}>Position GPS</Text>
+          <View style={styles.gpsRow}>
+            {location ? (
+              <Text style={styles.gpsCoords}>
+                {location.lat.toFixed(5)}, {location.lng.toFixed(5)}
+              </Text>
+            ) : locationError ? (
+              <Text style={styles.gpsError}>{locationError}</Text>
+            ) : (
+              <Text style={styles.gpsPlaceholder}>Optionnel — utile pour « spécimens à proximité »</Text>
+            )}
+            <TouchableOpacity
+              style={[styles.captureGpsButton, capturingLocation && styles.captureGpsButtonDisabled]}
+              onPress={async () => {
+                setCapturingLocation(true);
+                setLocationError(null);
+                try {
+                  const { status } = await Location.requestForegroundPermissionsAsync();
+                  if (status !== 'granted') {
+                    setLocationError('Localisation refusée');
+                    return;
+                  }
+                  const pos = await Location.getCurrentPositionAsync({
+                    accuracy: Location.Accuracy.Balanced,
+                  });
+                  setLocation({
+                    lat: pos.coords.latitude,
+                    lng: pos.coords.longitude,
+                  });
+                } catch (err) {
+                  setLocationError(err instanceof Error ? err.message : 'Impossible d\'obtenir la position');
+                } finally {
+                  setCapturingLocation(false);
+                }
+              }}
+              disabled={capturingLocation}
+            >
+              {capturingLocation ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="locate" size={20} color="#fff" />
+                  <Text style={styles.captureGpsText}>
+                    {location ? 'Mettre à jour' : 'Capturer ma position'}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+          {location ? (
+            <TouchableOpacity style={styles.clearGpsButton} onPress={() => setLocation(null)}>
+              <Text style={styles.clearGpsText}>Effacer les coordonnées</Text>
+            </TouchableOpacity>
+          ) : null}
 
           <Text style={styles.label}>Tag NFC</Text>
           <View style={styles.nfcRow}>
@@ -503,6 +566,24 @@ const styles = StyleSheet.create({
   },
   statutChipText: { fontSize: 14, color: '#333' },
   statutChipTextSelected: { fontSize: 14, color: '#fff', fontWeight: '600' },
+  gpsRow: { marginBottom: 8 },
+  gpsCoords: { fontSize: 13, color: '#4a6741', marginBottom: 8 },
+  gpsError: { fontSize: 13, color: '#c44', marginBottom: 8 },
+  gpsPlaceholder: { fontSize: 13, color: '#888', marginBottom: 8 },
+  captureGpsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#4a6741',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+  },
+  captureGpsButtonDisabled: { opacity: 0.7 },
+  captureGpsText: { fontSize: 14, fontWeight: '600', color: '#fff' },
+  clearGpsButton: { marginBottom: 12 },
+  clearGpsText: { fontSize: 14, color: '#666' },
   nfcRow: { flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 8 },
   nfcInput: { flex: 1, marginBottom: 0 },
   scanTagButton: {

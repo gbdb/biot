@@ -17,7 +17,7 @@ from .export_utils import (
 from .forms import ImportPFAFForm, ImportSeedsForm
 from .models import (
     Organism, UserTag, CompanionRelation, Amendment, OrganismAmendment,
-    Specimen, Event, Photo,
+    Specimen, Event, Reminder, Photo,
     SeedSupplier, SeedCollection, SemisBatch,
     Garden, WeatherRecord, SprinklerZone,
 )
@@ -42,6 +42,18 @@ class EventSpecimenInline(admin.TabularInline):
     verbose_name = "Événement"
     verbose_name_plural = "Événements"
     ordering = ['-date', '-heure']
+    show_change_link = True
+
+
+class ReminderSpecimenInline(admin.TabularInline):
+    """Rappels du spécimen."""
+    model = Reminder
+    fk_name = 'specimen'
+    extra = 0
+    fields = ('type_rappel', 'date_rappel', 'type_alerte', 'titre', 'description')
+    verbose_name = "Rappel"
+    verbose_name_plural = "Rappels"
+    ordering = ['date_rappel', 'date_ajout']
     show_change_link = True
 
 
@@ -666,9 +678,9 @@ class GardenAdmin(admin.ModelAdmin):
         ('Seuils prévision', {
             'fields': (
                 'jours_sans_pluie_prevision', 'seuil_gel_c', 'seuil_pluie_forte_mm',
-                'zone_rusticite',
+                'seuil_temp_elevee_c', 'zone_rusticite',
             ),
-            'description': 'Prévision : pas de pluie N jours, gel, forte pluie, zone hiver.',
+            'description': 'Prévision : pas de pluie N jours, gel, forte pluie, température élevée, zone hiver.',
             'classes': ('collapse',)
         }),
         ('Notes', {
@@ -1130,7 +1142,7 @@ class SemisBatchAdmin(admin.ModelAdmin):
 
 @admin.register(Specimen)
 class SpecimenAdmin(admin.ModelAdmin):
-    inlines = [EventSpecimenInline, PhotoSpecimenInline]
+    inlines = [EventSpecimenInline, ReminderSpecimenInline, PhotoSpecimenInline]
     actions = ["export_specimens_csv_action"]
     change_list_template = "admin/species/specimen/change_list.html"
     change_form_template = "admin/species/specimen/change_form.html"
@@ -1248,6 +1260,16 @@ class SpecimenAdmin(admin.ModelAdmin):
         messages.success(request, f'Spécimen dupliqué : "{new_specimen.nom}"')
         url = reverse('admin:species_specimen_change', args=[new_specimen.pk])
         return HttpResponseRedirect(url)
+
+@admin.register(Reminder)
+class ReminderAdmin(admin.ModelAdmin):
+    list_display = ['specimen', 'type_rappel', 'date_rappel', 'type_alerte', 'titre', 'date_ajout']
+    list_filter = ['type_rappel', 'type_alerte']
+    search_fields = ['specimen__nom', 'titre', 'description']
+    autocomplete_fields = ['specimen']
+    date_hierarchy = 'date_rappel'
+    ordering = ['date_rappel', 'date_ajout']
+
 
 @admin.register(Event)
 class EventAdmin(admin.ModelAdmin):

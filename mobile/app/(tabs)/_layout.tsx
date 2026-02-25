@@ -1,6 +1,20 @@
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '@/contexts/AuthContext';
+
+function HomeHeaderRight() {
+  const { logout } = useAuth();
+  return (
+    <TouchableOpacity
+      onPress={() => logout()}
+      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+      style={{ marginRight: 16 }}
+    >
+      <Ionicons name="log-out-outline" size={24} color="#fff" />
+    </TouchableOpacity>
+  );
+}
 
 function SpecimensHeaderRight() {
   const router = useRouter();
@@ -50,6 +64,7 @@ export default function TabLayout() {
         options={{
           title: 'Accueil',
           tabBarLabel: 'Accueil',
+          headerRight: () => <HomeHeaderRight />,
         }}
       />
       <Tabs.Screen

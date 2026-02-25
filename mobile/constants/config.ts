@@ -29,4 +29,6 @@ export const ENDPOINTS = {
   specimenByNfc: (uid: string) => `${API_PREFIX}/specimens/by-nfc/${encodeURIComponent(uid)}/`,
   organisms: `${API_PREFIX}/organisms/`,
   gardens: `${API_PREFIX}/gardens/`,
+  remindersUpcoming: `${API_PREFIX}/reminders/upcoming/`,
+  weatherAlerts: `${API_PREFIX}/weather-alerts/`,
 } as const;
