@@ -9,33 +9,32 @@ export type ActionItem = {
   variant?: 'primary' | 'secondary';
 };
 
+const FAB_SIZE = 64;
+
 type ActionToolbarProps = {
   actions: ActionItem[];
 };
 
 export function ActionToolbar({ actions }: ActionToolbarProps) {
-  const { width: screenWidth } = useWindowDimensions();
-  const btnSize = Math.max(72, (screenWidth - 48 - (actions.length - 1) * 12) / actions.length);
-
   return (
     <View style={styles.toolbar}>
       {actions.map((action, i) => {
+        const isPrimary = action.variant === 'primary';
         const btnStyle = [
-          styles.btn,
-          { width: btnSize, height: btnSize },
-          action.variant === 'primary' ? styles.btnPrimary : styles.btnSecondary,
+          styles.fab,
+          isPrimary ? styles.fabPrimary : styles.fabSecondary,
         ];
-        const iconColor = action.variant === 'primary' ? '#fff' : '#1a3c27';
+        const iconColor = isPrimary ? '#fff' : '#1a3c27';
 
         if (action.href) {
           return (
             <Link key={i} href={action.href} asChild>
               <TouchableOpacity
                 style={btnStyle}
-                activeOpacity={0.7}
+                activeOpacity={0.85}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Ionicons name={action.icon} size={40} color={iconColor} />
+                <Ionicons name={action.icon} size={28} color={iconColor} />
               </TouchableOpacity>
             </Link>
           );
@@ -46,10 +45,10 @@ export function ActionToolbar({ actions }: ActionToolbarProps) {
             key={i}
             style={btnStyle}
             onPress={action.onPress}
-            activeOpacity={0.7}
+            activeOpacity={0.85}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name={action.icon} size={40} color={iconColor} />
+            <Ionicons name={action.icon} size={28} color={iconColor} />
           </TouchableOpacity>
         );
       })}
@@ -60,33 +59,30 @@ export function ActionToolbar({ actions }: ActionToolbarProps) {
 const styles = StyleSheet.create({
   toolbar: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    backgroundColor: '#4a6741',
-    borderTopWidth: 2,
-    borderTopColor: '#1a3c27',
-  },
-  btn: {
-    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#1a3c27',
+    gap: 20,
+    paddingVertical: 20,
+    paddingHorizontal: 24,
+  },
+  fab: {
+    width: FAB_SIZE,
+    height: FAB_SIZE,
+    borderRadius: FAB_SIZE / 2,
+    justifyContent: 'center',
+    alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 5,
   },
-  btnPrimary: {
+  fabPrimary: {
     backgroundColor: '#1a3c27',
-    borderColor: '#0f2a1d',
   },
-  btnSecondary: {
+  fabSecondary: {
     backgroundColor: '#fff',
+    borderWidth: 2,
     borderColor: '#1a3c27',
   },
 });

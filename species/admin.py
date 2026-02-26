@@ -20,6 +20,7 @@ from .models import (
     Specimen, Event, Reminder, Photo,
     SeedSupplier, SeedCollection, SemisBatch,
     Garden, WeatherRecord, SprinklerZone,
+    UserPreference,
 )
 
 
@@ -1263,7 +1264,9 @@ class SpecimenAdmin(admin.ModelAdmin):
 
 @admin.register(Reminder)
 class ReminderAdmin(admin.ModelAdmin):
-    list_display = ['specimen', 'type_rappel', 'date_rappel', 'type_alerte', 'titre', 'date_ajout']
+    list_display = [
+        'id', 'specimen', 'type_rappel', 'date_rappel', 'recurrence_rule', 'type_alerte', 'titre', 'date_ajout',
+    ]
     list_filter = ['type_rappel', 'type_alerte']
     search_fields = ['specimen__nom', 'titre', 'description']
     autocomplete_fields = ['specimen']
@@ -1399,3 +1402,10 @@ class PhotoAdmin(admin.ModelAdmin):
             return f"📅 {obj.event}"
         return "-"
     get_sujet.short_description = "Sujet"
+
+
+@admin.register(UserPreference)
+class UserPreferenceAdmin(admin.ModelAdmin):
+    list_display = ['user', 'default_garden']
+    list_filter = ['default_garden']
+    autocomplete_fields = ['user', 'default_garden']

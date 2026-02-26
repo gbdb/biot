@@ -14,6 +14,7 @@ import { useCallback, useState } from 'react';
 import * as Location from 'expo-location';
 import { getSpecimens, getSpecimensNearby, getRemindersUpcoming, getWeatherAlerts } from '@/api/client';
 import { ActionToolbar } from '@/components/ActionToolbar';
+import { ReminderActionModal } from '@/components/ReminderActionModal';
 import type { SpecimenList } from '@/types/api';
 import type { ReminderUpcoming, WeatherAlert } from '@/api/client';
 
@@ -38,6 +39,8 @@ export default function HomeScreen() {
   const [weatherAlerts, setWeatherAlerts] = useState<WeatherAlert[]>([]);
   const [loadingFavoris, setLoadingFavoris] = useState(true);
   const [loadingReminders, setLoadingReminders] = useState(true);
+  const [remindersError, setRemindersError] = useState<string | null>(null);
+  const [selectedReminder, setSelectedReminder] = useState<ReminderUpcoming | null>(null);
   const [loadingAlerts, setLoadingAlerts] = useState(true);
 
   const fetchNearby = useCallback(async () => {
@@ -82,11 +85,13 @@ export default function HomeScreen() {
 
   const fetchReminders = useCallback(async () => {
     setLoadingReminders(true);
+    setRemindersError(null);
     try {
       const list = await getRemindersUpcoming();
       setReminders(list);
     } catch {
       setReminders([]);
+      setRemindersError('Rappels indisponibles (vérifier que le serveur tourne et que l’IP dans .env est à jour)');
     } finally {
       setLoadingReminders(false);
     }
@@ -147,37 +152,71 @@ export default function HomeScreen() {
       {/* Rappels à venir */}
       {loadingReminders ? (
         <ActivityIndicator size="small" color="#1a3c27" style={styles.sectionLoader} />
-      ) : reminders.length > 0 ? (
+      ) : remindersError ? (
         <View style={styles.remindersSection}>
           <Text style={styles.sectionTitle}>Rappels</Text>
-          <View style={[styles.remindersGrid, { width: containerWidth }]}>
-            {reminders.map((r) => (
-              <TouchableOpacity
-                key={r.id}
-                style={[styles.reminderThumb, { width: thumbSize }]}
-                onPress={() => router.push(`/specimen/${r.specimen.id}`)}
-                activeOpacity={0.8}
-              >
-                {r.specimen.photo_url ? (
-                  <Image
-                    source={{ uri: r.specimen.photo_url }}
-                    style={[styles.reminderImage, { width: thumbSize, height: thumbSize }]}
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <View style={[styles.reminderPlaceholder, { width: thumbSize, height: thumbSize }]}>
-                    <Text style={styles.reminderPlaceholderText}>⏰</Text>
-                  </View>
-                )}
-                <Text style={styles.reminderDate}>{r.date_rappel}</Text>
-                <Text style={styles.reminderName} numberOfLines={2}>
-                  {r.specimen.nom}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <Text style={styles.remindersErrorText}>{remindersError}</Text>
         </View>
-      ) : null}
+      ) : (
+        <View style={styles.remindersSection}>
+          <View style={styles.remindersHeader}>
+            <Text style={styles.sectionTitle}>Rappels</Text>
+            <TouchableOpacity
+              onPress={() => router.push('/reminders')}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              style={styles.seeAllButton}
+            >
+              <Ionicons name="list" size={20} color="#4a6741" />
+              <Text style={styles.seeAllText}>Voir tout</Text>
+            </TouchableOpacity>
+          </View>
+          {reminders.length > 0 && (
+            <View style={[styles.remindersGrid, { width: containerWidth }]}>
+              {reminders.slice(0, 4).map((r) => (
+                <TouchableOpacity
+                  key={r.id}
+                  style={[styles.reminderThumb, { width: thumbSize }]}
+                  onPress={() => setSelectedReminder(r)}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.reminderThumbInner}>
+                    {r.specimen.photo_url ? (
+                      <Image
+                        source={{ uri: r.specimen.photo_url }}
+                        style={[styles.reminderImage, { width: thumbSize, height: thumbSize }]}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View style={[styles.reminderPlaceholder, { width: thumbSize, height: thumbSize }]}>
+                        <Text style={styles.reminderPlaceholderText}>⏰</Text>
+                      </View>
+                    )}
+                    {r.is_overdue && (
+                      <View style={styles.reminderOverdueBadge}>
+                        <Ionicons name="warning" size={14} color="#fff" />
+                      </View>
+                    )}
+                  </View>
+                  <Text style={[styles.reminderDate, r.is_overdue && styles.reminderDateOverdue]}>{r.date_rappel}</Text>
+                  <Text style={styles.reminderName} numberOfLines={2}>
+                    {r.specimen.nom}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+          <ReminderActionModal
+            visible={selectedReminder != null}
+            reminder={selectedReminder}
+            onClose={() => setSelectedReminder(null)}
+            onAction={fetchReminders}
+            onOpenSpecimen={(id) => {
+              setSelectedReminder(null);
+              router.push(`/specimen/${id}`);
+            }}
+          />
+        </View>
+      )}
 
       {/* À proximité */}
       {loadingNearby ? (
@@ -337,6 +376,19 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     alignItems: 'center',
   },
+  remindersHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 12,
+  },
+  remindersErrorText: {
+    fontSize: 13,
+    color: '#c44',
+    textAlign: 'center',
+    paddingHorizontal: 16,
+  },
   remindersGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -345,6 +397,24 @@ const styles = StyleSheet.create({
   },
   reminderThumb: {
     alignItems: 'center',
+  },
+  reminderThumbInner: {
+    position: 'relative',
+  },
+  reminderOverdueBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#c44',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  reminderDateOverdue: {
+    color: '#c44',
+    fontWeight: '600',
   },
   reminderImage: {
     borderRadius: 10,

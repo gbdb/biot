@@ -11,6 +11,7 @@ from .api_views import (
     GardenViewSet,
     RemindersUpcomingView,
     WeatherAlertsView,
+    UserPreferencesView,
 )
 
 router = DefaultRouter()
@@ -22,5 +23,6 @@ urlpatterns = [
     path('specimens/by-nfc/<str:uid>/', SpecimenByNfcView.as_view(), name='specimen-by-nfc'),
     path('reminders/upcoming/', RemindersUpcomingView.as_view(), name='reminders-upcoming'),
     path('weather-alerts/', WeatherAlertsView.as_view(), name='weather-alerts'),
+    path('me/preferences/', UserPreferencesView.as_view(), name='user-preferences'),
     path('', include(router.urls)),
 ]
