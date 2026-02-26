@@ -2,7 +2,7 @@
 Vues API REST pour l'app mobile Jardin Biot.
 Endpoints: specimens, events, reminders, photos, organisms, gardens, NFC lookup.
 """
-from datetime import date
+from datetime import date, timedelta
 from math import radians, sin, cos, sqrt, atan2
 
 from django.db.models import Q
@@ -13,7 +13,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
 
-from .models import Organism, Garden, Specimen, SpecimenFavorite, OrganismFavorite, Event, Reminder, Photo
+from .models import Organism, Garden, Specimen, SpecimenFavorite, OrganismFavorite, Event, Reminder, Photo, UserPreference
 from .serializers import (
     OrganismMinimalSerializer,
     OrganismDetailSerializer,
@@ -217,6 +217,15 @@ class SpecimenViewSet(viewsets.ModelViewSet):
         reminder = serializer.save(specimen=specimen)
         return Response(ReminderSerializer(reminder).data, status=status.HTTP_201_CREATED)
 
+    # Mapping type_rappel -> type_event pour "marquer comme complété"
+    REMINDER_TO_EVENT_TYPE = {
+        'arrosage': 'arrosage',
+        'suivi_maladie': 'maladie',
+        'taille': 'taille',
+        'suivi_general': 'observation',
+        'cueillette': 'recolte',
+    }
+
     @action(detail=True, methods=['get', 'patch', 'delete'], url_path='reminders/(?P<reminder_pk>[^/.]+)')
     def reminder_detail(self, request, pk=None, reminder_pk=None):
         """GET/PATCH/DELETE un rappel spécifique."""
@@ -232,6 +241,55 @@ class SpecimenViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(ReminderSerializer(reminder).data)
+
+    @action(detail=True, methods=['post'], url_path='reminders/(?P<reminder_pk>[^/.]+)/complete')
+    def reminder_complete(self, request, pk=None, reminder_pk=None):
+        """
+        Marquer le rappel comme complété : crée un événement, optionnellement le prochain rappel si récurrent, supprime le rappel.
+        Body optionnel: { "create_next": true } pour forcer la création du prochain (ou si récurrent, fait automatiquement).
+        """
+        specimen = self.get_object()
+        reminder = get_object_or_404(Reminder, pk=reminder_pk, specimen=specimen)
+        today = date.today()
+        type_event = self.REMINDER_TO_EVENT_TYPE.get(reminder.type_rappel, 'observation')
+        Event.objects.create(
+            specimen=specimen,
+            type_event=type_event,
+            date=today,
+            titre=reminder.titre or '',
+            description=reminder.description or '',
+        )
+        create_next = reminder.recurrence_rule and reminder.recurrence_rule != 'none'
+        if create_next or request.data.get('create_next'):
+            rule = reminder.recurrence_rule or 'none'
+            if rule == 'biweekly':
+                next_date = today + timedelta(days=14)
+            elif rule == 'annual':
+                next_date = today.replace(year=today.year + 1)
+            elif rule == 'biannual':
+                month = today.month + 6
+                year = today.year
+                if month > 12:
+                    month -= 12
+                    year += 1
+                try:
+                    next_date = date(year, month, min(today.day, 28))
+                except ValueError:
+                    next_date = date(year, month, 28)
+            else:
+                next_date = None
+            if next_date:
+                Reminder.objects.create(
+                    specimen=specimen,
+                    type_rappel=reminder.type_rappel,
+                    date_rappel=next_date,
+                    type_alerte=reminder.type_alerte,
+                    titre=reminder.titre or '',
+                    description=reminder.description or '',
+                    recurrence_rule=reminder.recurrence_rule or 'none',
+                )
+        reminder.delete()
+        return Response({'detail': 'Rappel complété, événement créé.'}, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['get', 'post'])
     def events(self, request, pk=None):
@@ -496,12 +554,72 @@ class GardenViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = GardenMinimalSerializer
 
 
+# --- Préférences utilisateur (jardin par défaut) ---
+class UserPreferencesView(APIView):
+    """
+    GET /api/me/preferences/  -> { "default_garden_id": int | null }
+    PATCH /api/me/preferences/ -> body { "default_garden_id": int | null }
+    """
+    def get(self, request):
+        if not request.user.is_authenticated:
+            return Response({'detail': 'Authentification requise'}, status=status.HTTP_401_UNAUTHORIZED)
+        prefs, _ = UserPreference.objects.get_or_create(user=request.user, defaults={})
+        return Response({
+            'default_garden_id': prefs.default_garden_id,
+        })
+
+    def patch(self, request):
+        if not request.user.is_authenticated:
+            return Response({'detail': 'Authentification requise'}, status=status.HTTP_401_UNAUTHORIZED)
+        prefs, _ = UserPreference.objects.get_or_create(user=request.user, defaults={})
+        gid = request.data.get('default_garden_id')
+        if gid is None:
+            prefs.default_garden_id = None
+        else:
+            if not Garden.objects.filter(pk=gid).exists():
+                return Response(
+                    {'detail': 'Jardin introuvable.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            prefs.default_garden_id = gid
+        prefs.save()
+        return Response({'default_garden_id': prefs.default_garden_id})
+
+
 # --- Rappels à venir (page d'accueil) ---
+def _reminder_to_upcoming_item(r, request, today):
+    """Build one reminder payload with is_overdue and specimen info."""
+    s = r.specimen
+    photo_url = None
+    if s.photo_principale and s.photo_principale.image and request:
+        photo_url = request.build_absolute_uri(s.photo_principale.image.url)
+    else:
+        photos = list(s.photos.all())
+        if photos and photos[0].image and request:
+            photo_url = request.build_absolute_uri(photos[0].image.url)
+    return {
+        'id': r.id,
+        'type_rappel': r.type_rappel,
+        'date_rappel': str(r.date_rappel),
+        'type_alerte': r.type_alerte,
+        'titre': r.titre or '',
+        'description': r.description or '',
+        'is_overdue': r.date_rappel < today,
+        'recurrence_rule': getattr(r, 'recurrence_rule', 'none') or 'none',
+        'specimen': {
+            'id': s.id,
+            'nom': s.nom,
+            'organisme_nom': s.organisme.nom_commun,
+            'photo_url': photo_url,
+        },
+    }
+
+
 class RemindersUpcomingView(APIView):
     """
     GET /api/reminders/upcoming/
-    Retourne les rappels à venir pour les spécimens favoris de l'utilisateur.
-    Chaque rappel inclut les infos du spécimen (nom, photo) pour affichage thumbnail.
+    Retourne les rappels (passés et à venir) pour les spécimens favoris.
+    Inclut is_overdue=True si date_rappel < aujourd'hui.
     """
     def get(self, request):
         if not request.user.is_authenticated:
@@ -509,38 +627,12 @@ class RemindersUpcomingView(APIView):
         today = date.today()
         fav_ids = SpecimenFavorite.objects.filter(user=request.user).values_list('specimen_id', flat=True)
         reminders = (
-            Reminder.objects.filter(
-                specimen_id__in=fav_ids,
-                date_rappel__gte=today,
-            )
+            Reminder.objects.filter(specimen_id__in=fav_ids)
             .select_related('specimen', 'specimen__organisme', 'specimen__photo_principale')
             .prefetch_related('specimen__photos')
             .order_by('date_rappel', 'date_ajout')[:30]
         )
-        result = []
-        for r in reminders:
-            s = r.specimen
-            photo_url = None
-            if s.photo_principale and s.photo_principale.image and request:
-                photo_url = request.build_absolute_uri(s.photo_principale.image.url)
-            else:
-                photos = list(s.photos.all())
-                if photos and photos[0].image and request:
-                    photo_url = request.build_absolute_uri(photos[0].image.url)
-            result.append({
-                'id': r.id,
-                'type_rappel': r.type_rappel,
-                'date_rappel': str(r.date_rappel),
-                'type_alerte': r.type_alerte,
-                'titre': r.titre or '',
-                'description': r.description or '',
-                'specimen': {
-                    'id': s.id,
-                    'nom': s.nom,
-                    'organisme_nom': s.organisme.nom_commun,
-                    'photo_url': photo_url,
-                },
-            })
+        result = [_reminder_to_upcoming_item(r, request, today) for r in reminders]
         return Response(result)
 
 

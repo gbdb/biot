@@ -18,6 +18,7 @@ import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useEffect, useState, useCallback } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import {
   getSpecimen,
   getSpecimenEvents,
@@ -41,8 +42,11 @@ import {
   updateSpecimen,
 } from '@/api/client';
 import { API_BASE_URL } from '@/constants/config';
-import type { SpecimenDetail, Event, EventType, Photo, Reminder, ReminderType, ReminderAlerteType } from '@/types/api';
-import { SPECIMEN_STATUT_LABELS, EVENT_TYPE_LABELS, REMINDER_TYPE_LABELS, REMINDER_ALERTE_LABELS } from '@/types/api';
+import type { SpecimenDetail, Event, EventType, Photo, Reminder, ReminderType, ReminderAlerteType, ReminderRecurrenceRule } from '@/types/api';
+import { SPECIMEN_STATUT_LABELS, EVENT_TYPE_LABELS, REMINDER_TYPE_LABELS, REMINDER_ALERTE_LABELS, REMINDER_RECURRENCE_LABELS } from '@/types/api';
+import type { ReminderUpcoming } from '@/api/client';
+import { ReminderActionModal } from '@/components/ReminderActionModal';
+import { FAB } from '@/components/FAB';
 
 const PHOTO_TYPE_LABELS: Record<string, string> = {
   avant: '📷 Avant',
@@ -104,6 +108,8 @@ function AddEventModal({
   const [typeRappel, setTypeRappel] = useState<ReminderType>('arrosage');
   const [dateRappel, setDateRappel] = useState(() => formatDateForInput(new Date()));
   const [typeAlerte, setTypeAlerte] = useState<ReminderAlerteType>('popup');
+  const [recurrenceRule, setRecurrenceRule] = useState<ReminderRecurrenceRule>('none');
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [titre, setTitre] = useState('');
   const [description, setDescription] = useState('');
   const [createdEvent, setCreatedEvent] = useState<Event | null>(null);
@@ -119,6 +125,8 @@ function AddEventModal({
     setTypeRappel('arrosage');
     setDateRappel(formatDateForInput(new Date()));
     setTypeAlerte('popup');
+    setRecurrenceRule('none');
+    setShowDatePicker(false);
     setMode('event');
     onClose();
   };
@@ -148,6 +156,7 @@ function AddEventModal({
         type_alerte: typeAlerte,
         titre: titre.trim() || undefined,
         description: description.trim() || undefined,
+        recurrence_rule: recurrenceRule,
       });
       onReminderSuccess?.(newReminder);
       resetAndClose();
@@ -261,13 +270,52 @@ function AddEventModal({
                     ))}
                   </View>
                   <Text style={modalStyles.label}>Date de rappel</Text>
-                  <TextInput
-                    style={modalStyles.input}
-                    placeholder="YYYY-MM-DD"
-                    value={dateRappel}
-                    onChangeText={setDateRappel}
-                    placeholderTextColor="#888"
-                  />
+                  <TouchableOpacity
+                    style={[modalStyles.input, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
+                    onPress={() => setShowDatePicker(true)}
+                  >
+                    <Text style={modalStyles.dateDisplay}>{dateRappel}</Text>
+                    <Ionicons name="calendar-outline" size={20} color="#666" />
+                  </TouchableOpacity>
+                  {showDatePicker && (
+                    <DateTimePicker
+                      value={new Date(dateRappel || formatDateForInput(new Date()))}
+                      mode="date"
+                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                      onChange={(_, date) => {
+                        if (Platform.OS !== 'ios') setShowDatePicker(false);
+                        if (date) setDateRappel(formatDateForInput(date));
+                      }}
+                      minimumDate={new Date()}
+                    />
+                  )}
+                  {Platform.OS === 'ios' && showDatePicker && (
+                    <TouchableOpacity onPress={() => setShowDatePicker(false)} style={modalStyles.datePickerDone}>
+                      <Text style={modalStyles.datePickerDoneText}>OK</Text>
+                    </TouchableOpacity>
+                  )}
+                  <Text style={modalStyles.label}>Récurrence</Text>
+                  <View style={modalStyles.tagRow}>
+                    {(['none', 'biweekly', 'annual', 'biannual'] as const).map((rule) => (
+                      <TouchableOpacity
+                        key={rule}
+                        style={[
+                          modalStyles.typeButton,
+                          recurrenceRule === rule && modalStyles.typeButtonSelected,
+                        ]}
+                        onPress={() => setRecurrenceRule(rule)}
+                      >
+                        <Text
+                          style={[
+                            modalStyles.typeButtonText,
+                            recurrenceRule === rule && modalStyles.typeButtonTextSelected,
+                          ]}
+                        >
+                          {REMINDER_RECURRENCE_LABELS[rule]}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
                   <Text style={modalStyles.label}>Type d'alerte</Text>
                   <View style={modalStyles.tagRow}>
                     {REMINDER_ALERTE_TYPES.map((t) => (
@@ -309,15 +357,14 @@ function AddEventModal({
                 numberOfLines={2}
                 placeholderTextColor="#888"
               />
-              <TouchableOpacity
-                style={fullScreenModalStyles.submitButton}
+              <FAB
+                label={submitting ? 'Enregistrement...' : 'Enregistrer'}
+                variant="primary"
+                size="large"
                 onPress={mode === 'reminder' ? handleSubmitReminder : handleSubmitEvent}
                 disabled={submitting}
-              >
-                <Text style={fullScreenModalStyles.submitButtonText}>
-                  {submitting ? 'Enregistrement...' : 'Enregistrer'}
-                </Text>
-              </TouchableOpacity>
+                style={{ marginTop: 24 }}
+              />
             </>
           ) : (
             <>
@@ -347,9 +394,13 @@ function AddEventModal({
                   <Text style={eventDetailStyles.addPhotoText}>+ Photo</Text>
                 </TouchableOpacity>
               </View>
-              <TouchableOpacity style={fullScreenModalStyles.submitButton} onPress={handleDone}>
-                <Text style={fullScreenModalStyles.submitButtonText}>Terminé</Text>
-              </TouchableOpacity>
+              <FAB
+                label="Terminé"
+                variant="primary"
+                size="large"
+                onPress={handleDone}
+                style={{ marginTop: 24 }}
+              />
             </>
           )}
         </ScrollView>
@@ -495,6 +546,20 @@ const modalStyles = StyleSheet.create({
     padding: 12,
     fontSize: 16,
     marginBottom: 12,
+  },
+  dateDisplay: {
+    fontSize: 16,
+    color: '#333',
+  },
+  datePickerDone: {
+    marginTop: 8,
+    padding: 12,
+    alignItems: 'center',
+  },
+  datePickerDoneText: {
+    fontSize: 16,
+    color: '#1a3c27',
+    fontWeight: '600',
   },
   textArea: {
     minHeight: 60,
@@ -1061,6 +1126,7 @@ export default function SpecimenDetailScreen() {
   const [eventSubmitting, setEventSubmitting] = useState(false);
   const [eventDetailModalVisible, setEventDetailModalVisible] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [selectedReminderForModal, setSelectedReminderForModal] = useState<ReminderUpcoming | null>(null);
   const [isFavori, setIsFavori] = useState(false);
   const [favoriToggling, setFavoriToggling] = useState(false);
   const [specimenPhotos, setSpecimenPhotos] = useState<Photo[]>([]);
@@ -1452,6 +1518,25 @@ export default function SpecimenDetailScreen() {
             <TouchableOpacity
               key={r.id}
               style={styles.eventRow}
+              onPress={() => {
+                const today = new Date().toISOString().slice(0, 10);
+                setSelectedReminderForModal({
+                  id: r.id,
+                  type_rappel: r.type_rappel,
+                  date_rappel: r.date_rappel,
+                  type_alerte: r.type_alerte,
+                  titre: r.titre ?? '',
+                  description: r.description ?? '',
+                  is_overdue: r.date_rappel < today,
+                  recurrence_rule: r.recurrence_rule ?? 'none',
+                  specimen: {
+                    id: specimen.id,
+                    nom: specimen.nom,
+                    organisme_nom: specimen.organisme?.nom_commun ?? '',
+                    photo_url: specimen.photo_principale_url ?? null,
+                  },
+                });
+              }}
               onLongPress={() => {
                 Alert.alert(
                   'Supprimer le rappel',
@@ -1500,12 +1585,13 @@ export default function SpecimenDetailScreen() {
             </TouchableOpacity>
           ))
         )}
-        <TouchableOpacity
-          style={styles.addEventButton}
+        <FAB
+          label="Ajouter un événement"
+          icon="add-circle-outline"
+          variant="primary"
+          size="large"
           onPress={() => setEventModalVisible(true)}
-        >
-          <Text style={styles.addEventText}>+ Ajouter un événement</Text>
-        </TouchableOpacity>
+        />
       </View>
       <AddEventModal
         visible={eventModalVisible}
@@ -1521,6 +1607,14 @@ export default function SpecimenDetailScreen() {
         }}
         submitting={eventSubmitting}
         setSubmitting={setEventSubmitting}
+      />
+      <ReminderActionModal
+        visible={selectedReminderForModal != null}
+        reminder={selectedReminderForModal}
+        onClose={() => setSelectedReminderForModal(null)}
+        onAction={() => {
+          getSpecimenReminders(specimen.id).then(setReminders).catch(() => {});
+        }}
       />
       <EventDetailModal
         visible={eventDetailModalVisible}

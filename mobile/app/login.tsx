@@ -1,8 +1,9 @@
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { login } from '@/api/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { FAB } from '@/components/FAB';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -67,17 +68,14 @@ export default function LoginScreen() {
 
         {error && <Text style={styles.error}>{error}</Text>}
 
-        <TouchableOpacity
-          style={[styles.button, loading && styles.buttonDisabled]}
+        <FAB
+          label={loading ? 'Connexion...' : 'Se connecter'}
+          variant="primary"
+          size="large"
           onPress={handleLogin}
           disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>Se connecter</Text>
-          )}
-        </TouchableOpacity>
+          style={styles.loginFAB}
+        />
       </View>
     </KeyboardAvoidingView>
   );
@@ -125,19 +123,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     textAlign: 'center',
   },
-  button: {
-    backgroundColor: '#1a3c27',
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  buttonDisabled: {
-    opacity: 0.7,
-  },
-  buttonText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#fff',
+  loginFAB: {
+    marginTop: 24,
   },
 });

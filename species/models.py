@@ -1358,6 +1358,20 @@ class Reminder(models.Model):
         help_text="Description (optionnel)",
     )
 
+    RECURRENCE_CHOICES = [
+        ('none', 'Aucune'),
+        ('biweekly', 'Toutes les 2 semaines'),
+        ('annual', 'Annuel'),
+        ('biannual', 'Bi-annuel (2×/an)'),
+    ]
+    recurrence_rule = models.CharField(
+        max_length=20,
+        choices=RECURRENCE_CHOICES,
+        default='none',
+        blank=True,
+        help_text="Répétition du rappel après complétion",
+    )
+
     date_ajout = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -1369,6 +1383,27 @@ class Reminder(models.Model):
         emoji = dict(self.TYPE_RAPPEL_CHOICES).get(self.type_rappel, '⏰')
         label = self.titre or self.get_type_rappel_display()
         return f"{emoji} {self.specimen.nom} - {label} ({self.date_rappel})"
+
+
+class UserPreference(models.Model):
+    """Préférences utilisateur (jardin par défaut pour saisons, etc.)."""
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='species_preference',
+    )
+    default_garden = models.ForeignKey(
+        'species.Garden',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='+',
+        help_text="Jardin par défaut (saisons, repères)",
+    )
+
+    class Meta:
+        verbose_name = "Préférence utilisateur"
+        verbose_name_plural = "Préférences utilisateur"
 
 
 class Photo(models.Model):

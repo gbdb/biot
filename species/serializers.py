@@ -344,7 +344,7 @@ class ReminderSerializer(serializers.ModelSerializer):
         model = Reminder
         fields = [
             'id', 'type_rappel', 'date_rappel', 'type_alerte',
-            'titre', 'description', 'date_ajout',
+            'titre', 'description', 'recurrence_rule', 'date_ajout',
         ]
 
 
@@ -355,12 +355,13 @@ class ReminderCreateSerializer(serializers.ModelSerializer):
         model = Reminder
         fields = [
             'type_rappel', 'date_rappel', 'type_alerte',
-            'titre', 'description',
+            'titre', 'description', 'recurrence_rule',
         ]
         extra_kwargs = {
             'type_rappel': {'required': True},
             'date_rappel': {'required': True},
             'type_alerte': {'required': False, 'default': 'popup'},
+            'recurrence_rule': {'required': False, 'default': 'none'},
         }
 
     def create(self, validated_data):
@@ -369,14 +370,15 @@ class ReminderCreateSerializer(serializers.ModelSerializer):
 
 
 class ReminderUpdateSerializer(serializers.ModelSerializer):
-    """Mise à jour d'un rappel."""
+    """Mise à jour d'un rappel (date, récurrence, etc.)."""
 
     class Meta:
         model = Reminder
-        fields = ['type_rappel', 'date_rappel', 'type_alerte', 'titre', 'description']
+        fields = ['type_rappel', 'date_rappel', 'type_alerte', 'titre', 'description', 'recurrence_rule']
         extra_kwargs = {
             'type_rappel': {'required': False},
             'date_rappel': {'required': False},
+            'recurrence_rule': {'required': False},
         }
 
 

@@ -31,4 +31,7 @@ export const ENDPOINTS = {
   gardens: `${API_PREFIX}/gardens/`,
   remindersUpcoming: `${API_PREFIX}/reminders/upcoming/`,
   weatherAlerts: `${API_PREFIX}/weather-alerts/`,
+  me: {
+    preferences: `${API_PREFIX}/me/preferences/`,
+  },
 } as const;

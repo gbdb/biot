@@ -633,6 +633,8 @@ export interface ReminderUpcoming {
   type_alerte: string;
   titre: string;
   description: string;
+  is_overdue: boolean;
+  recurrence_rule: string;
   specimen: {
     id: number;
     nom: string;
@@ -644,6 +646,48 @@ export interface ReminderUpcoming {
 export async function getRemindersUpcoming(): Promise<ReminderUpcoming[]> {
   const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.remindersUpcoming}`);
   return handleResponse<ReminderUpcoming[]>(res);
+}
+
+export async function updateSpecimenReminder(
+  specimenId: number,
+  reminderId: number,
+  data: Partial<{ date_rappel: string; recurrence_rule: string }>
+): Promise<Reminder> {
+  const res = await fetchWithAuth(
+    `${API_BASE_URL}${ENDPOINTS.specimens}${specimenId}/reminders/${reminderId}/`,
+    { method: 'PATCH', body: JSON.stringify(data) }
+  );
+  return handleResponse<Reminder>(res);
+}
+
+export async function completeSpecimenReminder(
+  specimenId: number,
+  reminderId: number,
+  createNext?: boolean
+): Promise<{ detail: string }> {
+  const res = await fetchWithAuth(
+    `${API_BASE_URL}${ENDPOINTS.specimens}${specimenId}/reminders/${reminderId}/complete/`,
+    { method: 'POST', body: JSON.stringify(createNext != null ? { create_next: createNext } : {}) }
+  );
+  return handleResponse<{ detail: string }>(res);
+}
+
+// --- User preferences (default garden) ---
+export interface UserPreferences {
+  default_garden_id: number | null;
+}
+
+export async function getUserPreferences(): Promise<UserPreferences> {
+  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.me.preferences}`);
+  return handleResponse<UserPreferences>(res);
+}
+
+export async function updateUserPreferences(data: UserPreferences): Promise<UserPreferences> {
+  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.me.preferences}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+  return handleResponse<UserPreferences>(res);
 }
 
 // --- Weather alerts (page d'accueil) ---

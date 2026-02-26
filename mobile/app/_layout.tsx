@@ -74,6 +74,8 @@ function RootLayoutNav() {
           options={{ title: 'Modifier l\'espèce' }}
         />
         <Stack.Screen name="specimens" options={{ headerShown: false }} />
+        <Stack.Screen name="reminders" options={{ title: 'Rappels' }} />
+        <Stack.Screen name="settings" options={{ title: 'Paramètres' }} />
       </Stack>
     </>
   );

@@ -5,14 +5,22 @@ import { useAuth } from '@/contexts/AuthContext';
 
 function HomeHeaderRight() {
   const { logout } = useAuth();
+  const router = useRouter();
   return (
-    <TouchableOpacity
-      onPress={() => logout()}
-      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-      style={{ marginRight: 16 }}
-    >
-      <Ionicons name="log-out-outline" size={24} color="#fff" />
-    </TouchableOpacity>
+    <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 16, gap: 4 }}>
+      <TouchableOpacity
+        onPress={() => router.push('/settings')}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+      >
+        <Ionicons name="settings-outline" size={24} color="#fff" />
+      </TouchableOpacity>
+      <TouchableOpacity
+        onPress={() => logout()}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+      >
+        <Ionicons name="log-out-outline" size={24} color="#fff" />
+      </TouchableOpacity>
+    </View>
   );
 }
 

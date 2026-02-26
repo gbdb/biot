@@ -263,6 +263,15 @@ export const REMINDER_ALERTE_LABELS: Record<ReminderAlerteType, string> = {
   son: '🔊 Son',
 };
 
+export type ReminderRecurrenceRule = 'none' | 'biweekly' | 'annual' | 'biannual';
+
+export const REMINDER_RECURRENCE_LABELS: Record<ReminderRecurrenceRule, string> = {
+  none: 'Aucune',
+  biweekly: 'Toutes les 2 semaines',
+  annual: 'Annuel',
+  biannual: 'Bi-annuel (2×/an)',
+};
+
 export interface Reminder {
   id: number;
   type_rappel: ReminderType;
@@ -270,6 +279,7 @@ export interface Reminder {
   type_alerte: ReminderAlerteType;
   titre: string;
   description: string;
+  recurrence_rule?: ReminderRecurrenceRule;
   date_ajout: string;
 }
 
@@ -279,6 +289,7 @@ export interface ReminderCreate {
   type_alerte?: ReminderAlerteType;
   titre?: string;
   description?: string;
+  recurrence_rule?: ReminderRecurrenceRule;
 }
 
 // --- Photo ---
