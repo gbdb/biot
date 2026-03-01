@@ -72,6 +72,9 @@ export default function TabLayout() {
         options={{
           title: 'Accueil',
           tabBarLabel: 'Accueil',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="home-outline" size={size} color={color} />
+          ),
           headerRight: () => <HomeHeaderRight />,
         }}
       />
@@ -80,6 +83,9 @@ export default function TabLayout() {
         options={{
           title: 'Espèces',
           tabBarLabel: 'Espèces',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="leaf-outline" size={size} color={color} />
+          ),
           headerRight: () => <SpeciesHeaderRight />,
         }}
       />
@@ -88,6 +94,9 @@ export default function TabLayout() {
         options={{
           title: 'Spécimens',
           tabBarLabel: 'Spécimens',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="flower-outline" size={size} color={color} />
+          ),
           headerRight: () => <SpecimensHeaderRight />,
         }}
       />
@@ -96,6 +105,9 @@ export default function TabLayout() {
         options={{
           title: 'Jardins',
           tabBarLabel: 'Jardins',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="map-outline" size={size} color={color} />
+          ),
         }}
       />
     </Tabs>

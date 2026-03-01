@@ -1,0 +1,3 @@
+# IP de ton Mac sur le réseau local (pour dev sur iPhone/Android physique)
+# Renomme en .dev-ip et mets ton IP sur la première ligne
+# Ex: 192.168.0.154 (IP statique configurée dans ton routeur)

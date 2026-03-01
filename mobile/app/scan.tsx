@@ -9,11 +9,12 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { useState, useEffect } from 'react';
-import { useRouter, Link } from 'expo-router';
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter, Link, useFocusEffect } from 'expo-router';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { getSpecimenByNfcOrNull, getSpecimens, updateSpecimen } from '@/api/client';
 import type { SpecimenList } from '@/types/api';
+import { setNfcPreloadedSpecimen } from '@/lib/nfcPreload';
 
 const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
@@ -130,14 +131,16 @@ const assignModalStyles = StyleSheet.create({
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 });
 
+const canAutoScan = Platform.OS !== 'web' && !isExpoGo;
+
 export default function ScanScreen() {
   const router = useRouter();
-  const [status, setStatus] = useState<'idle' | 'scanning' | 'success' | 'error' | 'new_tag'>('idle');
+  const [status, setStatus] = useState<'idle' | 'scanning' | 'error' | 'new_tag'>('idle');
   const [message, setMessage] = useState<string | null>(null);
   const [scannedUid, setScannedUid] = useState<string | null>(null);
   const [assignModalVisible, setAssignModalVisible] = useState(false);
 
-  const handleScan = async () => {
+  const handleScan = useCallback(async () => {
     try {
       if (Platform.OS === 'web') {
         setStatus('error');
@@ -186,8 +189,7 @@ export default function ScanScreen() {
 
       const specimen = await getSpecimenByNfcOrNull(uid);
       if (specimen) {
-        setStatus('success');
-        setMessage(`${specimen.nom} — ${specimen.organisme.nom_commun}`);
+        setNfcPreloadedSpecimen(specimen);
         router.push(`/specimen/${specimen.id}`);
       } else {
         setStatus('new_tag');
@@ -204,7 +206,22 @@ export default function ScanScreen() {
       setStatus('error');
       setMessage(err instanceof Error ? err.message : 'Erreur de scan.');
     }
-  };
+  }, [router]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (status === 'idle') {
+        handleScan();
+      }
+      return () => {
+        if (canAutoScan) {
+          import('react-native-nfc-manager')
+            .then(({ default: M }) => M.cancelTechnologyRequest().catch(() => {}))
+            .catch(() => {});
+        }
+      };
+    }, [canAutoScan, status, handleScan])
+  );
 
   const handleCreateWithTag = () => {
     if (scannedUid) {
@@ -245,16 +262,18 @@ export default function ScanScreen() {
           </Text>
         </TouchableOpacity>
       </Link>
-      <TouchableOpacity
-        style={[styles.button, status === 'scanning' && styles.buttonScanning]}
-        onPress={handleScan}
-        disabled={status === 'scanning'}
-      >
-        <Text style={styles.buttonText}>
-          {status === 'scanning' ? '⏳ En attente du tag...' : '📱 Scanner'}
-        </Text>
-      </TouchableOpacity>
-      {message && (
+      {status === 'scanning' && (
+        <View style={styles.scanningBlock}>
+          <ActivityIndicator size="large" color="#1a3c27" />
+          <Text style={styles.scanningText}>Approchez le téléphone du tag NFC...</Text>
+        </View>
+      )}
+      {status === 'error' && (
+        <TouchableOpacity style={styles.button} onPress={handleScan}>
+          <Text style={styles.buttonText}>Réessayer</Text>
+        </TouchableOpacity>
+      )}
+      {message && status !== 'scanning' && (
         <Text style={[styles.message, status === 'error' && styles.messageError]}>{message}</Text>
       )}
       {status === 'new_tag' && scannedUid && (
@@ -272,6 +291,19 @@ export default function ScanScreen() {
           >
             <Text style={styles.buttonText}>Assigner à un spécimen existant</Text>
           </TouchableOpacity>
+          {canAutoScan && (
+            <TouchableOpacity
+              style={styles.scanAnotherLink}
+              onPress={() => {
+                setStatus('idle');
+                setMessage(null);
+                setScannedUid(null);
+                handleScan();
+              }}
+            >
+              <Text style={styles.quickObsLinkText}>Scanner un autre tag</Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
       <AssignTagModal
@@ -311,6 +343,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#4a6741',
     textDecorationLine: 'underline',
+  },
+  scanningBlock: {
+    alignItems: 'center',
+    paddingVertical: 32,
+    gap: 16,
+  },
+  scanningText: {
+    fontSize: 18,
+    color: '#4a6741',
+    textAlign: 'center',
+  },
+  scanAnotherLink: {
+    marginTop: 16,
+    paddingVertical: 10,
+    alignItems: 'center',
   },
   button: {
     backgroundColor: '#1a3c27',

@@ -114,3 +114,6 @@ Thumbs.db
 # Temp files
 tmp/
 temp/
+
+# Personal notes (git-ignored)
+g_notes

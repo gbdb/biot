@@ -28,6 +28,24 @@ const STORAGE_KEYS = {
   REFRESH_TOKEN: 'jardinbiot_refresh_token',
 };
 
+/** Timeout pour les appels auth (évite blocage si Django injoignable) */
+const AUTH_TIMEOUT_MS = 8000;
+
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit = {},
+  timeoutMs: number = AUTH_TIMEOUT_MS
+): Promise<Response> {
+  const ctrl = new AbortController();
+  const id = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...init, signal: ctrl.signal });
+    return res;
+  } finally {
+    clearTimeout(id);
+  }
+}
+
 async function getAccessToken(): Promise<string | null> {
   return SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
 }
@@ -45,11 +63,17 @@ async function clearTokens(): Promise<void> {
 async function refreshAccessToken(): Promise<string | null> {
   const refresh = await SecureStore.getItemAsync(STORAGE_KEYS.REFRESH_TOKEN);
   if (!refresh) return null;
-  const res = await fetch(`${API_BASE_URL}${ENDPOINTS.auth.refresh}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refresh }),
-  });
+  let res: Response;
+  try {
+    res = await fetchWithTimeout(`${API_BASE_URL}${ENDPOINTS.auth.refresh}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh }),
+    });
+  } catch {
+    await clearTokens();
+    return null;
+  }
   if (!res.ok) {
     await clearTokens();
     return null;
@@ -120,7 +144,7 @@ function unwrapPaginated<T>(data: unknown): T[] {
 
 // --- Auth ---
 export async function login(username: string, password: string): Promise<TokenPair> {
-  const res = await fetch(`${API_BASE_URL}${ENDPOINTS.auth.token}`, {
+  const res = await fetchWithTimeout(`${API_BASE_URL}${ENDPOINTS.auth.token}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password }),
@@ -140,11 +164,16 @@ export async function isAuthenticated(): Promise<boolean> {
     token = await refreshAccessToken();
     if (!token) return false;
   }
-  let res = await fetch(`${API_BASE_URL}${ENDPOINTS.auth.verify}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ token }),
-  });
+  let res: Response;
+  try {
+    res = await fetchWithTimeout(`${API_BASE_URL}${ENDPOINTS.auth.verify}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ token }),
+    });
+  } catch {
+    return false;
+  }
   if (res.status === 401 && token) {
     const newToken = await refreshAccessToken();
     if (newToken) return true;
