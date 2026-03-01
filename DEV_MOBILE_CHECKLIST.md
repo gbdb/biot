@@ -2,40 +2,83 @@
 
 Pour que l'app mobile (Expo) sur votre iPhone/Android fonctionne avec Django sur votre Mac.
 
+## Cues pour l'agent Cursor
+
+| Dire à l'agent | Action |
+|----------------|--------|
+| **lance le simulateur** | Config + lance Expo (pense à Django dans un autre terminal) |
+| **lance le simulateur sur mon cellulaire** | Config + lance Expo pour appareil physique |
+| **update git** | git add, commit, push (l'agent demande le message) |
+| **prepare app native** | Config pour build natif → pointe vers VM |
+
+## 0. Script rapide (recommandé)
+
+```bash
+# Simulateur (config seulement)
+./scripts/dev-mobile.sh sim
+
+# Simulateur + lance Expo
+./scripts/dev-mobile.sh sim launch
+
+# Appareil physique
+./scripts/dev-mobile.sh device
+./scripts/dev-mobile.sh device launch   # + lance Expo
+
+# Build natif (app → VM)
+./scripts/dev-mobile.sh build
+
+# Git (demande message si pas fourni)
+./scripts/dev-mobile.sh git "mon message"
+```
+
+Le script met à jour `mobile/.env` automatiquement.
+
+| Mode | Fichier config | Exemple |
+|------|----------------|---------|
+| device | `mobile/.dev-ip` | `echo '192.168.0.154' > mobile/.dev-ip` |
+| build | `mobile/.dev-vm-url` | `echo 'https://jardinbiot.example.com' > mobile/.dev-vm-url` |
+
+Puis lance Django et Expo selon les instructions affichées (ou build avec Xcode).
+
+---
+
 ## 1. Django – fichier `.env` à la racine (biot/.env)
 
 Vérifier que le fichier contient :
 
 ```env
-ALLOWED_HOSTS=localhost,127.0.0.1,192.168.0.143
+ALLOWED_HOSTS=localhost,127.0.0.1,192.168.0.154
 CORS_ALLOW_ALL_ORIGINS=True
 ```
 
-Sans `192.168.0.143` dans `ALLOWED_HOSTS`, Django rejette les requêtes (400 Bad Request).
+- **Simulateur** : `localhost,127.0.0.1` suffit.
+- **Appareil physique** : ajoute l'IP de ton Mac (ex: `192.168.0.154`).
+
+Sans l'IP dans `ALLOWED_HOSTS`, Django rejette les requêtes (400 Bad Request).
 
 ## 2. Lancer Django
 
-```bash
-cd /chemin/vers/biot
-python manage.py runserver 0.0.0.0:8000
-```
+| Cible | Commande |
+|-------|----------|
+| **Simulateur** | `python manage.py runserver` |
+| **Appareil physique** | `python manage.py runserver 0.0.0.0:8000` |
 
-## 3. Lancer Expo avec la bonne URL
+## 3. Lancer Expo
 
 ```bash
 cd mobile
-EXPO_PUBLIC_API_URL=http://192.168.0.143:8000 npx expo start
+npx expo start --clear
 ```
 
 Important : redémarrer Expo après un changement de `EXPO_PUBLIC_API_URL` (la variable est chargée au démarrage).
 
 ## 4. Vérifier la connexion
 
-Sur le Mac, dans un autre terminal :
+Sur le Mac, dans un autre terminal (remplace IP si appareil physique) :
 
 ```bash
-# Test token (remplacez USER et PASS par un compte valide)
-curl -X POST http://192.168.0.143:8000/api/auth/token/ \
+# Simulateur: localhost. Appareil: ton IP Mac
+curl -X POST http://localhost:8000/api/auth/token/ \
   -H "Content-Type: application/json" \
   -d '{"username":"VOTRE_USER","password":"VOTRE_PASS"}'
 ```
@@ -74,10 +117,10 @@ for s in Specimen.objects.all()[:3]:
 Puis tester avec curl (en adaptant les IDs) :
 
 ```bash
-TOKEN=$(curl -s -X POST http://192.168.0.143:8000/api/auth/token/ \
+TOKEN=$(curl -s -X POST http://localhost:8000/api/auth/token/ \
   -H "Content-Type: application/json" \
   -d '{"username":"guillaume","password":"roulezenaudi"}' | python3 -c "import sys,json; print(json.load(sys.stdin)['access'])")
-curl -X DELETE "http://192.168.0.143:8000/api/specimens/1/events/1/" \
+curl -X DELETE "http://localhost:8000/api/specimens/1/events/1/" \
   -H "Authorization: Bearer $TOKEN" -v
 ```
 

@@ -42,6 +42,7 @@ import {
   updateSpecimen,
 } from '@/api/client';
 import { API_BASE_URL } from '@/constants/config';
+import { takeNfcPreloadedSpecimenIfMatch } from '@/lib/nfcPreload';
 import type { SpecimenDetail, Event, EventType, Photo, Reminder, ReminderType, ReminderAlerteType, ReminderRecurrenceRule } from '@/types/api';
 import { SPECIMEN_STATUT_LABELS, EVENT_TYPE_LABELS, REMINDER_TYPE_LABELS, REMINDER_ALERTE_LABELS, REMINDER_RECURRENCE_LABELS } from '@/types/api';
 import type { ReminderUpcoming } from '@/api/client';
@@ -1147,17 +1148,31 @@ export default function SpecimenDetailScreen() {
       setLoading(false);
       return;
     }
-    setLoading(true);
-    Promise.all([getSpecimen(numId), getSpecimenEvents(numId), getSpecimenReminders(numId)])
-      .then(([s, e, r]) => {
-        setSpecimen(s);
-        setEvents(e);
-        setReminders(r);
-        setIsFavori(s.is_favori ?? false);
-        setDefaultPhotoId(s.photo_principale ?? null);
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : 'Erreur'))
-      .finally(() => setLoading(false));
+    const preloadedSpecimen = takeNfcPreloadedSpecimenIfMatch(numId);
+    if (preloadedSpecimen) {
+      setSpecimen(preloadedSpecimen);
+      setIsFavori(preloadedSpecimen.is_favori ?? false);
+      setDefaultPhotoId(preloadedSpecimen.photo_principale ?? null);
+      setLoading(false);
+      Promise.all([getSpecimenEvents(numId), getSpecimenReminders(numId)])
+        .then(([e, r]) => {
+          setEvents(e);
+          setReminders(r);
+        })
+        .catch(() => {});
+    } else {
+      setLoading(true);
+      Promise.all([getSpecimen(numId), getSpecimenEvents(numId), getSpecimenReminders(numId)])
+        .then(([s, e, r]) => {
+          setSpecimen(s);
+          setEvents(e);
+          setReminders(r);
+          setIsFavori(s.is_favori ?? false);
+          setDefaultPhotoId(s.photo_principale ?? null);
+        })
+        .catch((err) => setError(err instanceof Error ? err.message : 'Erreur'))
+        .finally(() => setLoading(false));
+    }
   }, [id]);
 
   useFocusEffect(

@@ -45,7 +45,8 @@
         {
           "locationWhenInUsePermission": "Enregistrer la position GPS des observations (jardin, forêt, randonnée)"
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true
