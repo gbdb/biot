@@ -2,9 +2,12 @@
 Vues API REST pour l'app mobile Jardin Biot.
 Endpoints: specimens, events, reminders, photos, organisms, gardens, NFC lookup.
 """
+import re
 from datetime import date, timedelta
 from math import radians, sin, cos, sqrt, atan2
 
+import requests
+from django.core.files.base import ContentFile
 from django.db.models import Q
 from rest_framework import status, viewsets, mixins
 from rest_framework.pagination import PageNumberPagination
@@ -106,6 +109,12 @@ class SpecimenViewSet(viewsets.ModelViewSet):
             except ValueError:
                 pass
         return qs
+
+    @action(detail=False, methods=['get'], url_path='count')
+    def count(self, request):
+        """GET /api/specimens/count/?... Retourne { count } avec les mêmes filtres que la liste."""
+        qs = self.get_queryset()
+        return Response({'count': qs.count()})
 
     @action(detail=False, methods=['get'], url_path='zones')
     def zones(self, request):
@@ -374,7 +383,7 @@ class SpecimenViewSet(viewsets.ModelViewSet):
         specimen = self.get_object()
         event = get_object_or_404(Event, pk=event_pk, specimen=specimen)
         if request.method == 'GET':
-            photos_qs = Photo.objects.filter(event=event).order_by('-date_prise', '-date_ajout')
+            photos_qs = Photo.objects.filter(event=event).select_related('event').order_by('-date_prise', '-date_ajout')
             serializer = PhotoSerializer(photos_qs, many=True, context={'request': request})
             return Response(serializer.data)
         serializer = PhotoCreateSerializer(data=request.data)
@@ -390,7 +399,7 @@ class SpecimenViewSet(viewsets.ModelViewSet):
         """GET/POST photos du spécimen."""
         specimen = self.get_object()
         if request.method == 'GET':
-            photos_qs = Photo.objects.filter(specimen=specimen).order_by('-date_prise', '-date_ajout')
+            photos_qs = Photo.objects.filter(specimen=specimen).select_related('event').order_by('-date_prise', '-date_ajout')
             serializer = PhotoSerializer(photos_qs, many=True, context={'request': request})
             return Response(serializer.data)
         serializer = PhotoCreateSerializer(data=request.data)
@@ -483,7 +492,7 @@ class OrganismViewSet(
         return context
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = super().get_queryset().prefetch_related('photos')
         search = self.request.query_params.get('search')
         if search:
             qs = qs.filter(
@@ -519,7 +528,18 @@ class OrganismViewSet(
         noix = self.request.query_params.get('noix')
         if noix:
             qs = qs.filter(type_organisme='arbre_noix')
-        return qs
+        has_specimen = self.request.query_params.get('has_specimen')
+        garden_id = self.request.query_params.get('garden')
+        if has_specimen:
+            specimen_filter = Specimen.objects.all()
+            if garden_id:
+                try:
+                    specimen_filter = specimen_filter.filter(garden_id=int(garden_id))
+                except (ValueError, TypeError):
+                    pass
+            org_ids = specimen_filter.values_list('organisme_id', flat=True).distinct()
+            qs = qs.filter(pk__in=org_ids)
+        return qs.select_related('photo_principale')
 
     @action(detail=True, methods=['post', 'delete'], url_path='favoris')
     def favoris(self, request, pk=None):
@@ -533,6 +553,12 @@ class OrganismViewSet(
         OrganismFavorite.objects.filter(user=request.user, organism=organism).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+    @action(detail=False, methods=['get'], url_path='count')
+    def count(self, request):
+        """GET /api/organisms/count/?... Retourne { count } avec les mêmes filtres que la liste."""
+        qs = self.get_queryset()
+        return Response({'count': qs.count()})
+
     @action(detail=False, url_path='inconnu')
     def inconnu(self, request):
         """Organisme système pour observations rapides (espèce non identifiée)."""
@@ -544,6 +570,99 @@ class OrganismViewSet(
             )
         serializer = OrganismMinimalSerializer(org)
         return Response(serializer.data)
+
+    @action(detail=True, methods=['get', 'post'], url_path='photos')
+    def photos(self, request, pk=None):
+        """GET: liste des photos de l'organisme. POST: ajout (fichier multipart ou JSON image_url)."""
+        organism = self.get_object()
+        if request.method == 'GET':
+            photos_qs = Photo.objects.filter(organisme=organism).order_by('-date_prise', '-date_ajout')
+            serializer = PhotoSerializer(photos_qs, many=True, context={'request': request})
+            return Response(serializer.data)
+
+        # POST: fichier ou image_url
+        if request.FILES.get('image'):
+            serializer = PhotoCreateSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            photo = serializer.save(organisme=organism)
+            return Response(
+                PhotoSerializer(photo, context={'request': request}).data,
+                status=status.HTTP_201_CREATED,
+            )
+
+        image_url = request.data.get('image_url') if hasattr(request.data, 'get') else None
+        if image_url and isinstance(image_url, str) and image_url.strip().startswith('http'):
+            url = image_url.strip()
+            if not url.lower().startswith('https'):
+                return Response(
+                    {'detail': 'Seules les URLs HTTPS sont acceptées.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            try:
+                image_bytes, filename = _download_image_from_url(url)
+            except ValueError as e:
+                return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            titre = (request.data.get('titre') or '')[:200] if hasattr(request.data, 'get') else ''
+            type_photo = (request.data.get('type_photo') or 'autre')[:35]
+            safe_name = re.sub(r'[^\w\-.]', '_', filename)[:120]
+            if not safe_name or not re.search(r'\.(jpe?g|png|gif|webp)$', safe_name, re.I):
+                safe_name = safe_name or 'image.jpg'
+                if not safe_name.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.webp')):
+                    safe_name += '.jpg'
+            photo = Photo(
+                organisme=organism,
+                titre=titre or f'{organism.nom_commun} (lien)',
+                type_photo=type_photo,
+                source_url=url[:500],
+            )
+            photo.image.save(safe_name, ContentFile(image_bytes), save=True)
+            return Response(
+                PhotoSerializer(photo, context={'request': request}).data,
+                status=status.HTTP_201_CREATED,
+            )
+
+        return Response(
+            {'detail': 'Envoyez un fichier "image" (multipart) ou un champ JSON "image_url" (URL HTTPS).'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    @action(detail=True, methods=['post'], url_path=r'photos/(?P<photo_pk>[^/.]+)/set-default')
+    def photo_set_default(self, request, pk=None, photo_pk=None):
+        """Définit cette photo comme image par défaut de l'espèce."""
+        organism = self.get_object()
+        photo = get_object_or_404(Photo, pk=photo_pk, organisme=organism)
+        organism.photo_principale = photo
+        organism.save(update_fields=['photo_principale', 'date_modification'])
+        return Response({'detail': 'Image par défaut définie'}, status=status.HTTP_200_OK)
+
+
+def _download_image_from_url(url: str, timeout: int = 15, max_size: int = 10 * 1024 * 1024):
+    """
+    Télécharge une image depuis une URL. Retourne (bytes, filename).
+    Lève ValueError en cas d'erreur (URL invalide, pas une image, trop gros, etc.).
+    """
+    allowed_types = ('image/jpeg', 'image/png', 'image/gif', 'image/webp')
+    try:
+        r = requests.get(url, timeout=timeout, stream=True)
+        r.raise_for_status()
+        content_type = (r.headers.get('Content-Type') or '').split(';')[0].strip().lower()
+        if content_type not in allowed_types:
+            raise ValueError(f'URL ne pointe pas vers une image (Content-Type: {content_type})')
+        size = 0
+        chunks = []
+        for chunk in r.iter_content(chunk_size=65536):
+            if chunk:
+                size += len(chunk)
+                if size > max_size:
+                    raise ValueError('Image trop volumineuse (max 10 Mo).')
+                chunks.append(chunk)
+        image_bytes = b''.join(chunks)
+        if not image_bytes:
+            raise ValueError('Réponse vide.')
+        filename = url.rstrip('/').split('/')[-1].split('?')[0] or 'image.jpg'
+        return image_bytes, filename
+    except requests.RequestException as e:
+        raise ValueError(f'Impossible de télécharger l\'image: {e}') from e
 
 
 # --- Garden ViewSet (lecture) ---

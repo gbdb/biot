@@ -15,6 +15,7 @@ from .source_rules import (
 class OrganismMinimalSerializer(serializers.ModelSerializer):
     """Minimal pour listes et choix."""
     is_favori = serializers.SerializerMethodField()
+    photo_principale_url = serializers.SerializerMethodField()
 
     def get_is_favori(self, obj):
         request = self.context.get('request')
@@ -22,14 +23,21 @@ class OrganismMinimalSerializer(serializers.ModelSerializer):
             return False
         return OrganismFavorite.objects.filter(user=request.user, organism=obj).exists()
 
+    def get_photo_principale_url(self, obj):
+        request = self.context.get('request')
+        photo = getattr(obj, 'photo_principale', None) or obj.photos.first()
+        return _get_photo_url(request, photo) if photo else None
+
     class Meta:
         model = Organism
-        fields = ['id', 'nom_commun', 'nom_latin', 'type_organisme', 'is_favori']
+        fields = ['id', 'nom_commun', 'nom_latin', 'type_organisme', 'is_favori', 'photo_principale_url']
 
 
 class OrganismDetailSerializer(serializers.ModelSerializer):
     """Détail complet pour affichage et édition."""
     is_favori = serializers.SerializerMethodField()
+    photo_principale_url = serializers.SerializerMethodField()
+    photos = serializers.SerializerMethodField()
 
     def get_is_favori(self, obj):
         request = self.context.get('request')
@@ -37,11 +45,20 @@ class OrganismDetailSerializer(serializers.ModelSerializer):
             return False
         return OrganismFavorite.objects.filter(user=request.user, organism=obj).exists()
 
+    def get_photo_principale_url(self, obj):
+        request = self.context.get('request')
+        photo = getattr(obj, 'photo_principale', None) or obj.photos.first()
+        return _get_photo_url(request, photo) if photo else None
+
+    def get_photos(self, obj):
+        return PhotoSerializer(obj.photos.all(), many=True, context=self.context).data
+
     class Meta:
         model = Organism
         fields = [
             'id', 'nom_commun', 'nom_latin', 'famille', 'regne', 'type_organisme', 'is_favori',
-            'besoin_eau', 'besoin_soleil', 'zone_rusticite', 'sol_drainage', 'sol_richesse',
+            'photo_principale_url', 'photos',
+            'besoin_eau', 'besoin_soleil', 'zone_rusticite', 'sol_textures', 'sol_ph', 'sol_drainage', 'sol_richesse',
             'hauteur_max', 'largeur_max', 'vitesse_croissance',
             'comestible', 'parties_comestibles', 'toxicite',
             'type_noix', 'age_fructification', 'periode_recolte', 'pollinisation', 'production_annuelle',
@@ -57,7 +74,7 @@ class OrganismUpdateSerializer(serializers.ModelSerializer):
         model = Organism
         fields = [
             'nom_commun', 'nom_latin', 'famille', 'regne', 'type_organisme',
-            'besoin_eau', 'besoin_soleil', 'sol_drainage', 'sol_richesse',
+            'besoin_eau', 'besoin_soleil', 'sol_textures', 'sol_ph', 'sol_drainage', 'sol_richesse',
             'hauteur_max', 'largeur_max', 'vitesse_croissance',
             'comestible', 'parties_comestibles', 'toxicite',
             'type_noix', 'age_fructification', 'periode_recolte', 'pollinisation', 'production_annuelle',
@@ -257,12 +274,14 @@ class SpecimenCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Specimen
         fields = [
+            'id',
             'organisme', 'garden', 'nom', 'code_identification', 'nfc_tag_uid',
             'zone_jardin', 'latitude', 'longitude', 'date_plantation', 'age_plantation',
             'source', 'pepiniere_fournisseur', 'seed_collection', 'statut', 'sante',
             'hauteur_actuelle', 'premiere_fructification', 'notes',
         ]
         extra_kwargs = {
+            'id': {'read_only': True},
             'code_identification': {'required': False, 'allow_blank': True},
             'nfc_tag_uid': {'required': False, 'allow_blank': True},
         }
@@ -384,15 +403,19 @@ class ReminderUpdateSerializer(serializers.ModelSerializer):
 
 # --- Photo ---
 class PhotoSerializer(serializers.ModelSerializer):
-    """Photo (lecture)."""
+    """Photo (lecture). Inclut event_id et event (résumé) si la photo est liée à un événement."""
 
     image_url = serializers.SerializerMethodField()
+    event_id = serializers.SerializerMethodField()
+    event = serializers.SerializerMethodField()
 
     class Meta:
         model = Photo
         fields = [
             'id', 'image', 'image_url', 'type_photo', 'titre', 'description',
             'date_prise', 'date_ajout',
+            'source_url', 'source_author', 'source_license',
+            'event_id', 'event',
         ]
 
     def get_image_url(self, obj):
@@ -400,6 +423,20 @@ class PhotoSerializer(serializers.ModelSerializer):
         if obj.image and request:
             return request.build_absolute_uri(obj.image.url)
         return None
+
+    def get_event_id(self, obj):
+        return obj.event_id if obj.event_id else None
+
+    def get_event(self, obj):
+        if not obj.event_id or not obj.event:
+            return None
+        e = obj.event
+        return {
+            'id': e.id,
+            'type_event': e.type_event,
+            'date': e.date.isoformat() if e.date else None,
+            'titre': e.titre or '',
+        }
 
 
 class PhotoCreateSerializer(serializers.ModelSerializer):

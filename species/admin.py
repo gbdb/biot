@@ -1368,6 +1368,10 @@ class PhotoAdmin(admin.ModelAdmin):
         ('Image', {
             'fields': ('image_preview', 'image', 'type_photo', 'titre', 'description', 'date_prise')
         }),
+        ('Attribution (Wikimedia, etc.)', {
+            'fields': ('source_url', 'source_author', 'source_license'),
+            'classes': ('collapse',),
+        }),
         ('Lié à', {
             'fields': ('organisme', 'specimen', 'event')
         }),

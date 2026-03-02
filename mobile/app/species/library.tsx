@@ -1,3 +1,7 @@
+/**
+ * Bibliothèque d'espèces — catalogue complet pour parcourir et ajouter au jardin.
+ * Ouvert par le bouton + de l'onglet Espèces.
+ */
 import {
   View,
   Text,
@@ -56,7 +60,7 @@ const SOLEIL_OPTIONS: { value: string; label: string; icon: string }[] = [
 
 const USDA_ZONES = Array.from({ length: 13 }, (_, i) => i + 1);
 
-const SpeciesRow = React.memo(function SpeciesRow({
+const LibraryOrganismRow = React.memo(function LibraryOrganismRow({
   item,
   onPress,
   onAdd,
@@ -112,7 +116,7 @@ const SpeciesRow = React.memo(function SpeciesRow({
   );
 });
 
-export default function SpeciesScreen() {
+export default function SpeciesLibraryScreen() {
   const router = useRouter();
   const [organisms, setOrganisms] = useState<OrganismMinimal[]>([]);
   const [loading, setLoading] = useState(true);
@@ -133,8 +137,7 @@ export default function SpeciesScreen() {
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [filteredCount, setFilteredCount] = useState<number | null>(null);
   const [totalCount, setTotalCount] = useState<number | null>(null);
-  const [defaultGardenId, setDefaultGardenId] = useState<number | null | undefined>(undefined);
-  const prefsLoaded = defaultGardenId !== undefined;
+  const [defaultGardenId, setDefaultGardenId] = useState<number | null>(null);
 
   const fetchOrganisms = useCallback(
     async (pageNum: number, append: boolean) => {
@@ -145,13 +148,6 @@ export default function SpeciesScreen() {
         setOrganisms([]);
       }
       setError(null);
-      if (defaultGardenId == null) {
-        setOrganisms([]);
-        setFilteredCount(0);
-        setLoading(false);
-        setLoadingMore(false);
-        return;
-      }
       const params = {
         search: search.trim() || undefined,
         type: typeFilter || undefined,
@@ -161,8 +157,6 @@ export default function SpeciesScreen() {
         zone_usda: zoneUsdaFilter ?? undefined,
         fruits: fruitsFilter || undefined,
         noix: noixFilter || undefined,
-        has_specimen: true,
-        garden: defaultGardenId,
       };
       getOrganismsPaginated(params)
         .then(({ results, hasMore: more, count }) => {
@@ -190,7 +184,6 @@ export default function SpeciesScreen() {
       zoneUsdaFilter,
       fruitsFilter,
       noixFilter,
-      defaultGardenId,
     ]
   );
 
@@ -206,13 +199,9 @@ export default function SpeciesScreen() {
     useCallback(() => {
       setPage(1);
       fetchOrganisms(1, false);
-      if (defaultGardenId != null) {
-        getOrganismsCount({ has_specimen: true, garden: defaultGardenId })
-          .then(setTotalCount)
-          .catch(() => setTotalCount(null));
-      } else {
-        setTotalCount(null);
-      }
+      getOrganismsCount()
+        .then(setTotalCount)
+        .catch(() => setTotalCount(null));
     }, [
       search,
       typeFilter,
@@ -222,7 +211,6 @@ export default function SpeciesScreen() {
       fruitsFilter,
       noixFilter,
       fetchOrganisms,
-      defaultGardenId,
     ])
   );
 
@@ -236,9 +224,10 @@ export default function SpeciesScreen() {
     router.push(`/species/${org.id}`);
   }, [router]);
 
-  const handleAddSpecimenPress = useCallback((org: OrganismMinimal) => {
-    router.push(`/specimen/create?organisme=${org.id}`);
-  }, [router]);
+  const handleAddToGarden = useCallback((org: OrganismMinimal) => {
+    const gardenParam = defaultGardenId != null ? `&garden=${defaultGardenId}` : '';
+    router.push(`/specimen/create?organisme=${org.id}${gardenParam}`);
+  }, [router, defaultGardenId]);
 
   const handleToggleFavori = useCallback(async (org: OrganismMinimal) => {
     const wasFavori = org.is_favori ?? false;
@@ -291,35 +280,6 @@ export default function SpeciesScreen() {
     setNoixFilter(false);
   };
 
-  if (!prefsLoaded) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#1a3c27" />
-      </View>
-    );
-  }
-
-  if (prefsLoaded && defaultGardenId == null) {
-    return (
-      <View style={styles.centered}>
-        <View style={styles.noGardenCard}>
-          <Ionicons name="leaf-outline" size={48} color="#1a3c27" style={styles.noGardenIcon} />
-          <Text style={styles.noGardenTitle}>Aucun jardin actif</Text>
-          <Text style={styles.noGardenText}>
-            Choisissez un jardin dans les paramètres pour afficher les espèces de votre terrain.
-          </Text>
-          <TouchableOpacity
-            style={styles.noGardenButton}
-            onPress={() => router.push('/settings')}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.noGardenButtonText}>Choisir un jardin</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
-
   if (loading && organisms.length === 0 && !hasLoadedOnce) {
     return (
       <View style={styles.centered}>
@@ -338,6 +298,17 @@ export default function SpeciesScreen() {
 
   return (
     <View style={styles.container}>
+      <View style={styles.createHint}>
+        <TouchableOpacity
+          style={styles.createLink}
+          onPress={() => router.push('/species/create')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="add-circle-outline" size={20} color="#1a3c27" />
+          <Text style={styles.createLinkText}>Espèce introuvable ? Créer une espèce</Text>
+        </TouchableOpacity>
+      </View>
+
       {(filteredCount != null || totalCount != null) && (
         <View style={styles.counterRow}>
           <Text style={styles.counterText}>
@@ -489,10 +460,10 @@ export default function SpeciesScreen() {
           ) : null
         }
         renderItem={({ item }) => (
-          <SpeciesRow
+          <LibraryOrganismRow
             item={item}
             onPress={handleOrganismPress}
-            onAdd={handleAddSpecimenPress}
+            onAdd={handleAddToGarden}
             onToggleFavori={handleToggleFavori}
           />
         )}
@@ -675,10 +646,29 @@ export default function SpeciesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f0' },
+  createHint: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 4,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  createLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  createLinkText: {
+    fontSize: 14,
+    color: '#1a3c27',
+    fontWeight: '500',
+  },
   counterRow: {
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 4,
+    backgroundColor: '#fff',
   },
   counterText: {
     fontSize: 14,
@@ -690,47 +680,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#f5f5f0',
-  },
-  noGardenCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 32,
-    margin: 24,
-    alignItems: 'center',
-    maxWidth: 320,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  noGardenIcon: {
-    marginBottom: 16,
-  },
-  noGardenTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1a3c27',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  noGardenText: {
-    fontSize: 15,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: 22,
-  },
-  noGardenButton: {
-    backgroundColor: '#1a3c27',
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 12,
-  },
-  noGardenButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
   },
   searchRow: {
     flexDirection: 'row',

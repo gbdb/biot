@@ -40,6 +40,21 @@ Le script met à jour `mobile/.env` automatiquement.
 
 Puis lance Django et Expo selon les instructions affichées (ou build avec Xcode).
 
+### Erreur « No script URL provided » sur l'app native
+
+Si l'app installée sur ton téléphone affiche cette erreur, c'est qu'elle a été compilée en **mode Debug** (elle cherche le packager Metro au lieu d'utiliser le bundle embarqué). Il faut **rebuild en mode Release** :
+
+```bash
+# 1. Configurer l'URL VM (si pas déjà fait)
+./scripts/dev-mobile.sh build https://ton-domaine-ou-ip-vm
+
+# 2. Build Release (bundle JS embarqué)
+cd mobile
+npx expo run:ios --device --configuration Release
+```
+
+Ou dans Xcode : **Product → Scheme → Edit Scheme** → onglet **Run** → **Build Configuration** = **Release**, puis build et installe sur l'appareil.
+
 ---
 
 ## 1. Django – fichier `.env` à la racine (biot/.env)
@@ -153,3 +168,10 @@ curl -X POST "http://127.0.0.1:8000/api/specimens/1/events/2/photos/" \
 
 Si vous obtenez 201 → l’API photo fonctionne.
 - Si vous voyez **400** et "Invalid HTTP_HOST" → ajouter l’IP dans `ALLOWED_HOSTS`.
+
+## 7. Photos espèces (Wikimedia) — stockage
+
+Les photos d'espèces sont importées depuis Wikidata/Commons et stockées **localement** (`media/photos/`).
+
+- **Dev actuel** : VM 64 GB → ~1–2 GB pour 1000 espèces (4 photos/espèce) = OK.
+- **Application grand public** : prévoir un stockage serveur hébergé (S3, stockage objet, CDN) pour les médias. Le disque local ne scale pas pour des milliers d'espèces et utilisateurs.

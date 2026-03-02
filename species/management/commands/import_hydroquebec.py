@@ -1,11 +1,20 @@
 import json
+import shutil
 import ssl
+import subprocess
+import warnings
 from pathlib import Path
 
 import requests
+from urllib3.exceptions import InsecureRequestWarning
 from requests.adapters import HTTPAdapter
 from urllib3.util.ssl_ import create_urllib3_context
 from django.core.management.base import BaseCommand
+
+try:
+    import certifi
+except ImportError:
+    certifi = None
 from species.models import Organism
 from species.source_rules import (
     MERGE_FILL_GAPS,
@@ -18,10 +27,13 @@ from species.source_rules import (
 
 
 class TLS12Adapter(HTTPAdapter):
-    """Adaptateur forçant TLS 1.2+ pour éviter SSLV3_ALERT_HANDSHAKE_FAILURE."""
+    """Adaptateur forçant TLS 1.2+ et utilisant certifi pour les certificats."""
     def init_poolmanager(self, *args, **kwargs):
         ctx = create_urllib3_context()
-        ctx.load_default_certs()
+        if certifi:
+            ctx.load_verify_locations(certifi.where())
+        else:
+            ctx.load_default_certs()
         if hasattr(ssl, 'TLSVersion'):
             ctx.minimum_version = ssl.TLSVersion.TLSv1_2
         kwargs['ssl_context'] = ctx
@@ -77,6 +89,22 @@ class Command(BaseCommand):
                 'Résout les champs vides (fruits, feuilles, fleurs) présents dans le JSON "tous".'
             )
         )
+        parser.add_argument(
+            '--insecure',
+            action='store_true',
+            help=(
+                'Désactiver la vérification SSL (à utiliser uniquement si erreur SSL persistante). '
+                'Préférez d\'abord: pip install --upgrade certifi'
+            )
+        )
+        parser.add_argument(
+            '--curl',
+            action='store_true',
+            help=(
+                'Utiliser curl au lieu de Python pour récupérer les données (contourne les erreurs SSL). '
+                'Recommandé si l\'API échoue avec SSLV3_ALERT_HANDSHAKE_FAILURE.'
+            )
+        )
 
     def handle(self, *args, **options):
         limit = options['limit']
@@ -85,6 +113,12 @@ class Command(BaseCommand):
         fetch_details = options.get('fetch_details', False)
         enrich_from_api = options.get('enrich_from_api', False)
         
+        insecure = options.get('insecure', False)
+        use_curl = options.get('curl', False)
+        if insecure:
+            self.stdout.write(self.style.WARNING('⚠️ Mode --insecure : vérification SSL désactivée'))
+            warnings.filterwarnings('ignore', category=InsecureRequestWarning)
+
         if limit == 0:
             self.stdout.write(self.style.SUCCESS('🌳 Début de l\'import Hydro-Québec (tout)...'))
         else:
@@ -97,9 +131,12 @@ class Command(BaseCommand):
             arbres = self._charger_fichier(file_path)
             # Enrichir avec l'API partiel si demandé (données complètes vs "tous" qui a des nulls)
             if arbres and enrich_from_api:
-                arbres = self._enrich_from_partiel(arbres)
+                arbres = self._enrich_from_partiel(arbres, insecure=insecure)
         else:
-            arbres = self._charger_api(limit)
+            if use_curl:
+                arbres = self._charger_api_via_curl(limit)
+            else:
+                arbres = self._charger_api(limit, insecure=insecure)
             if arbres is None:
                 return  # Erreur déjà affichée
         
@@ -115,7 +152,8 @@ class Command(BaseCommand):
         session = None
         if fetch_details:
             session = requests.Session()
-            session.mount('https://', TLS12Adapter())
+            if not insecure:
+                session.mount('https://', TLS12Adapter())
             session.headers.update({
                 'User-Agent': (
                     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
@@ -141,14 +179,16 @@ class Command(BaseCommand):
                 # Compléter avec la fiche détail si champs descriptifs manquants
                 numero_fiche = arbre.get('numeroFiche')
                 if fetch_details and numero_fiche and self._manque_donnees_descriptives(arbre):
-                    detail = self._fetch_fiche_detail(session, numero_fiche)
+                    detail = self._fetch_fiche_detail(session, numero_fiche, insecure=insecure)
                     if detail:
                         arbre = self._fusionner_fiche_detail(arbre, detail)
                         if detail.get('fruitsDescription'):
                             self.stdout.write(f'     📥 Fiche {numero_fiche}: fruits récupérés')
 
                 formes = arbre.get('formes', [])
-                type_organisme = self._determiner_type(formes)
+                fruits_description = arbre.get('fruitsDescription') or ''
+                nom_latin_raw = arbre.get('nomLatin') or ''
+                type_organisme = self._determiner_type(formes, fruits_description, nom_latin_raw)
 
                 # L'API peut renvoyer null: on force listes/chaînes vides pour éviter NOT NULL en base
                 famille = arbre.get('famille') or ''
@@ -224,11 +264,12 @@ class Command(BaseCommand):
                 if merge_mode == MERGE_FILL_GAPS:
                     # Ne mettre à jour que les champs vides
                     current = {k: getattr(organism, k, None) for k in [
-                        'famille', 'besoin_eau', 'besoin_soleil', 'sol_textures',
+                        'type_organisme', 'famille', 'besoin_eau', 'besoin_soleil', 'sol_textures',
                         'sol_ph', 'hauteur_max', 'largeur_max', 'vitesse_croissance',
                         'description', 'toxicite', 'parties_comestibles', 'usages_autres'
                     ]}
                     defaults_to_apply = {
+                        'type_organisme': type_organisme,
                         'famille': famille,
                         'besoin_eau': self._convertir_humidite(arbre.get('solHumidites') or []),
                         'besoin_soleil': self._convertir_exposition(arbre.get('expositionsLumiere') or []),
@@ -248,8 +289,9 @@ class Command(BaseCommand):
                     filtered = apply_fill_gaps(current, defaults_to_apply)
                     update_fields.update(filtered)
                 else:
-                    # Mode overwrite: mettre à jour tous les champs
+                    # Mode overwrite: mettre à jour tous les champs (dont type_organisme)
                     update_fields.update({
+                        'type_organisme': type_organisme,
                         'famille': famille,
                         'besoin_eau': self._convertir_humidite(arbre.get('solHumidites') or []),
                         'besoin_soleil': self._convertir_exposition(arbre.get('expositionsLumiere') or []),
@@ -295,8 +337,16 @@ class Command(BaseCommand):
         self.stdout.write(f'  ✅ Créés: {created}')
         self.stdout.write(f'  🔄 Mis à jour: {updated}')
         self.stdout.write(f'  ⚠️ Ignorés: {skipped}')
+        # Résumé par type pour vérifier la classification
+        from django.db.models import Count
+        type_counts = Organism.objects.values('type_organisme').annotate(n=Count('id')).order_by('-n')
+        fruit_noix = sum(t['n'] for t in type_counts if t['type_organisme'] in (
+            'arbre_fruitier', 'arbuste_fruitier', 'arbuste_baies', 'arbre_noix'
+        ))
+        if fruit_noix > 0:
+            self.stdout.write(self.style.SUCCESS(f'\n📊 Espèces fruitières/noix: {fruit_noix}'))
 
-    def _enrich_from_partiel(self, arbres):
+    def _enrich_from_partiel(self, arbres, insecure=False):
         """
         Fusionne les données de l'API partiel (complètes) dans arbres chargé depuis --file.
         Construit un lookup par numeroFiche puis remplit les champs vides.
@@ -304,7 +354,8 @@ class Command(BaseCommand):
         lookup = {}
         try:
             session = requests.Session()
-            session.mount('https://', TLS12Adapter())
+            if not insecure:
+                session.mount('https://', TLS12Adapter())
             session.headers.update({
                 'User-Agent': (
                     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
@@ -312,11 +363,12 @@ class Command(BaseCommand):
                 ),
                 'Accept': 'application/json',
             })
-            chunk_size = 200
+            verify = not insecure
+            chunk_size = 500
             index = 0
             while True:
                 url = f'https://arbres.hydroquebec.com/public/api/v1.0.0/arbres/fr/rechercher/partiel/{index}/{chunk_size}'
-                response = session.get(url, timeout=60)
+                response = session.get(url, timeout=120, verify=verify)
                 response.raise_for_status()
                 chunk = response.json()
                 if not chunk:
@@ -325,9 +377,7 @@ class Command(BaseCommand):
                     nf = a.get('numeroFiche')
                     if nf:
                         lookup[str(nf)] = a
-                if len(chunk) < chunk_size:
-                    break
-                index += chunk_size
+                index += len(chunk)
         except Exception:
             self.stdout.write(self.style.WARNING('⚠️ Enrichissement API échoué, utilisation du fichier seul.'))
             return arbres
@@ -383,7 +433,7 @@ class Command(BaseCommand):
             return []
         return data
 
-    def _charger_api(self, limit):
+    def _charger_api(self, limit, insecure=False):
         """
         Charge les arbres depuis l'API partiel (données complètes).
         L'endpoint /tous retourne des nulls ; /partiel fournit fruits/feuilles/fleurs.
@@ -391,7 +441,8 @@ class Command(BaseCommand):
         try:
             self.stdout.write('📡 Connexion à l\'API Hydro-Québec (partiel)...')
             session = requests.Session()
-            session.mount('https://', TLS12Adapter())
+            if not insecure:
+                session.mount('https://', TLS12Adapter())
             session.headers.update({
                 'User-Agent': (
                     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
@@ -399,12 +450,13 @@ class Command(BaseCommand):
                 ),
                 'Accept': 'application/json',
             })
+            verify = not insecure
             arbres = []
-            chunk_size = 200
+            chunk_size = 500
             index = 0
             while True:
                 url = f'https://arbres.hydroquebec.com/public/api/v1.0.0/arbres/fr/rechercher/partiel/{index}/{chunk_size}'
-                response = session.get(url, timeout=60)
+                response = session.get(url, timeout=120, verify=verify)
                 response.raise_for_status()
                 chunk = response.json()
                 if not chunk:
@@ -413,37 +465,139 @@ class Command(BaseCommand):
                 if limit > 0 and len(arbres) >= limit:
                     arbres = arbres[:limit]
                     break
-                if len(chunk) < chunk_size:
-                    break
-                index += chunk_size
+                index += len(chunk)
             return arbres
-        except requests.exceptions.SSLError:
+        except requests.exceptions.SSLError as e:
             self.stdout.write(self.style.ERROR(
-                '❌ Erreur SSL. Utilisez --file=arbres.json --enrich-from-api\n'
-                '   Ou enregistrez depuis: .../rechercher/partiel/0/500'
+                f'❌ Erreur SSL: {e}\n'
+                '   Solutions:\n'
+                '   1. python manage.py import_hydroquebec --curl --limit 50  (recommandé)\n'
+                '   2. python manage.py import_hydroquebec --insecure --limit 50\n'
+                '   3. --file=arbres.json (enregistrez depuis le navigateur)\n'
+                '      URL: https://arbres.hydroquebec.com/public/api/v1.0.0/arbres/fr/rechercher/partiel/0/500'
             ))
             return None
         except requests.exceptions.RequestException as e:
             self.stdout.write(self.style.ERROR(f'❌ Erreur de connexion à l\'API: {e}'))
             return None
 
-    def _determiner_type(self, formes):
-        """Détermine le type d'organisme selon les formes (choix Organism.TYPE_CHOICES)."""
-        if not formes:
+    def _charger_api_via_curl(self, limit):
+        """
+        Charge les arbres via curl (utilise le SSL système, contourne les erreurs Python).
+        L'API Hydro-Québec contient 1700+ espèces ; pagination par blocs de 500.
+        """
+        if not shutil.which('curl'):
+            self.stdout.write(self.style.ERROR(
+                '❌ curl introuvable. Installez curl ou utilisez --file=arbres.json'
+            ))
+            return None
+        try:
+            self.stdout.write('📡 Connexion à l\'API Hydro-Québec via curl (1700+ espèces attendues)...')
+            arbres = []
+            chunk_size = 500
+            index = 0
+            while True:
+                url = f'https://arbres.hydroquebec.com/public/api/v1.0.0/arbres/fr/rechercher/partiel/{index}/{chunk_size}'
+                result = subprocess.run(
+                    ['curl', '-sS', '-L', '-H', 'Accept: application/json', url],
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                )
+                if result.returncode != 0:
+                    self.stdout.write(self.style.ERROR(
+                        f'❌ curl a échoué: {result.stderr or result.stdout}'
+                    ))
+                    return None
+                raw = (result.stdout or '').strip()
+                if not raw:
+                    # Réponse vide = fin des données
+                    break
+                try:
+                    chunk = json.loads(raw)
+                except json.JSONDecodeError:
+                    # Réponse non-JSON (erreur 404, HTML, etc.) = fin des données
+                    break
+                if not chunk:
+                    break
+                arbres.extend(chunk)
+                self.stdout.write(f'   📥 Bloc {index}-{index + len(chunk)}: {len(chunk)} espèces (total: {len(arbres)})')
+                if limit > 0 and len(arbres) >= limit:
+                    arbres = arbres[:limit]
+                    break
+                # Avancer et continuer (l'API peut retourner 499 au lieu de 500, il reste 1200+ espèces)
+                index += len(chunk)
+            self.stdout.write(self.style.SUCCESS(f'   ✅ {len(arbres)} espèces récupérées depuis l\'API'))
+            return arbres
+        except subprocess.TimeoutExpired:
+            self.stdout.write(self.style.ERROR('❌ curl: timeout'))
+            return None
+        except json.JSONDecodeError as e:
+            self.stdout.write(self.style.ERROR(f'❌ Réponse JSON invalide: {e}'))
+            return None
+
+    def _determiner_type(self, formes, fruits_description='', nom_latin=''):
+        """
+        Détermine le type d'organisme selon les formes, fruitsDescription et le genre (nom latin).
+        Détecte arbre_fruitier, arbuste_fruitier, arbuste_baies, arbre_noix.
+        """
+        fd = (fruits_description or '').lower()
+        nl = (nom_latin or '').lower()
+
+        # Termes comestibles (exclure toxiques)
+        not_toxic = 'toxique' not in fd and 'potentiellement toxique' not in fd
+        has_fruits_comestibles = not_toxic and (
+            'baie' in fd or 'fruit' in fd or 'drupe' in fd
+            or 'pomme' in fd or 'poire' in fd or 'cerise' in fd or 'prune' in fd
+            or 'pêche' in fd or 'abricot' in fd
+            or ('comestible' in fd and ('baie' in fd or 'fruit' in fd))
+        )
+        has_noix = not_toxic and (
+            'noix' in fd or 'noisette' in fd or 'châtaigne' in fd or 'amande' in fd
+            or 'caryer' in fd or 'pignon' in fd or 'pécan' in fd
+        )
+
+        # Fallback par genre (Malus, Pyrus, Prunus, Vaccinium, Juglans, Corylus, etc.)
+        if not has_fruits_comestibles and not has_noix:
+            if any(g in nl for g in ('malus', 'pyrus', 'prunus', 'vaccinium', 'ribes', 'sambucus')):
+                has_fruits_comestibles = True
+            if any(g in nl for g in ('juglans', 'corylus', 'carya', 'castanea')):
+                has_noix = True
+
+        forme_str = ' '.join(f if isinstance(f, str) else '' for f in (formes or [])).lower()
+        # "Shrub" peut apparaître en anglais dans certaines fiches
+        if 'shrub' in forme_str and 'arbuste' not in forme_str:
+            forme_str += ' arbuste'
+
+        if not formes or not forme_str.strip():
+            # Pas de forme : utiliser fruits/noix + genre pour deviner arbre vs arbuste
+            if has_noix:
+                return 'arbre_noix'
+            if has_fruits_comestibles:
+                # Malus, Pyrus, Prunus = arbres ; Vaccinium, Ribes, Sambucus = arbustes
+                if any(g in nl for g in ('malus', 'pyrus', 'prunus')):
+                    return 'arbre_fruitier'
+                return 'arbuste_baies'
             return 'arbre_ornement'
-        
-        forme_str = ' '.join(f if isinstance(f, str) else '' for f in formes).lower()
-        
+
         if 'grand arbre' in forme_str or 'moyen arbre' in forme_str:
-            return 'arbre_ornement'
+            if has_noix:
+                return 'arbre_noix'
+            return 'arbre_fruitier' if has_fruits_comestibles else 'arbre_ornement'
         elif 'petit arbre' in forme_str or 'arbrisseau' in forme_str:
-            return 'arbuste'
+            if has_noix:
+                return 'arbre_noix'
+            return 'arbuste_fruitier' if has_fruits_comestibles else 'arbuste'
         elif 'arbuste' in forme_str:
-            return 'arbuste'
+            if has_noix:
+                return 'arbre_noix'
+            return 'arbuste_baies' if has_fruits_comestibles else 'arbuste'
         elif 'grimpant' in forme_str:
             return 'grimpante'
         else:
-            return 'arbre_ornement'
+            if has_noix:
+                return 'arbre_noix'
+            return 'arbre_fruitier' if has_fruits_comestibles else 'arbre_ornement'
     
     def _convertir_humidite(self, humidites):
         """Convertit les humidités HQ en besoin eau"""
@@ -499,14 +653,14 @@ class Command(BaseCommand):
             and arbre.get('fleursDescription')
         )
 
-    def _fetch_fiche_detail(self, session, numero_fiche):
+    def _fetch_fiche_detail(self, session, numero_fiche, insecure=False):
         """Récupère la fiche détail via l'API (/rechercher/arbre/{id}). Retourne None en cas d'erreur."""
         if not session or not numero_fiche:
             return None
         # Doc officielle: https://donnees.hydroquebec.com/explore/dataset/repertoire-arbres/
         url = f'https://arbres.hydroquebec.com/public/api/v1.0.0/arbres/fr/rechercher/arbre/{numero_fiche}'
         try:
-            response = session.get(url, timeout=15)
+            response = session.get(url, timeout=15, verify=not insecure)
             response.raise_for_status()
             return response.json()
         except Exception:

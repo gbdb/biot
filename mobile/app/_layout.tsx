@@ -62,6 +62,10 @@ function RootLayoutNav() {
           options={{ title: 'Scan NFC' }}
         />
         <Stack.Screen
+          name="species/library"
+          options={{ title: 'Bibliothèque d\'espèces' }}
+        />
+        <Stack.Screen
           name="species/create"
           options={{ title: 'Nouvelle espèce' }}
         />

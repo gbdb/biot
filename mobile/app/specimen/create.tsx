@@ -17,7 +17,7 @@ import { useEffect, useState } from 'react';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { NfcScanModal } from '@/components/NfcScanModal';
-import { createSpecimen, getOrganisms, getGardens } from '@/api/client';
+import { createSpecimen, getOrganisms, getGardens, getOrganism } from '@/api/client';
 import type { OrganismMinimal, GardenMinimal, SpecimenCreateUpdate, SpecimenStatut } from '@/types/api';
 import { SPECIMEN_STATUT_LABELS } from '@/types/api';
 
@@ -204,7 +204,7 @@ const modalStyles = StyleSheet.create({
 
 export default function SpecimenCreateScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ nfc_tag_uid?: string; organisme?: string }>();
+  const params = useLocalSearchParams<{ nfc_tag_uid?: string; organisme?: string; garden?: string }>();
   const [organisme, setOrganisme] = useState<OrganismMinimal | null>(null);
   const [nom, setNom] = useState('');
   const [garden, setGarden] = useState<GardenMinimal | null>(null);
@@ -233,16 +233,29 @@ export default function SpecimenCreateScreen() {
   }, [params.nfc_tag_uid]);
 
   useEffect(() => {
-    const orgId = params.organisme ? Number(params.organisme) : NaN;
+    const raw = params.organisme;
+    const organismeParam = raw == null ? undefined : Array.isArray(raw) ? raw[0] : raw;
+    const orgId = organismeParam ? Number(organismeParam) : NaN;
     if (!isNaN(orgId) && orgId > 0) {
-      getOrganisms()
-        .then((orgs) => {
-          const org = orgs.find((o) => o.id === orgId);
-          if (org) setOrganisme(org);
-        })
+      getOrganism(orgId)
+        .then((org) => setOrganisme(org))
         .catch(() => {});
     }
   }, [params.organisme]);
+
+  useEffect(() => {
+    const raw = params.garden;
+    const gardenParam = raw == null ? undefined : Array.isArray(raw) ? raw[0] : raw;
+    const gardenId = gardenParam ? Number(gardenParam) : NaN;
+    if (!isNaN(gardenId) && gardenId > 0) {
+      getGardens()
+        .then((gardensList) => {
+          const g = gardensList.find((x) => x.id === gardenId);
+          if (g) setGarden(g);
+        })
+        .catch(() => {});
+    }
+  }, [params.garden]);
 
   const validate = (): boolean => {
     const err: { organisme?: string; nom?: string } = {};
@@ -274,7 +287,13 @@ export default function SpecimenCreateScreen() {
       }
 
       const created = await createSpecimen(data);
-      router.replace(`/specimen/${created.id}`);
+      const createdId = created?.id;
+      if (typeof createdId === 'number' && Number.isInteger(createdId)) {
+        router.replace(`/specimen/${createdId}`);
+      } else {
+        router.replace('/(tabs)/specimens');
+        Alert.alert('Spécimen créé', 'Le spécimen a été créé. Retour à la liste.');
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erreur lors de la création';
       Alert.alert('Erreur', msg);

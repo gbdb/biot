@@ -190,10 +190,11 @@ export default function QuickObservationScreen() {
       };
 
       const created = await createSpecimen(data);
+      const createdId = created?.id;
 
-      if (photoUri) {
+      if (photoUri && typeof createdId === 'number' && Number.isInteger(createdId)) {
         try {
-          await uploadSpecimenPhoto(created.id, {
+          await uploadSpecimenPhoto(createdId, {
             image: {
               uri: photoUri,
               type: 'image/jpeg',
@@ -207,7 +208,12 @@ export default function QuickObservationScreen() {
         }
       }
 
-      router.replace(`/specimen/${created.id}`);
+      if (typeof createdId === 'number' && Number.isInteger(createdId)) {
+        router.replace(`/specimen/${createdId}`);
+      } else {
+        router.replace('/(tabs)/specimens');
+        Alert.alert('Observation créée', 'Le spécimen a été créé. Retour à la liste.');
+      }
     } catch (err) {
       Alert.alert('Erreur', err instanceof Error ? err.message : 'Impossible de créer l\'observation.');
     } finally {

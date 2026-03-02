@@ -10,14 +10,18 @@ export interface OrganismMinimal {
   nom_latin: string;
   type_organisme: string;
   is_favori?: boolean;
+  photo_principale_url?: string | null;
 }
 
 export interface OrganismDetail extends OrganismMinimal {
+  photos?: Photo[];
   famille: string;
   regne: string;
   besoin_eau: string;
   besoin_soleil: string;
   zone_rusticite?: { zone: string; source?: string }[];
+  sol_textures?: string[];
+  sol_ph?: string[];
   sol_drainage: string;
   sol_richesse: string;
   hauteur_max: number | null;
@@ -50,6 +54,8 @@ export interface OrganismUpdate {
   type_organisme: string;
   besoin_eau?: string;
   besoin_soleil?: string;
+  sol_textures?: string[];
+  sol_ph?: string[];
   sol_drainage?: string;
   sol_richesse?: string;
   hauteur_max?: number | null;
@@ -293,6 +299,13 @@ export interface ReminderCreate {
 }
 
 // --- Photo ---
+export interface PhotoEventSummary {
+  id: number;
+  type_event: string;
+  date: string;
+  titre: string;
+}
+
 export interface Photo {
   id: number;
   image: string;
@@ -302,6 +315,12 @@ export interface Photo {
   description: string | null;
   date_prise: string | null;
   date_ajout: string;
+  source_url?: string;
+  source_author?: string;
+  source_license?: string;
+  /** Présent si la photo est liée à un événement (specimen). */
+  event_id?: number | null;
+  event?: PhotoEventSummary | null;
 }
 
 export interface PhotoCreate {

@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import * as Location from 'expo-location';
-import { getSpecimens, getSpecimensNearby, getRemindersUpcoming, getWeatherAlerts } from '@/api/client';
+import { getSpecimens, getSpecimensNearby, getRemindersUpcoming, getWeatherAlerts, ensureValidToken } from '@/api/client';
 import { ActionToolbar } from '@/components/ActionToolbar';
 import { ReminderActionModal } from '@/components/ReminderActionModal';
 import type { SpecimenList } from '@/types/api';
@@ -63,8 +63,13 @@ export default function HomeScreen() {
         limit: 4,
       });
       setNearby(list);
-    } catch {
-      setNearbyError('Position indisponible');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '';
+      setNearbyError(
+        msg.includes('Localisation') || msg.includes('authorized')
+          ? 'Localisation non autorisée'
+          : 'Position ou connexion indisponible'
+      );
       setNearby([]);
     } finally {
       setLoadingNearby(false);
@@ -91,7 +96,7 @@ export default function HomeScreen() {
       setReminders(list);
     } catch {
       setReminders([]);
-      setRemindersError('Rappels indisponibles (vérifier que le serveur tourne et que l’IP dans .env est à jour)');
+      setRemindersError('Rappels indisponibles. Vérifiez la connexion et réessayez.');
     } finally {
       setLoadingReminders(false);
     }
@@ -111,10 +116,17 @@ export default function HomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      fetchFavoris();
-      fetchNearby();
-      fetchReminders();
-      fetchWeatherAlerts();
+      let cancelled = false;
+      ensureValidToken().then((ok) => {
+        if (cancelled || !ok) return;
+        fetchFavoris();
+        fetchNearby();
+        fetchReminders();
+        fetchWeatherAlerts();
+      });
+      return () => {
+        cancelled = true;
+      };
     }, [fetchFavoris, fetchNearby, fetchReminders, fetchWeatherAlerts])
   );
 
@@ -156,6 +168,10 @@ export default function HomeScreen() {
         <View style={styles.remindersSection}>
           <Text style={styles.sectionTitle}>Rappels</Text>
           <Text style={styles.remindersErrorText}>{remindersError}</Text>
+          <TouchableOpacity onPress={fetchReminders} style={styles.retryButton}>
+            <Ionicons name="refresh-outline" size={18} color="#1a3c27" />
+            <Text style={styles.retryButtonText}>Réessayer</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <View style={styles.remindersSection}>
@@ -388,6 +404,19 @@ const styles = StyleSheet.create({
     color: '#c44',
     textAlign: 'center',
     paddingHorizontal: 16,
+  },
+  retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+  },
+  retryButtonText: {
+    fontSize: 14,
+    color: '#1a3c27',
+    fontWeight: '600',
   },
   remindersGrid: {
     flexDirection: 'row',
