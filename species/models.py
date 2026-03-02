@@ -290,6 +290,16 @@ class Organism(models.Model):
         help_text="Tags personnels pour organiser votre collection"
     )
     
+    # === PHOTO PAR DÉFAUT (galerie espèce) ===
+    photo_principale = models.ForeignKey(
+        'species.Photo',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='organismes_photo_principale',
+        help_text="Photo affichée par défaut pour cette espèce"
+    )
+
     # === MÉTADONNÉES ===
     date_ajout = models.DateTimeField(auto_now_add=True)
     date_modification = models.DateTimeField(auto_now=True)
@@ -1431,6 +1441,7 @@ class Photo(models.Model):
         ('reproduction_fruits_immature', 'Reproduction - fruits immature'),
         ('reproduction_fruits_mur', 'Reproduction - fruits mûr'),
         ('reproduction_graines', 'Reproduction - graines'),
+        ('racines', 'Racines (système racinaire)'),
         ('port_general', 'Port général et silhouette hiver'),
         ('problemes', 'Problèmes courants (maladies, parasites)'),
         ('avant', 'Avant (ex: avant taille)'),
@@ -1495,6 +1506,23 @@ class Photo(models.Model):
         null=True,
         blank=True,
         help_text="Date de prise de la photo"
+    )
+    
+    # === ATTRIBUTION (Wikimedia, etc.) ===
+    source_url = models.URLField(
+        max_length=500,
+        blank=True,
+        help_text="URL de la page source (Wikimedia Commons, Wikidata)"
+    )
+    source_author = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Auteur et licence (ex: John Doe, CC BY-SA 4.0)"
+    )
+    source_license = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="Code licence (ex: CC-BY-SA-4.0)"
     )
     
     # === AUTO ===

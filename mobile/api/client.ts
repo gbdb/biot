@@ -60,27 +60,38 @@ async function clearTokens(): Promise<void> {
   await SecureStore.deleteItemAsync(STORAGE_KEYS.REFRESH_TOKEN);
 }
 
+/** Une seule refresh à la fois : les appels concurrents (ex. Accueil) attendent le même token. */
+let refreshPromise: Promise<string | null> | null = null;
+
 async function refreshAccessToken(): Promise<string | null> {
-  const refresh = await SecureStore.getItemAsync(STORAGE_KEYS.REFRESH_TOKEN);
-  if (!refresh) return null;
-  let res: Response;
-  try {
-    res = await fetchWithTimeout(`${API_BASE_URL}${ENDPOINTS.auth.refresh}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh }),
-    });
-  } catch {
-    await clearTokens();
-    return null;
-  }
-  if (!res.ok) {
-    await clearTokens();
-    return null;
-  }
-  const data = (await res.json()) as { access: string };
-  await SecureStore.setItemAsync(STORAGE_KEYS.ACCESS_TOKEN, data.access);
-  return data.access;
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = (async () => {
+    try {
+      const refresh = await SecureStore.getItemAsync(STORAGE_KEYS.REFRESH_TOKEN);
+      if (!refresh) return null;
+      let res: Response;
+      try {
+        res = await fetchWithTimeout(`${API_BASE_URL}${ENDPOINTS.auth.refresh}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh }),
+        });
+      } catch {
+        await clearTokens();
+        return null;
+      }
+      if (!res.ok) {
+        await clearTokens();
+        return null;
+      }
+      const data = (await res.json()) as { access: string };
+      await SecureStore.setItemAsync(STORAGE_KEYS.ACCESS_TOKEN, data.access);
+      return data.access;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+  return refreshPromise;
 }
 
 async function authHeaders(): Promise<Record<string, string>> {
@@ -106,6 +117,9 @@ async function fetchWithAuth(
   const { headers: initHeaders, ...rest } = init;
   const baseHeaders = await authHeaders();
   const headers = { ...baseHeaders, ...(initHeaders as Record<string, string>) };
+  if (rest.body instanceof FormData) {
+    delete headers['Content-Type'];
+  }
 
   let res = await fetch(url, { ...rest, headers });
   if (res.status === 401) {
@@ -155,7 +169,15 @@ export async function login(username: string, password: string): Promise<TokenPa
 }
 
 export async function logout(): Promise<void> {
+  refreshPromise = null;
   await clearTokens();
+}
+
+/** À appeler au focus de l’écran d’accueil : tente d’avoir un token valide avant les requêtes (évite 401 en rafale). */
+export async function ensureValidToken(): Promise<boolean> {
+  let token = await getAccessToken();
+  if (!token) token = await refreshAccessToken();
+  return !!token;
 }
 
 export async function isAuthenticated(): Promise<boolean> {
@@ -218,6 +240,28 @@ export async function getSpecimens(params?: {
   const res = await fetchWithAuth(url);
   const data = await handleResponse<unknown>(res);
   return unwrapPaginated<SpecimenList>(data);
+}
+
+/** Nombre de spécimens (avec ou sans filtres). Pour afficher "X / total". */
+export async function getSpecimensCount(params?: {
+  garden?: number;
+  zone?: string;
+  statut?: string;
+  favoris?: boolean;
+  sante?: number;
+}): Promise<number> {
+  const searchParams = new URLSearchParams();
+  if (params?.garden) searchParams.set('garden', String(params.garden));
+  if (params?.zone) searchParams.set('zone', params.zone);
+  if (params?.statut) searchParams.set('statut', params.statut);
+  if (params?.favoris) searchParams.set('favoris', '1');
+  if (params?.sante != null) searchParams.set('sante', String(params.sante));
+  const qs = searchParams.toString();
+  const res = await fetchWithAuth(
+    `${API_BASE_URL}${ENDPOINTS.specimens}count/${qs ? `?${qs}` : ''}`
+  );
+  const data = await handleResponse<{ count: number }>(res);
+  return data?.count ?? 0;
 }
 
 export async function getSpecimenZones(): Promise<string[]> {
@@ -496,21 +540,76 @@ export async function uploadSpecimenPhoto(
     name: img.name || 'photo.jpg',
   } as unknown as Blob);
   if (data.type_photo) formData.append('type_photo', data.type_photo);
-  if (data.titre) formData.append('titre', data.titre);
-  if (data.description) formData.append('description', data.description);
-  if (data.date_prise) formData.append('date_prise', data.date_prise);
+  if (data.titre) formData.append('titre', data.titre ?? '');
+  if (data.description) formData.append('description', data.description ?? '');
+  if (data.date_prise) formData.append('date_prise', data.date_prise ?? '');
 
-  const token = await getAccessToken();
-  const headers: Record<string, string> = {};
-  if (token) headers.Authorization = `Bearer ${token}`;
-  // FormData sets Content-Type with boundary; don't override
-
-  const res = await fetch(`${apiBaseUrl}${ENDPOINTS.specimens}${specimenId}/photos/`, {
+  const res = await fetchWithAuth(`${apiBaseUrl}${ENDPOINTS.specimens}${specimenId}/photos/`, {
     method: 'POST',
-    headers,
     body: formData,
   });
   return handleResponse<Photo>(res);
+}
+
+// --- Organism photos ---
+export async function uploadOrganismPhoto(
+  organismId: number,
+  data: PhotoCreate
+): Promise<Photo> {
+  const formData = new FormData();
+  const img = data.image as { uri: string; type?: string; name?: string };
+  formData.append('image', {
+    uri: img.uri,
+    type: img.type || 'image/jpeg',
+    name: img.name || 'photo.jpg',
+  } as unknown as Blob);
+  if (data.type_photo) formData.append('type_photo', data.type_photo);
+  if (data.titre) formData.append('titre', data.titre ?? '');
+  if (data.description) formData.append('description', data.description ?? '');
+  if (data.date_prise) formData.append('date_prise', data.date_prise ?? '');
+
+  const res = await fetchWithAuth(
+    `${API_BASE_URL}${ENDPOINTS.organisms}${organismId}/photos/`,
+    { method: 'POST', body: formData }
+  );
+  return handleResponse<Photo>(res);
+}
+
+export async function uploadOrganismPhotoFromUrl(
+  organismId: number,
+  data: { image_url: string; titre?: string; type_photo?: string }
+): Promise<Photo> {
+  const res = await fetchWithAuth(
+    `${API_BASE_URL}${ENDPOINTS.organisms}${organismId}/photos/`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        image_url: data.image_url,
+        ...(data.titre && { titre: data.titre }),
+        ...(data.type_photo && { type_photo: data.type_photo }),
+      }),
+    }
+  );
+  return handleResponse<Photo>(res);
+}
+
+/** Définit une photo comme image par défaut de l'espèce. */
+export async function setOrganismDefaultPhoto(organismId: number, photoId: number): Promise<void> {
+  const res = await fetchWithAuth(
+    `${API_BASE_URL}${ENDPOINTS.organisms}${organismId}/photos/${photoId}/set-default/`,
+    { method: 'POST' }
+  );
+  if (!res.ok) {
+    const text = await res.text();
+    let err: ApiError;
+    try {
+      err = text ? (JSON.parse(text) as ApiError) : {};
+    } catch {
+      throw new Error(`Erreur ${res.status}: ${text || res.statusText}`);
+    }
+    const msg = err.detail ?? err.message ?? `Erreur ${res.status}`;
+    throw new Error(String(msg));
+  }
 }
 
 // --- Organisms ---
@@ -530,7 +629,7 @@ export async function getOrganisms(params?: { search?: string; type?: string }):
   return unwrapPaginated<OrganismMinimal>(data);
 }
 
-/** Liste paginée pour infinite scroll. Retourne results + hasMore. */
+/** Liste paginée pour infinite scroll. Retourne results + hasMore + count. */
 export async function getOrganismsPaginated(params?: {
   search?: string;
   type?: string;
@@ -540,7 +639,9 @@ export async function getOrganismsPaginated(params?: {
   zone_usda?: number;
   fruits?: boolean;
   noix?: boolean;
-}): Promise<{ results: OrganismMinimal[]; hasMore: boolean }> {
+  has_specimen?: boolean;
+  garden?: number;
+}): Promise<{ results: OrganismMinimal[]; hasMore: boolean; count: number }> {
   const searchParams = new URLSearchParams();
   if (params?.search) searchParams.set('search', params.search);
   if (params?.type) searchParams.set('type', params.type);
@@ -550,13 +651,50 @@ export async function getOrganismsPaginated(params?: {
   if (params?.zone_usda) searchParams.set('zone_usda', String(params.zone_usda));
   if (params?.fruits) searchParams.set('fruits', '1');
   if (params?.noix) searchParams.set('noix', '1');
+  if (params?.has_specimen) searchParams.set('has_specimen', '1');
+  if (params?.garden != null) searchParams.set('garden', String(params.garden));
   const qs = searchParams.toString();
   const url = `${API_BASE_URL}${ENDPOINTS.organisms}${qs ? `?${qs}` : ''}`;
   const res = await fetchWithAuth(url);
-  const data = (await handleResponse<unknown>(res)) as { results?: OrganismMinimal[]; next?: string | null };
+  const data = (await handleResponse<unknown>(res)) as {
+    results?: OrganismMinimal[];
+    next?: string | null;
+    count?: number;
+  };
   const results = Array.isArray(data?.results) ? data.results : [];
   const hasMore = !!data?.next;
-  return { results, hasMore };
+  const count = typeof data?.count === 'number' ? data.count : results.length;
+  return { results, hasMore, count };
+}
+
+/** Nombre total d'espèces (sans filtres). Pour afficher "X / total". */
+export async function getOrganismsCount(params?: {
+  search?: string;
+  type?: string;
+  favoris?: boolean;
+  soleil?: string;
+  zone_usda?: number;
+  fruits?: boolean;
+  noix?: boolean;
+  has_specimen?: boolean;
+  garden?: number;
+}): Promise<number> {
+  const searchParams = new URLSearchParams();
+  if (params?.search) searchParams.set('search', params.search);
+  if (params?.type) searchParams.set('type', params.type);
+  if (params?.favoris) searchParams.set('favoris', '1');
+  if (params?.soleil) searchParams.set('soleil', params.soleil);
+  if (params?.zone_usda) searchParams.set('zone_usda', String(params.zone_usda));
+  if (params?.fruits) searchParams.set('fruits', '1');
+  if (params?.noix) searchParams.set('noix', '1');
+  if (params?.has_specimen) searchParams.set('has_specimen', '1');
+  if (params?.garden != null) searchParams.set('garden', String(params.garden));
+  const qs = searchParams.toString();
+  const res = await fetchWithAuth(
+    `${API_BASE_URL}${ENDPOINTS.organisms}count/${qs ? `?${qs}` : ''}`
+  );
+  const data = await handleResponse<{ count: number }>(res);
+  return data?.count ?? 0;
 }
 
 export async function addOrganismFavorite(id: number): Promise<void> {

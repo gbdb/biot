@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
+import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { NfcScanModal } from '@/components/NfcScanModal';
 import {
@@ -188,6 +189,7 @@ export default function SpecimenEditScreen() {
   const [gardenModalVisible, setGardenModalVisible] = useState(false);
   const [nfcScanModalVisible, setNfcScanModalVisible] = useState(false);
   const [gardens, setGardens] = useState<GardenMinimal[]>([]);
+  const [updatingGps, setUpdatingGps] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -404,6 +406,50 @@ export default function SpecimenEditScreen() {
             numberOfLines={3}
             placeholderTextColor="#888"
           />
+
+          <Text style={styles.label}>Position GPS</Text>
+          <Text style={styles.gpsValue}>
+            {specimen.latitude != null && specimen.longitude != null
+              ? `${specimen.latitude.toFixed(5)}, ${specimen.longitude.toFixed(5)}`
+              : 'Non renseigné'}
+          </Text>
+          <TouchableOpacity
+            style={[styles.gpsButton, updatingGps && styles.gpsButtonDisabled]}
+            onPress={async () => {
+              if (!specimen || updatingGps) return;
+              setUpdatingGps(true);
+              try {
+                const { status } = await Location.requestForegroundPermissionsAsync();
+                if (status !== 'granted') {
+                  Alert.alert('Localisation refusée', 'Autorisez l\'accès à la position pour enregistrer les coordonnées.');
+                  setUpdatingGps(false);
+                  return;
+                }
+                const pos = await Location.getCurrentPositionAsync({
+                  accuracy: Location.Accuracy.Balanced,
+                });
+                const updated = await updateSpecimen(specimen.id, {
+                  latitude: pos.coords.latitude,
+                  longitude: pos.coords.longitude,
+                });
+                setSpecimen(updated);
+              } catch (err) {
+                Alert.alert('Erreur', err instanceof Error ? err.message : 'Impossible d\'obtenir la position.');
+              } finally {
+                setUpdatingGps(false);
+              }
+            }}
+            disabled={updatingGps}
+          >
+            {updatingGps ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <>
+                <Ionicons name="locate" size={18} color="#fff" />
+                <Text style={styles.gpsButtonText}>Revalider les coordonnées GPS</Text>
+              </>
+            )}
+          </TouchableOpacity>
         </View>
 
         <TouchableOpacity
@@ -523,6 +569,24 @@ const styles = StyleSheet.create({
   scanTagButtonText: { fontSize: 14, fontWeight: '600', color: '#fff', marginTop: 4 },
   clearTagButton: { marginBottom: 12 },
   clearTagText: { fontSize: 14, color: '#666' },
+  gpsValue: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 8,
+  },
+  gpsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#4a6741',
+    borderRadius: 10,
+    marginBottom: 12,
+  },
+  gpsButtonDisabled: { opacity: 0.7 },
+  gpsButtonText: { fontSize: 14, fontWeight: '600', color: '#fff' },
   submitButton: {
     marginTop: 24,
     padding: 16,

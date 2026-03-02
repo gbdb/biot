@@ -110,6 +110,24 @@ def merge_zone_rusticite(current: Optional[str], new: Optional[str]) -> str:
     return cur if zone_rusticite_order(cur) <= zone_rusticite_order(neu) else neu
 
 
+def latin_name_without_author(name: str) -> str:
+    """
+    Retire l'auteur du nom latin (ex. "Vaccinium corymbosum L." → "Vaccinium corymbosum").
+    Ne touche pas aux cultivars (ex. "Vaccinium corymbosum 'Blueray'" reste inchangé).
+    """
+    if not name or not name.strip():
+        return ''
+    s = name.strip()
+    parts = s.split()
+    if len(parts) <= 1:
+        return s
+    # Si le dernier segment ressemble à un auteur (L., Lam., etc.)
+    last = parts[-1]
+    if re.match(r'^[A-Z][a-z]?\.?$', last) or (len(last) <= 4 and last.endswith('.')):
+        return ' '.join(parts[:-1]).strip()
+    return s
+
+
 def normalize_latin_name(name: str) -> str:
     """
     Normalise un nom latin pour matching fuzzy.
@@ -236,23 +254,43 @@ def find_or_match_organism(
     defaults = defaults or {}
     was_created = False
     
-    # 1. Si nom_latin fourni, chercher par nom_latin (exact puis fuzzy)
+    # 1. Si nom_latin fourni, chercher par nom_latin (exact, sans auteur, fuzzy)
     if nom_latin and nom_latin.strip():
         nom_latin_clean = nom_latin.strip()
         
-        # Exact match
+        # 1a. Exact match
         exact = Organism.objects.filter(nom_latin__iexact=nom_latin_clean).first()
         if exact:
-            # Compléter nom_latin si manquant dans l'existant (ne devrait pas arriver mais sécurité)
             if not exact.nom_latin:
                 exact.nom_latin = nom_latin_clean
                 exact.save(update_fields=['nom_latin'])
             return exact, False
         
-        # Fuzzy matching
+        # 1b. Match (nom_latin, nom_commun) pour éviter confusions cultivars/espèces
+        if nom_commun and nom_commun.strip():
+            exact_both = Organism.objects.filter(
+                nom_latin__iexact=nom_latin_clean,
+                nom_commun__iexact=nom_commun.strip(),
+            ).first()
+            if exact_both:
+                return exact_both, False
+        
+        # 1c. Match nom latin sans auteur (Vaccinium corymbosum L. ≈ Vaccinium corymbosum)
+        base = latin_name_without_author(nom_latin_clean)
+        if base and base != nom_latin_clean:
+            without_author = Organism.objects.filter(
+                Q(nom_latin__iexact=base)
+                | Q(nom_latin__istartswith=base + ' ')
+            ).first()
+            if without_author:
+                if not without_author.nom_latin or without_author.nom_latin != nom_latin_clean:
+                    without_author.nom_latin = nom_latin_clean
+                    without_author.save(update_fields=['nom_latin'])
+                return without_author, False
+        
+        # 1d. Fuzzy matching
         fuzzy = find_organism_by_latin_fuzzy(Organism, nom_latin_clean)
         if fuzzy:
-            # Compléter nom_latin si différent mais proche
             if not fuzzy.nom_latin or normalize_latin_name(fuzzy.nom_latin) != normalize_latin_name(nom_latin_clean):
                 fuzzy.nom_latin = nom_latin_clean
                 fuzzy.save(update_fields=['nom_latin'])

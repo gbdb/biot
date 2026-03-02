@@ -48,7 +48,7 @@ function SpeciesHeaderRight() {
   const router = useRouter();
   return (
     <TouchableOpacity
-      onPress={() => router.push('/species/create')}
+      onPress={() => router.push('/species/library')}
       hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
       style={{ marginRight: 16 }}
     >

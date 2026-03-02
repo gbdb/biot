@@ -11,13 +11,11 @@ import {
   Platform,
   Image,
   Alert,
-  useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useEffect, useState, useCallback } from 'react';
 import * as ImagePicker from 'expo-image-picker';
-import * as Location from 'expo-location';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import {
   getSpecimen,
@@ -48,6 +46,7 @@ import { SPECIMEN_STATUT_LABELS, EVENT_TYPE_LABELS, REMINDER_TYPE_LABELS, REMIND
 import type { ReminderUpcoming } from '@/api/client';
 import { ReminderActionModal } from '@/components/ReminderActionModal';
 import { FAB } from '@/components/FAB';
+import { PhotoCarousel, type PhotoCarouselItem } from '@/components/PhotoCarousel';
 
 const PHOTO_TYPE_LABELS: Record<string, string> = {
   avant: '📷 Avant',
@@ -1133,12 +1132,10 @@ export default function SpecimenDetailScreen() {
   const [specimenPhotos, setSpecimenPhotos] = useState<Photo[]>([]);
   const [loadingPhotos, setLoadingPhotos] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [fullscreenPhoto, setFullscreenPhoto] = useState<Photo | null>(null);
   const [deletingPhoto, setDeletingPhoto] = useState(false);
   const [settingDefaultPhoto, setSettingDefaultPhoto] = useState(false);
   const [defaultPhotoId, setDefaultPhotoId] = useState<number | null>(null);
-  const [updatingGps, setUpdatingGps] = useState(false);
-  const { width: screenWidth } = useWindowDimensions();
+  const [pendingPhotoForEvent, setPendingPhotoForEvent] = useState<{ uri: string; type?: string; name?: string } | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -1209,6 +1206,25 @@ export default function SpecimenDetailScreen() {
     }, [id])
   );
 
+  const handleEventCreatedWithPendingPhoto = useCallback(
+    async (event: Event) => {
+      if (!specimen || !pendingPhotoForEvent) return;
+      setUploadingPhoto(true);
+      try {
+        await uploadEventPhoto(specimen.id, event.id, {
+          image: pendingPhotoForEvent as { uri: string; type?: string; name?: string },
+          type_photo: 'autre',
+        });
+      } catch {
+        Alert.alert('Erreur', 'Impossible d\'ajouter la photo à l\'événement.');
+      } finally {
+        setUploadingPhoto(false);
+        setPendingPhotoForEvent(null);
+      }
+    },
+    [specimen?.id, pendingPhotoForEvent]
+  );
+
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -1225,7 +1241,7 @@ export default function SpecimenDetailScreen() {
     );
   }
 
-  const pickAndUploadSpecimenPhoto = async (source: 'camera' | 'library') => {
+  const pickImageThenChooseAction = async (source: 'camera' | 'library') => {
     if (!specimen) return;
     if (source === 'camera') {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -1244,30 +1260,50 @@ export default function SpecimenDetailScreen() {
     });
     if (result.canceled || !result.assets?.[0]) return;
     const asset = result.assets[0];
-    setUploadingPhoto(true);
-    try {
-      const photo = await uploadSpecimenPhoto(specimen.id, {
-        image: {
-          uri: asset.uri,
-          type: asset.mimeType || 'image/jpeg',
-          name: 'photo.jpg',
+    const imagePayload = {
+      uri: asset.uri,
+      type: asset.mimeType || 'image/jpeg',
+      name: 'photo.jpg',
+    };
+    Alert.alert(
+      'Associer à un événement ?',
+      'Voulez-vous créer un événement lié à cette photo (ex: taille, plantation) ou l\'ajouter simplement comme photo du spécimen ?',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Photo seule',
+          onPress: async () => {
+            setUploadingPhoto(true);
+            try {
+              const photo = await uploadSpecimenPhoto(specimen.id, {
+                image: imagePayload,
+                type_photo: 'autre',
+                titre: 'Photo du spécimen',
+              });
+              setSpecimenPhotos((prev) => [photo, ...prev]);
+            } catch (e) {
+              Alert.alert('Erreur', e instanceof Error ? e.message : 'Impossible d\'envoyer la photo.');
+            } finally {
+              setUploadingPhoto(false);
+            }
+          },
         },
-        type_photo: 'autre',
-        titre: 'Photo du spécimen',
-      });
-      setSpecimenPhotos((prev) => [photo, ...prev]);
-    } catch {
-      Alert.alert('Erreur', 'Impossible d\'envoyer la photo.');
-    } finally {
-      setUploadingPhoto(false);
-    }
+        {
+          text: 'Créer un événement',
+          onPress: () => {
+            setPendingPhotoForEvent(imagePayload);
+            setEventModalVisible(true);
+          },
+        },
+      ]
+    );
   };
 
   const handleAddSpecimenPhoto = () => {
     Alert.alert('Ajouter une photo', 'Choisir la source', [
       { text: 'Annuler', style: 'cancel' },
-      { text: 'Appareil photo', onPress: () => pickAndUploadSpecimenPhoto('camera') },
-      { text: 'Galerie', onPress: () => pickAndUploadSpecimenPhoto('library') },
+      { text: 'Appareil photo', onPress: () => pickImageThenChooseAction('camera') },
+      { text: 'Galerie', onPress: () => pickImageThenChooseAction('library') },
     ]);
   };
 
@@ -1325,151 +1361,16 @@ export default function SpecimenDetailScreen() {
         <Text style={styles.organism}>
           {specimen.organisme.nom_commun} ({specimen.organisme.nom_latin})
         </Text>
+        <TouchableOpacity
+          onPress={() => router.push(`/species/${specimen.organisme.id}`)}
+          style={styles.backToSpeciesLink}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="arrow-back" size={18} color="#1a3c27" />
+          <Text style={styles.backToSpeciesText}>Retour à la fiche espèce</Text>
+        </TouchableOpacity>
         <Text style={styles.statut}>{SPECIMEN_STATUT_LABELS[specimen.statut]}</Text>
       </View>
-      <View style={styles.photoSection}>
-        {loadingPhotos ? (
-          <ActivityIndicator size="small" color="#1a3c27" style={styles.photoLoader} />
-        ) : (
-          <>
-            <View style={styles.photoGrid}>
-              {specimenPhotos.map((p) => {
-                const uri = getSpecimenPhotoUri(p);
-                if (!uri) return null;
-                const photoWidth = (screenWidth - 48) / 2;
-                return (
-                  <TouchableOpacity
-                    key={p.id}
-                    onPress={() => setFullscreenPhoto(p)}
-                    activeOpacity={0.9}
-                    style={styles.photoWrapper}
-                  >
-                    <Image
-                      source={{ uri }}
-                      style={[styles.specimenPhoto, { width: photoWidth, height: photoWidth * 0.75 }]}
-                      resizeMode="cover"
-                    />
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-            <TouchableOpacity
-              style={styles.addPhotoButton}
-              onPress={handleAddSpecimenPhoto}
-              disabled={uploadingPhoto}
-            >
-              {uploadingPhoto ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <>
-                  <Ionicons name="camera-outline" size={24} color="#fff" />
-                  <Text style={styles.addPhotoText}>Ajouter une photo</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </>
-        )}
-      </View>
-      <Modal
-        visible={!!fullscreenPhoto}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setFullscreenPhoto(null)}
-      >
-        <View style={styles.fullscreenOverlay}>
-          <TouchableOpacity
-            style={StyleSheet.absoluteFill}
-            activeOpacity={1}
-            onPress={() => setFullscreenPhoto(null)}
-          >
-            {fullscreenPhoto && (
-              <Image
-                source={{ uri: getSpecimenPhotoUri(fullscreenPhoto) ?? '' }}
-                style={styles.fullscreenImage}
-                resizeMode="contain"
-              />
-            )}
-          </TouchableOpacity>
-          {fullscreenPhoto && (
-            <View style={styles.fullscreenActions}>
-              <TouchableOpacity
-                style={[
-                  styles.fullscreenActionButton,
-                  defaultPhotoId === fullscreenPhoto.id && styles.fullscreenActionButtonDisabled,
-                ]}
-                onPress={async () => {
-                  if (!specimen || settingDefaultPhoto || defaultPhotoId === fullscreenPhoto.id) return;
-                  setSettingDefaultPhoto(true);
-                  try {
-                    await setSpecimenDefaultPhoto(specimen.id, fullscreenPhoto.id);
-                    setDefaultPhotoId(fullscreenPhoto.id);
-                  } catch {
-                    Alert.alert('Erreur', 'Impossible de définir la photo par défaut.');
-                  } finally {
-                    setSettingDefaultPhoto(false);
-                  }
-                }}
-                disabled={settingDefaultPhoto || defaultPhotoId === fullscreenPhoto.id}
-              >
-                {settingDefaultPhoto && defaultPhotoId !== fullscreenPhoto.id ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <>
-                    <Ionicons
-                      name={defaultPhotoId === fullscreenPhoto.id ? 'star' : 'star-outline'}
-                      size={20}
-                      color="#fff"
-                    />
-                    <Text style={styles.fullscreenActionText}>
-                      {defaultPhotoId === fullscreenPhoto.id ? 'Photo par défaut' : 'Définir par défaut'}
-                    </Text>
-                  </>
-                )}
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.fullscreenActionButton, styles.fullscreenDeleteButton]}
-                onPress={() => {
-                  if (!specimen || deletingPhoto) return;
-                  Alert.alert(
-                    'Supprimer la photo',
-                    'Êtes-vous sûr de vouloir supprimer cette photo ?',
-                    [
-                      { text: 'Annuler', style: 'cancel' },
-                      {
-                        text: 'Supprimer',
-                        style: 'destructive',
-                        onPress: async () => {
-                          setDeletingPhoto(true);
-                          try {
-                            await deleteSpecimenPhoto(specimen.id, fullscreenPhoto.id);
-                            setSpecimenPhotos((prev) => prev.filter((ph) => ph.id !== fullscreenPhoto.id));
-                            if (defaultPhotoId === fullscreenPhoto.id) setDefaultPhotoId(null);
-                            setFullscreenPhoto(null);
-                          } catch {
-                            Alert.alert('Erreur', 'Impossible de supprimer la photo.');
-                          } finally {
-                            setDeletingPhoto(false);
-                          }
-                        },
-                      },
-                    ]
-                  );
-                }}
-                disabled={deletingPhoto}
-              >
-                {deletingPhoto ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <>
-                    <Ionicons name="trash-outline" size={22} color="#fff" />
-                    <Text style={styles.fullscreenDeleteText}>Supprimer</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-      </Modal>
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Infos</Text>
         <Text style={styles.info}>Jardin : {specimen.garden?.nom ?? 'Non assigné'}</Text>
@@ -1479,50 +1380,129 @@ export default function SpecimenDetailScreen() {
         {specimen.date_plantation && (
           <Text style={styles.info}>Planté le : {specimen.date_plantation}</Text>
         )}
-        <View style={styles.gpsRow}>
-          <Text style={styles.info}>
-            GPS : {specimen.latitude != null && specimen.longitude != null
-              ? `${specimen.latitude.toFixed(5)}, ${specimen.longitude.toFixed(5)}`
-              : 'Non renseigné'}
-          </Text>
-          <TouchableOpacity
-            style={[styles.revalidateGpsButton, updatingGps && styles.revalidateGpsButtonDisabled]}
-            onPress={async () => {
-              if (updatingGps) return;
-              setUpdatingGps(true);
-              try {
-                const { status } = await Location.requestForegroundPermissionsAsync();
-                if (status !== 'granted') {
-                  Alert.alert('Localisation refusée', 'Autorisez l\'accès à la position pour revalider les coordonnées.');
-                  return;
-                }
-                const pos = await Location.getCurrentPositionAsync({
-                  accuracy: Location.Accuracy.Balanced,
-                });
-                const updated = await updateSpecimen(specimen.id, {
-                  latitude: pos.coords.latitude,
-                  longitude: pos.coords.longitude,
-                });
-                setSpecimen(updated);
-              } catch (err) {
-                Alert.alert('Erreur', err instanceof Error ? err.message : 'Impossible d\'obtenir la position.');
-              } finally {
-                setUpdatingGps(false);
+        <Text style={styles.info}>
+          GPS : {specimen.latitude != null && specimen.longitude != null
+            ? `${specimen.latitude.toFixed(5)}, ${specimen.longitude.toFixed(5)}`
+            : 'Non renseigné'}
+        </Text>
+        {specimen.notes && <Text style={styles.notes}>{specimen.notes}</Text>}
+      </View>
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Photos</Text>
+        {loadingPhotos ? (
+          <ActivityIndicator size="small" color="#1a3c27" style={styles.photoLoader} />
+        ) : (
+          <PhotoCarousel
+            items={specimenPhotos.map((p) => {
+              const uri = getSpecimenPhotoUri(p);
+              if (!uri) return null;
+              return {
+                id: p.id,
+                image_url: uri,
+                event: p.event ?? undefined,
+                meta: { photoId: p.id, specimenId: specimen.id },
+              };
+            }).filter(Boolean) as PhotoCarouselItem[]}
+            showEventBadge
+            onOpenEvent={(eventId) => {
+              const ev = events.find((e) => e.id === eventId);
+              if (ev) {
+                setSelectedEvent(ev);
+                setEventDetailModalVisible(true);
               }
             }}
-            disabled={updatingGps}
-          >
-            {updatingGps ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <>
-                <Ionicons name="locate" size={18} color="#fff" />
-                <Text style={styles.revalidateGpsText}>Revalider les coordonnées GPS</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
-        {specimen.notes && <Text style={styles.notes}>{specimen.notes}</Text>}
+            renderFullscreenActions={(item, close) => {
+              if (!item.meta?.specimenId || !item.meta?.photoId || !specimen || item.event) return null;
+              return (
+                <>
+                  <TouchableOpacity
+                    style={[styles.carouselActionBtn, defaultPhotoId === item.meta.photoId && styles.carouselActionBtnDisabled]}
+                    onPress={async () => {
+                      if (settingDefaultPhoto || defaultPhotoId === item.meta!.photoId) return;
+                      setSettingDefaultPhoto(true);
+                      try {
+                        await setSpecimenDefaultPhoto(specimen.id, item.meta!.photoId!);
+                        setDefaultPhotoId(item.meta!.photoId!);
+                      } catch {
+                        Alert.alert('Erreur', 'Impossible de définir la photo par défaut.');
+                      } finally {
+                        setSettingDefaultPhoto(false);
+                      }
+                    }}
+                    disabled={settingDefaultPhoto || defaultPhotoId === item.meta.photoId}
+                  >
+                    {settingDefaultPhoto && defaultPhotoId !== item.meta.photoId ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <>
+                        <Ionicons name={defaultPhotoId === item.meta.photoId ? 'star' : 'star-outline'} size={20} color="#fff" />
+                        <Text style={styles.carouselActionText}>
+                          {defaultPhotoId === item.meta.photoId ? 'Par défaut' : 'Définir par défaut'}
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.carouselActionBtn, styles.carouselActionBtnDanger]}
+                    onPress={() => {
+                      if (deletingPhoto) return;
+                      Alert.alert(
+                        'Supprimer la photo',
+                        'Êtes-vous sûr de vouloir supprimer cette photo ?',
+                        [
+                          { text: 'Annuler', style: 'cancel' },
+                          {
+                            text: 'Supprimer',
+                            style: 'destructive',
+                            onPress: async () => {
+                              setDeletingPhoto(true);
+                              try {
+                                await deleteSpecimenPhoto(specimen.id, item.meta!.photoId!);
+                                setSpecimenPhotos((prev) => prev.filter((ph) => ph.id !== item.meta!.photoId));
+                                if (defaultPhotoId === item.meta!.photoId) setDefaultPhotoId(null);
+                                close();
+                              } catch {
+                                Alert.alert('Erreur', 'Impossible de supprimer la photo.');
+                              } finally {
+                                setDeletingPhoto(false);
+                              }
+                            },
+                          },
+                        ]
+                      );
+                    }}
+                    disabled={deletingPhoto}
+                  >
+                    {deletingPhoto ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <>
+                        <Ionicons name="trash-outline" size={20} color="#fff" />
+                        <Text style={styles.carouselActionText}>Supprimer</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </>
+              );
+            }}
+            extraContent={
+              <TouchableOpacity
+                style={styles.addPhotoButton}
+                onPress={handleAddSpecimenPhoto}
+                disabled={uploadingPhoto}
+              >
+                {uploadingPhoto ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="camera-outline" size={24} color="#fff" />
+                    <Text style={styles.addPhotoText}>Ajouter une photo</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            }
+          />
+        )}
       </View>
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Rappels</Text>
@@ -1611,8 +1591,15 @@ export default function SpecimenDetailScreen() {
       <AddEventModal
         visible={eventModalVisible}
         specimenId={specimen.id}
-        onClose={() => setEventModalVisible(false)}
-        onSuccess={(newEvent) => {
+        onClose={() => {
+          setPendingPhotoForEvent(null);
+          setEventModalVisible(false);
+        }}
+        onSuccess={async (newEvent) => {
+          if (pendingPhotoForEvent) {
+            await handleEventCreatedWithPendingPhoto(newEvent);
+            getSpecimenPhotos(specimen.id).then(setSpecimenPhotos).catch(() => {});
+          }
           setEvents([newEvent, ...events]);
           setEventModalVisible(false);
         }}
@@ -1718,28 +1705,24 @@ const styles = StyleSheet.create({
     color: '#4a6741',
     marginTop: 4,
   },
+  backToSpeciesLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+  },
+  backToSpeciesText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1a3c27',
+  },
   statut: {
     fontSize: 14,
     color: '#666',
     marginTop: 8,
   },
-  photoSection: {
-    marginBottom: 24,
-  },
-  photoGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
   photoLoader: {
     marginVertical: 16,
-  },
-  photoWrapper: {
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  specimenPhoto: {
-    borderRadius: 12,
   },
   addPhotoButton: {
     flexDirection: 'row',
@@ -1752,52 +1735,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   addPhotoText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  fullscreenOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  fullscreenImage: {
-    width: '100%',
-    height: '100%',
-  },
-  fullscreenActions: {
-    position: 'absolute',
-    bottom: 40,
-    left: 20,
-    right: 20,
-    flexDirection: 'row',
-    gap: 12,
-    zIndex: 10,
-  },
-  fullscreenActionButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    padding: 14,
-    backgroundColor: '#1a3c27',
-    borderRadius: 12,
-  },
-  fullscreenActionButtonDisabled: {
-    backgroundColor: '#4a6741',
-    opacity: 0.9,
-  },
-  fullscreenActionText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  fullscreenDeleteButton: {
-    backgroundColor: '#c44',
-  },
-  fullscreenDeleteText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#fff',
@@ -1816,20 +1753,21 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 4,
   },
-  gpsRow: { marginTop: 8, marginBottom: 4 },
-  revalidateGpsButton: {
+  carouselActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    marginTop: 12,
     paddingVertical: 10,
     paddingHorizontal: 16,
-    backgroundColor: '#4a6741',
+    backgroundColor: 'rgba(26,60,39,0.9)',
     borderRadius: 10,
   },
-  revalidateGpsButtonDisabled: { opacity: 0.7 },
-  revalidateGpsText: { fontSize: 14, fontWeight: '600', color: '#fff' },
+  carouselActionBtnDisabled: { opacity: 0.6 },
+  carouselActionBtnDanger: {
+    backgroundColor: 'rgba(180,60,60,0.9)',
+  },
+  carouselActionText: { fontSize: 14, fontWeight: '600', color: '#fff' },
   notes: {
     fontSize: 14,
     color: '#555',
