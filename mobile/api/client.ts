@@ -11,6 +11,7 @@ import type {
   SpecimenCreateUpdate,
   Event,
   EventCreate,
+  RecentEvent,
   Reminder,
   ReminderCreate,
   Photo,
@@ -226,6 +227,8 @@ export async function getSpecimens(params?: {
   search?: string;
   favoris?: boolean;
   sante?: number;
+  /** Inclure les spécimens au statut « Enlevé » (par défaut ils sont exclus). */
+  include_enleve?: boolean;
 }): Promise<SpecimenList[]> {
   const searchParams = new URLSearchParams();
   if (params?.garden) searchParams.set('garden', String(params.garden));
@@ -235,6 +238,7 @@ export async function getSpecimens(params?: {
   if (params?.search) searchParams.set('search', params.search);
   if (params?.favoris) searchParams.set('favoris', '1');
   if (params?.sante != null) searchParams.set('sante', String(params.sante));
+  if (params?.include_enleve === true) searchParams.set('include_enleve', 'true');
   const qs = searchParams.toString();
   const url = `${API_BASE_URL}${ENDPOINTS.specimens}${qs ? `?${qs}` : ''}`;
   const res = await fetchWithAuth(url);
@@ -249,6 +253,7 @@ export async function getSpecimensCount(params?: {
   statut?: string;
   favoris?: boolean;
   sante?: number;
+  include_enleve?: boolean;
 }): Promise<number> {
   const searchParams = new URLSearchParams();
   if (params?.garden) searchParams.set('garden', String(params.garden));
@@ -256,6 +261,7 @@ export async function getSpecimensCount(params?: {
   if (params?.statut) searchParams.set('statut', params.statut);
   if (params?.favoris) searchParams.set('favoris', '1');
   if (params?.sante != null) searchParams.set('sante', String(params.sante));
+  if (params?.include_enleve === true) searchParams.set('include_enleve', 'true');
   const qs = searchParams.toString();
   const res = await fetchWithAuth(
     `${API_BASE_URL}${ENDPOINTS.specimens}count/${qs ? `?${qs}` : ''}`
@@ -351,6 +357,14 @@ export async function duplicateSpecimen(id: number): Promise<SpecimenDetail> {
 }
 
 // --- Specimen events ---
+export async function getRecentEvents(params?: { limit?: number }): Promise<RecentEvent[]> {
+  const limit = params?.limit ?? 20;
+  const res = await fetchWithAuth(
+    `${API_BASE_URL}${ENDPOINTS.specimens}recent_events/?limit=${Math.min(limit, 100)}`
+  );
+  return handleResponse<RecentEvent[]>(res);
+}
+
 export async function getSpecimenEvents(specimenId: number): Promise<Event[]> {
   const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.specimens}${specimenId}/events/`);
   return handleResponse<Event[]>(res);

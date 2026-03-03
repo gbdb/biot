@@ -355,6 +355,26 @@ class EventUpdateSerializer(serializers.ModelSerializer):
         }
 
 
+class RecentEventSerializer(serializers.Serializer):
+    """Événement récent avec infos spécimen et première photo (pour accueil / liste globale)."""
+    event_id = serializers.IntegerField(source='id')
+    type_event = serializers.CharField()
+    date = serializers.DateField()
+    titre = serializers.CharField()
+    specimen_id = serializers.IntegerField(source='specimen_id')
+    specimen_nom = serializers.CharField(source='specimen.nom')
+    photo_url = serializers.SerializerMethodField()
+
+    def get_photo_url(self, obj):
+        first_photo = getattr(obj, '_first_photo', None) or (obj.photos.first() if hasattr(obj, 'photos') else None)
+        if not first_photo or not first_photo.image:
+            return None
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(first_photo.image.url)
+        return None
+
+
 # --- Reminder ---
 class ReminderSerializer(serializers.ModelSerializer):
     """Rappel (lecture)."""

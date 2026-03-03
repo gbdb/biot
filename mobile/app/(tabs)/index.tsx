@@ -12,11 +12,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import * as Location from 'expo-location';
-import { getSpecimens, getSpecimensNearby, getRemindersUpcoming, getWeatherAlerts, ensureValidToken } from '@/api/client';
+import { getSpecimens, getSpecimensNearby, getRemindersUpcoming, getWeatherAlerts, getRecentEvents, ensureValidToken } from '@/api/client';
 import { ActionToolbar } from '@/components/ActionToolbar';
 import { ReminderActionModal } from '@/components/ReminderActionModal';
 import type { SpecimenList } from '@/types/api';
+import type { RecentEvent } from '@/types/api';
 import type { ReminderUpcoming, WeatherAlert } from '@/api/client';
+import { EVENT_TYPE_LABELS } from '@/types/api';
 
 const COLS = 4;
 const THUMB_GAP = 8;
@@ -42,6 +44,8 @@ export default function HomeScreen() {
   const [remindersError, setRemindersError] = useState<string | null>(null);
   const [selectedReminder, setSelectedReminder] = useState<ReminderUpcoming | null>(null);
   const [loadingAlerts, setLoadingAlerts] = useState(true);
+  const [recentEvents, setRecentEvents] = useState<RecentEvent[]>([]);
+  const [loadingRecentEvents, setLoadingRecentEvents] = useState(true);
 
   const fetchNearby = useCallback(async () => {
     setLoadingNearby(true);
@@ -114,6 +118,18 @@ export default function HomeScreen() {
     }
   }, []);
 
+  const fetchRecentEvents = useCallback(async () => {
+    setLoadingRecentEvents(true);
+    try {
+      const list = await getRecentEvents({ limit: 6 });
+      setRecentEvents(list);
+    } catch {
+      setRecentEvents([]);
+    } finally {
+      setLoadingRecentEvents(false);
+    }
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
@@ -123,11 +139,12 @@ export default function HomeScreen() {
         fetchNearby();
         fetchReminders();
         fetchWeatherAlerts();
+        fetchRecentEvents();
       });
       return () => {
         cancelled = true;
       };
-    }, [fetchFavoris, fetchNearby, fetchReminders, fetchWeatherAlerts])
+    }, [fetchFavoris, fetchNearby, fetchReminders, fetchWeatherAlerts, fetchRecentEvents])
   );
 
 
@@ -326,6 +343,54 @@ export default function HomeScreen() {
         </View>
       ) : null}
 
+      {/* Événements récents */}
+      {loadingRecentEvents ? (
+        <ActivityIndicator size="small" color="#1a3c27" style={styles.favorisLoader} />
+      ) : recentEvents.length > 0 ? (
+        <View style={styles.recentEventsSection}>
+          <View style={styles.recentEventsHeader}>
+            <Text style={styles.favorisTitle}>Événements récents</Text>
+            <TouchableOpacity
+              onPress={() => router.push('/events/recent')}
+              style={styles.voirToutButton}
+            >
+              <Text style={styles.voirToutText}>Voir tout</Text>
+              <Ionicons name="chevron-forward" size={18} color="#1a3c27" />
+            </TouchableOpacity>
+          </View>
+          <View style={[styles.favorisGrid, { width: containerWidth }]}>
+            {recentEvents.slice(0, 6).map((ev) => (
+              <TouchableOpacity
+                key={`${ev.specimen_id}-${ev.event_id}`}
+                style={[styles.favoriThumb, { width: thumbSize }]}
+                onPress={() => router.push(`/specimen/${ev.specimen_id}`)}
+                activeOpacity={0.8}
+              >
+                {ev.photo_url ? (
+                  <Image
+                    source={{ uri: ev.photo_url }}
+                    style={[styles.favoriImage, { width: thumbSize, height: thumbSize }]}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={[styles.favoriPlaceholder, { width: thumbSize, height: thumbSize }]}>
+                    <Text style={styles.favoriPlaceholderText}>
+                      {EVENT_TYPE_LABELS[ev.type_event as keyof typeof EVENT_TYPE_LABELS]?.slice(0, 1) ?? '📅'}
+                    </Text>
+                  </View>
+                )}
+                <Text style={styles.favoriName} numberOfLines={2}>
+                  {ev.specimen_nom}
+                </Text>
+                <Text style={styles.recentEventMeta} numberOfLines={1}>
+                  {EVENT_TYPE_LABELS[ev.type_event as keyof typeof EVENT_TYPE_LABELS]} — {ev.date}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      ) : null}
+
       <ActionToolbar
         actions={[
           { icon: 'barcode-outline', href: '/scan', variant: 'primary' },
@@ -358,6 +423,30 @@ const styles = StyleSheet.create({
   },
   favorisLoader: {
     marginBottom: 20,
+  },
+  recentEventsSection: {
+    marginBottom: 24,
+  },
+  recentEventsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  voirToutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  voirToutText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1a3c27',
+  },
+  recentEventMeta: {
+    fontSize: 11,
+    color: '#666',
+    marginTop: 2,
   },
   weatherSection: {
     marginBottom: 20,

@@ -1235,6 +1235,8 @@ class Event(models.Model):
         ('transplantation', '🚚 Transplantation'),
         ('protection', '🛡️ Protection (hiver, animaux)'),
         ('autre', '📝 Autre'),
+        ('mort', '💀 Mort'),
+        ('enlever', '🗑️ Enlevé'),
     ]
     type_event = models.CharField(
         max_length=20,

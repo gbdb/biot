@@ -198,7 +198,9 @@ export type EventType =
   | 'traitement'
   | 'transplantation'
   | 'protection'
-  | 'autre';
+  | 'autre'
+  | 'mort'
+  | 'enlever';
 
 export const EVENT_TYPE_LABELS: Record<EventType, string> = {
   plantation: '🌱 Plantation',
@@ -216,7 +218,20 @@ export const EVENT_TYPE_LABELS: Record<EventType, string> = {
   transplantation: '🚚 Transplantation',
   protection: '🛡️ Protection (hiver, animaux)',
   autre: '📝 Autre',
+  mort: '💀 Mort',
+  enlever: '🗑️ Enlevé',
 };
+
+/** Événement récent avec infos spécimen et photo (accueil / liste globale). */
+export interface RecentEvent {
+  event_id: number;
+  type_event: EventType;
+  date: string;
+  titre: string;
+  specimen_id: number;
+  specimen_nom: string;
+  photo_url: string | null;
+}
 
 export interface Event {
   id: number;

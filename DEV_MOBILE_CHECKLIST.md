@@ -35,7 +35,7 @@ Le script met à jour `mobile/.env` automatiquement.
 
 | Mode | Fichier config | Exemple |
 |------|----------------|---------|
-| device | `mobile/.dev-ip` | `echo '192.168.0.154' > mobile/.dev-ip` |
+| device | `mobile/.dev-ip` | `echo '192.168.0.152' > mobile/.dev-ip` |
 | build | `mobile/.dev-vm-url` | `echo 'https://jardinbiot.example.com' > mobile/.dev-vm-url` |
 
 Puis lance Django et Expo selon les instructions affichées (ou build avec Xcode).
@@ -62,12 +62,12 @@ Ou dans Xcode : **Product → Scheme → Edit Scheme** → onglet **Run** → **
 Vérifier que le fichier contient :
 
 ```env
-ALLOWED_HOSTS=localhost,127.0.0.1,192.168.0.154
+ALLOWED_HOSTS=localhost,127.0.0.1,192.168.0.152
 CORS_ALLOW_ALL_ORIGINS=True
 ```
 
 - **Simulateur** : `localhost,127.0.0.1` suffit.
-- **Appareil physique** : ajoute l'IP de ton Mac (ex: `192.168.0.154`).
+- **Appareil physique** : ajoute l'IP de ton Mac (ex: `192.168.0.152`).
 
 Sans l'IP dans `ALLOWED_HOSTS`, Django rejette les requêtes (400 Bad Request).
 

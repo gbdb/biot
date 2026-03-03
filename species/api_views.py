@@ -17,6 +17,8 @@ from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
 
 from .models import Organism, Garden, Specimen, SpecimenFavorite, OrganismFavorite, Event, Reminder, Photo, UserPreference
+from django.db.models import Prefetch
+
 from .serializers import (
     OrganismMinimalSerializer,
     OrganismDetailSerializer,
@@ -29,6 +31,7 @@ from .serializers import (
     EventSerializer,
     EventCreateSerializer,
     EventUpdateSerializer,
+    RecentEventSerializer,
     ReminderSerializer,
     ReminderCreateSerializer,
     ReminderUpdateSerializer,
@@ -108,7 +111,35 @@ class SpecimenViewSet(viewsets.ModelViewSet):
                 qs = qs.filter(sante=sante_val)
             except ValueError:
                 pass
+        # Par défaut, exclure les spécimens enlevés sauf si include_enleve=true
+        if not statut:
+            include_enleve = self.request.query_params.get('include_enleve', 'false').lower() == 'true'
+            if not include_enleve:
+                qs = qs.exclude(statut='enleve')
         return qs
+
+    @action(detail=False, methods=['get'], url_path='recent_events')
+    def recent_events(self, request):
+        """GET /api/specimens/recent_events/?limit=20 — Derniers événements (tous spécimens), avec specimen et photo."""
+        specimen_qs = self.get_queryset()
+        try:
+            limit = min(int(request.query_params.get('limit', 20)), 100)
+        except ValueError:
+            limit = 20
+        events_qs = (
+            Event.objects.filter(specimen__in=specimen_qs)
+            .select_related('specimen')
+            .prefetch_related(
+                Prefetch('photos', queryset=Photo.objects.order_by('-date_prise', '-date_ajout'))
+            )
+            .order_by('-date', '-id')[:limit]
+        )
+        serializer = RecentEventSerializer(
+            events_qs,
+            many=True,
+            context={'request': request},
+        )
+        return Response(serializer.data)
 
     @action(detail=False, methods=['get'], url_path='count')
     def count(self, request):

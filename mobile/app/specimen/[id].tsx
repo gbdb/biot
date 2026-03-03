@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import {
@@ -115,6 +115,7 @@ function AddEventModal({
   const [createdEvent, setCreatedEvent] = useState<Event | null>(null);
   const [createdPhotos, setCreatedPhotos] = useState<PhotoOrPending[]>([]);
   const [addPhotoModalVisible, setAddPhotoModalVisible] = useState(false);
+  const [mortEnlevementStep, setMortEnlevementStep] = useState<null | 'form_mort' | 'form_enlever'>(null);
 
   const resetAndClose = () => {
     setCreatedEvent(null);
@@ -128,6 +129,7 @@ function AddEventModal({
     setRecurrenceRule('none');
     setShowDatePicker(false);
     setMode('event');
+    setMortEnlevementStep(null);
     onClose();
   };
 
@@ -139,6 +141,53 @@ function AddEventModal({
         titre: titre.trim() || undefined,
         description: description.trim() || undefined,
       });
+      if (mortEnlevementStep === 'form_mort') {
+        await updateSpecimen(specimenId, { statut: 'mort' });
+        onSuccess(newEvent);
+        setSubmitting(false);
+        Alert.alert(
+          'Avez-vous enlevé le spécimen ?',
+          undefined,
+          [
+            {
+              text: 'Non',
+              onPress: () => {
+                Alert.alert(
+                  'Rappel',
+                  'Souhaitez-vous créer un rappel pour enlever le spécimen plus tard ?',
+                  [
+                    { text: 'Non', onPress: () => resetAndClose() },
+                    {
+                      text: 'Oui',
+                      onPress: () => {
+                        setMode('reminder');
+                        setTitre('Enlever le spécimen');
+                        setTypeRappel('suivi_general');
+                        setMortEnlevementStep(null);
+                      },
+                    },
+                  ]
+                );
+              },
+            },
+            {
+              text: 'Oui',
+              onPress: () => {
+                setTypeEvent('enlever');
+                setTitre('');
+                setDescription('');
+                setMortEnlevementStep('form_enlever');
+              },
+            },
+          ]
+        );
+        return;
+      }
+      if (mortEnlevementStep === 'form_enlever') {
+        onSuccess(newEvent);
+        resetAndClose();
+        return;
+      }
       setCreatedEvent(newEvent);
     } catch {
       /* ignore */
@@ -223,27 +272,60 @@ function AddEventModal({
 
               {mode === 'event' ? (
                 <>
-                  <View style={modalStyles.typeGrid}>
-                    {EVENT_TYPES.map((t) => (
-                      <TouchableOpacity
-                        key={t}
-                        style={[
-                          modalStyles.typeButton,
-                          typeEvent === t && modalStyles.typeButtonSelected,
-                        ]}
-                        onPress={() => setTypeEvent(t)}
-                      >
-                        <Text
+                  {mortEnlevementStep === null ? (
+                    <View style={modalStyles.typeGrid}>
+                      {EVENT_TYPES.map((t) => (
+                        <TouchableOpacity
+                          key={t}
                           style={[
-                            modalStyles.typeButtonText,
-                            typeEvent === t && modalStyles.typeButtonTextSelected,
+                            modalStyles.typeButton,
+                            typeEvent === t && modalStyles.typeButtonSelected,
                           ]}
+                          onPress={() => setTypeEvent(t)}
                         >
-                          {EVENT_TYPE_LABELS[t]}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
+                          <Text
+                            style={[
+                              modalStyles.typeButtonText,
+                              typeEvent === t && modalStyles.typeButtonTextSelected,
+                            ]}
+                          >
+                            {EVENT_TYPE_LABELS[t]}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  ) : (
+                    <Text style={[modalStyles.label, { marginBottom: 8 }]}>
+                      Type : {EVENT_TYPE_LABELS[typeEvent]}
+                    </Text>
+                  )}
+                  {mortEnlevementStep === null && (
+                    <TouchableOpacity
+                      style={[modalStyles.typeButton, { marginTop: 12, backgroundColor: '#4a3728', borderColor: '#4a3728' }]}
+                      onPress={() => {
+                        Alert.alert(
+                          'Mort et enlèvement',
+                          'Nous sommes désolés pour la perte de ce spécimen. Souhaitez-vous enregistrer sa mort et, si besoin, son enlèvement ?',
+                          [
+                            { text: 'Annuler', style: 'cancel' },
+                            {
+                              text: 'Confirmer',
+                              onPress: () => {
+                                setTypeEvent('mort');
+                                setTitre('');
+                                setDescription('');
+                                setMortEnlevementStep('form_mort');
+                              },
+                            },
+                          ]
+                        );
+                      }}
+                    >
+                      <Text style={[modalStyles.typeButtonText, { color: '#fff' }]}>
+                        💀 Mort et enlèvement
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </>
               ) : (
                 <>
@@ -623,6 +705,7 @@ function EventDetailModal({
   const [titre, setTitre] = useState('');
   const [description, setDescription] = useState('');
   const [photoModalVisible, setPhotoModalVisible] = useState(false);
+  const [eventPhotoCarouselVisible, setEventPhotoCarouselVisible] = useState(false);
 
   const showZoneGuidance = event && ZONE_GUIDANCE_EVENTS.includes(event.type_event);
 
@@ -806,7 +889,12 @@ function EventDetailModal({
                   {photos.map((p) => {
                     const thumbUri = getPhotoThumbUri(p);
                     return (
-                      <View key={p.id} style={eventDetailStyles.photoItem}>
+                      <TouchableOpacity
+                        key={p.id}
+                        style={eventDetailStyles.photoItem}
+                        onPress={() => thumbUri && setEventPhotoCarouselVisible(true)}
+                        activeOpacity={0.8}
+                      >
                         {thumbUri ? (
                           <Image source={{ uri: thumbUri }} style={eventDetailStyles.photoThumb} />
                         ) : (
@@ -817,7 +905,7 @@ function EventDetailModal({
                         <Text style={eventDetailStyles.photoTag}>
                           {p.type_photo ? (PHOTO_TYPE_LABELS[p.type_photo] || p.type_photo) : 'Photo'}
                         </Text>
-                      </View>
+                      </TouchableOpacity>
                     );
                   })}
                   <TouchableOpacity
@@ -827,6 +915,45 @@ function EventDetailModal({
                     <Text style={eventDetailStyles.addPhotoText}>+ Photo</Text>
                   </TouchableOpacity>
                 </View>
+              )}
+              {!loadingPhotos && photos.length > 0 && event && (
+                <Modal
+                  visible={eventPhotoCarouselVisible}
+                  animationType="slide"
+                  onRequestClose={() => setEventPhotoCarouselVisible(false)}
+                >
+                  <View style={fullScreenModalStyles.container}>
+                    <View style={fullScreenModalStyles.header}>
+                      <TouchableOpacity
+                        onPress={() => setEventPhotoCarouselVisible(false)}
+                        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                      >
+                        <Text style={fullScreenModalStyles.closeBtn}>✕</Text>
+                      </TouchableOpacity>
+                      <Text style={fullScreenModalStyles.headerTitle}>Photos de l'événement</Text>
+                      <View style={{ width: 28 }} />
+                    </View>
+                    <PhotoCarousel
+                      items={photos
+                        .map((p) => {
+                          const uri = getPhotoThumbUri(p);
+                          if (!uri) return null;
+                          return {
+                            id: p.id,
+                            image_url: uri,
+                            event: {
+                              id: event.id,
+                              type_event: event.type_event,
+                              date: event.date,
+                              titre: event.titre || '',
+                            },
+                          };
+                        })
+                        .filter(Boolean) as PhotoCarouselItem[]}
+                      showEventBadge={false}
+                    />
+                  </View>
+                </Modal>
               )}
 
               {zonePreview && (
@@ -1136,6 +1263,9 @@ export default function SpecimenDetailScreen() {
   const [settingDefaultPhoto, setSettingDefaultPhoto] = useState(false);
   const [defaultPhotoId, setDefaultPhotoId] = useState<number | null>(null);
   const [pendingPhotoForEvent, setPendingPhotoForEvent] = useState<{ uri: string; type?: string; name?: string } | null>(null);
+  const [eventsViewMode, setEventsViewMode] = useState<'list' | 'images'>('list');
+  const [eventsCarouselModalVisible, setEventsCarouselModalVisible] = useState(false);
+  const [eventsCarouselInitialIndex, setEventsCarouselInitialIndex] = useState(0);
 
   useEffect(() => {
     if (!id) return;
@@ -1312,6 +1442,29 @@ export default function SpecimenDetailScreen() {
     if (p.image) return `${API_BASE_URL}${p.image}`;
     return null;
   };
+
+  const specimenCarouselItems = useMemo((): PhotoCarouselItem[] => {
+    if (!specimen) return [];
+    return specimenPhotos
+      .map((p) => {
+        const uri = getSpecimenPhotoUri(p);
+        if (!uri) return null;
+        return {
+          id: p.id,
+          image_url: uri,
+          event: p.event ?? undefined,
+          meta: { photoId: p.id, specimenId: specimen.id },
+        };
+      })
+      .filter(Boolean) as PhotoCarouselItem[];
+  }, [specimenPhotos, specimen?.id]);
+
+  const eventsWithFirstPhoto = useMemo(() => {
+    return events
+      .slice(0, 10)
+      .map((ev) => ({ ev, firstPhoto: specimenPhotos.find((p) => p.event_id === ev.id) }))
+      .filter((x): x is { ev: Event; firstPhoto: Photo } => x.firstPhoto != null);
+  }, [events, specimenPhotos]);
 
   const handleToggleFavori = async () => {
     if (!specimen || favoriToggling) return;
@@ -1560,10 +1713,28 @@ export default function SpecimenDetailScreen() {
         )}
       </View>
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Événements récents</Text>
+        <View style={styles.eventsSectionHeader}>
+          <Text style={styles.sectionTitle}>Événements récents</Text>
+          <View style={styles.eventsViewModeRow}>
+            <TouchableOpacity
+              onPress={() => setEventsViewMode('list')}
+              style={[styles.eventsViewModeBtn, eventsViewMode === 'list' && styles.eventsViewModeBtnActive]}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="list" size={22} color={eventsViewMode === 'list' ? '#fff' : '#666'} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setEventsViewMode('images')}
+              style={[styles.eventsViewModeBtn, eventsViewMode === 'images' && styles.eventsViewModeBtnActive]}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="images" size={22} color={eventsViewMode === 'images' ? '#fff' : '#666'} />
+            </TouchableOpacity>
+          </View>
+        </View>
         {events.length === 0 ? (
           <Text style={styles.empty}>Aucun événement</Text>
-        ) : (
+        ) : eventsViewMode === 'list' ? (
           events.slice(0, 10).map((ev) => (
             <TouchableOpacity
               key={ev.id}
@@ -1579,6 +1750,40 @@ export default function SpecimenDetailScreen() {
               {ev.titre ? <Text style={styles.eventTitre}>{ev.titre}</Text> : null}
             </TouchableOpacity>
           ))
+        ) : (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.eventsThumbScroll}>
+            {eventsWithFirstPhoto.map(({ ev, firstPhoto }) => {
+              const uri = getSpecimenPhotoUri(firstPhoto);
+              const carouselIndex = specimenPhotos.findIndex((p) => p.id === firstPhoto.id);
+              return (
+                <TouchableOpacity
+                  key={ev.id}
+                  style={styles.eventsThumbWrap}
+                  onPress={() => {
+                    if (carouselIndex >= 0) {
+                      setEventsCarouselInitialIndex(carouselIndex);
+                      setEventsCarouselModalVisible(true);
+                    }
+                  }}
+                  activeOpacity={0.8}
+                >
+                  {uri ? (
+                    <Image source={{ uri }} style={styles.eventsThumbImage} resizeMode="cover" />
+                  ) : (
+                    <View style={[styles.eventsThumbImage, styles.eventsThumbPlaceholder]}>
+                      <Ionicons name="image-outline" size={28} color="#888" />
+                    </View>
+                  )}
+                  <Text style={styles.eventsThumbLabel} numberOfLines={2}>
+                    {EVENT_TYPE_LABELS[ev.type_event]} — {ev.date}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        )}
+        {eventsViewMode === 'images' && eventsWithFirstPhoto.length === 0 && events.length > 0 && (
+          <Text style={styles.empty}>Aucune photo dans les événements récents</Text>
         )}
         <FAB
           label="Ajouter un événement"
@@ -1588,6 +1793,39 @@ export default function SpecimenDetailScreen() {
           onPress={() => setEventModalVisible(true)}
         />
       </View>
+      {specimen && (
+        <Modal
+          visible={eventsCarouselModalVisible}
+          animationType="slide"
+          onRequestClose={() => setEventsCarouselModalVisible(false)}
+        >
+          <View style={fullScreenModalStyles.container}>
+            <View style={fullScreenModalStyles.header}>
+              <TouchableOpacity
+                onPress={() => setEventsCarouselModalVisible(false)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
+                <Text style={fullScreenModalStyles.closeBtn}>✕</Text>
+              </TouchableOpacity>
+              <Text style={fullScreenModalStyles.headerTitle}>Photos du spécimen</Text>
+              <View style={{ width: 28 }} />
+            </View>
+            <PhotoCarousel
+              items={specimenCarouselItems}
+              initialFullscreenIndex={eventsCarouselInitialIndex}
+              showEventBadge
+              onOpenEvent={(eventId) => {
+                setEventsCarouselModalVisible(false);
+                const ev = events.find((e) => e.id === eventId);
+                if (ev) {
+                  setSelectedEvent(ev);
+                  setEventDetailModalVisible(true);
+                }
+              }}
+            />
+          </View>
+        </Modal>
+      )}
       <AddEventModal
         visible={eventModalVisible}
         specimenId={specimen.id}
@@ -1601,7 +1839,12 @@ export default function SpecimenDetailScreen() {
             getSpecimenPhotos(specimen.id).then(setSpecimenPhotos).catch(() => {});
           }
           setEvents([newEvent, ...events]);
-          setEventModalVisible(false);
+          if (newEvent.type_event === 'mort') {
+            getSpecimen(specimen.id).then(setSpecimen).catch(() => {});
+            // Ne pas fermer le modal : le flux « Mort et enlèvement » continue (alerte puis formulaire enlever ou rappel).
+          } else {
+            setEventModalVisible(false);
+          }
         }}
         onReminderSuccess={(newReminder) => {
           setReminders((prev) => [newReminder, ...prev]);
@@ -1747,6 +1990,46 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1a3c27',
     marginBottom: 12,
+  },
+  eventsSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  eventsViewModeRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  eventsViewModeBtn: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#eee',
+  },
+  eventsViewModeBtnActive: {
+    backgroundColor: '#1a3c27',
+  },
+  eventsThumbScroll: {
+    marginBottom: 12,
+  },
+  eventsThumbWrap: {
+    width: 100,
+    marginRight: 12,
+  },
+  eventsThumbImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 8,
+    backgroundColor: '#eee',
+  },
+  eventsThumbPlaceholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  eventsThumbLabel: {
+    fontSize: 11,
+    color: '#666',
+    marginTop: 4,
   },
   info: {
     fontSize: 15,

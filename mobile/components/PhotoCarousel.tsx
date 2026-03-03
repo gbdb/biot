@@ -46,6 +46,8 @@ interface PhotoCarouselProps {
   extraContent?: React.ReactNode;
   /** Actions optionnelles dans le fullscreen (ex: Définir par défaut, Supprimer pour un spécimen). */
   renderFullscreenActions?: (item: PhotoCarouselItem, close: () => void) => React.ReactNode;
+  /** Ouvrir directement en plein écran à cet index (ex: depuis la vue images des événements). */
+  initialFullscreenIndex?: number;
 }
 
 const THUMB_SIZE = 120;
@@ -58,10 +60,20 @@ export function PhotoCarousel({
   onOpenEvent,
   extraContent,
   renderFullscreenActions,
+  initialFullscreenIndex,
 }: PhotoCarouselProps) {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const [fullscreenIndex, setFullscreenIndex] = useState<number | null>(null);
+  const [fullscreenIndex, setFullscreenIndex] = useState<number | null>(() => {
+    if (typeof initialFullscreenIndex === 'number' && initialFullscreenIndex >= 0) return initialFullscreenIndex;
+    return null;
+  });
   const flatListRef = useRef<FlatList<PhotoCarouselItem>>(null);
+
+  useEffect(() => {
+    if (typeof initialFullscreenIndex === 'number' && initialFullscreenIndex >= 0 && initialFullscreenIndex < items.length) {
+      setFullscreenIndex(initialFullscreenIndex);
+    }
+  }, [initialFullscreenIndex, items.length]);
 
   useEffect(() => {
     if (fullscreenIndex === null || items.length === 0) return;

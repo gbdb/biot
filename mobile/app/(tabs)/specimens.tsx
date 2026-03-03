@@ -132,6 +132,7 @@ export default function SpecimensScreen() {
   const [totalCount, setTotalCount] = useState<number | null>(null);
   const [defaultGardenId, setDefaultGardenId] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [includeEnleve, setIncludeEnleve] = useState(false);
 
   const fetchSpecimens = useCallback(async () => {
     setLoading(true);
@@ -148,15 +149,24 @@ export default function SpecimensScreen() {
       if (filter.sante != null) params.sante = filter.sante;
       if (filter.statut) params.statut = filter.statut;
     }
+    if (includeEnleve && (filter.type !== 'special' || !filter.statut)) {
+      params.include_enleve = true;
+    }
     getSpecimens(params)
       .then(setSpecimens)
       .catch((err) => setError(err instanceof Error ? err.message : 'Erreur'))
       .finally(() => setLoading(false));
-    const countParams = defaultGardenId != null ? { garden: defaultGardenId } : undefined;
+    const countParams: Parameters<typeof getSpecimensCount>[0] = {};
+    if (params.garden != null) countParams.garden = params.garden;
+    if (params.favoris) countParams.favoris = true;
+    if (params.zone) countParams.zone = params.zone;
+    if (params.statut) countParams.statut = params.statut;
+    if (params.sante != null) countParams.sante = params.sante;
+    if (params.include_enleve) countParams.include_enleve = true;
     getSpecimensCount(countParams)
       .then(setTotalCount)
       .catch(() => setTotalCount(null));
-  }, [filter, defaultGardenId]);
+  }, [filter, defaultGardenId, includeEnleve]);
 
   useFocusEffect(
     useCallback(() => {
@@ -257,6 +267,15 @@ export default function SpecimensScreen() {
       onFilterZones={handleFilterZones}
       onFilterSpecial={handleFilterSpecial}
     />
+      <TouchableOpacity
+        style={[styles.includeEnleveChip, includeEnleve && styles.includeEnleveChipActive]}
+        onPress={() => setIncludeEnleve((v) => !v)}
+        activeOpacity={0.7}
+      >
+        <Text style={[styles.includeEnleveText, includeEnleve && styles.includeEnleveTextActive]}>
+          {includeEnleve ? '✓ Inclure les enlevés' : 'Inclure les enlevés'}
+        </Text>
+      </TouchableOpacity>
     </>
   );
 
@@ -344,6 +363,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     fontWeight: '500',
+  },
+  includeEnleveChip: {
+    alignSelf: 'flex-start',
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: '#eee',
+  },
+  includeEnleveChipActive: {
+    backgroundColor: '#1a3c27',
+  },
+  includeEnleveText: {
+    fontSize: 13,
+    color: '#666',
+  },
+  includeEnleveTextActive: {
+    color: '#fff',
   },
   viewModeButton: {
     padding: 4,
