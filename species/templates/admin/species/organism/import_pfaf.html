@@ -17,7 +17,10 @@
 
 <p>
     Importez des plantes depuis un fichier PFAF (Plants For A Future).
-    Formats supportés: JSON, CSV, SQLite (.sqlite, .db).
+    Formats supportés : JSON, CSV, SQLite (.sqlite, .db).
+</p>
+<p class="help" style="margin-bottom:1rem;">
+    <strong>Licence :</strong> La base PFAF est désormais payante (Standard Home 50 USD, Commercial 150 USD, Student 30 USD pour ~7400 plantes). N’utilisez que des fichiers que vous avez acquis légalement via <a href="https://pfaf.org/user/cmspage.aspx?pageid=126" target="_blank" rel="noopener noreferrer">pfaf.org</a>.
 </p>
 
 {% if form.errors %}
@@ -121,10 +124,11 @@
 <div class="module">
     <h2>Informations</h2>
     <ul>
-        <li><strong>Mode fill_gaps (défaut):</strong> Ne remplit que les champs vides. Préserve les données Hydro-Québec existantes.</li>
-        <li><strong>Mode overwrite:</strong> Remplace tous les champs, même s'ils sont déjà remplis.</li>
+        <li><strong>Licence PFAF :</strong> Base payante (Home 50 USD, Commercial 150 USD, Student 30 USD). Utilisez uniquement des fichiers acquis légalement.</li>
+        <li><strong>Mode fill_gaps (défaut) :</strong> Ne remplit que les champs vides. Préserve les données Hydro-Québec existantes.</li>
+        <li><strong>Mode overwrite :</strong> Remplace tous les champs, même s'ils sont déjà remplis.</li>
         <li>Les données brutes PFAF sont stockées dans <code>data_sources['pfaf']</code> pour chaque organisme.</li>
-        <li>Pour les fichiers SQLite, le nom de la table par défaut est <code>plant_data</code> (base pfaf-data GitHub).</li>
+        <li>Pour les fichiers SQLite, le nom de la table par défaut est <code>plant_data</code>.</li>
     </ul>
 </div>
 {% endblock %}

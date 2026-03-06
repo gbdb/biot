@@ -13,9 +13,17 @@ from typing import Any, Dict, Optional, Tuple
 
 from django.db.models import Q
 
+# Import utilisé par get_unique_slug_latin (même logique que Organism.save)
+from species.models import _slugify_latin
+
 # Identifiants des sources (clés dans data_sources)
 SOURCE_HYDROQUEBEC = 'hydroquebec'
 SOURCE_PFAF = 'pfaf'
+SOURCE_VASCAN = 'vascan'
+SOURCE_VILLE_QUEBEC = 'ville_quebec'
+SOURCE_VILLE_MONTREAL = 'ville_montreal'
+SOURCE_USDA = 'usda'
+SOURCE_BOTANIPEDIA = 'botanipedia'
 
 # Mode de fusion pour un import
 MERGE_OVERWRITE = 'overwrite'   # Écraser les champs avec les valeurs de la source
@@ -36,6 +44,8 @@ FIELD_PRIMARY_SOURCE: Dict[str, str] = {
     'usages_autres': SOURCE_PFAF,
     'parties_comestibles': SOURCE_PFAF,
     'toxicite': SOURCE_PFAF,
+    # VASCAN pour statut indigène
+    'indigene': SOURCE_VASCAN,
 }
 # Champs non listés : première source qui remplit gagne (ou fill_gaps).
 
@@ -126,6 +136,100 @@ def latin_name_without_author(name: str) -> str:
     if re.match(r'^[A-Z][a-z]?\.?$', last) or (len(last) <= 4 and last.endswith('.')):
         return ' '.join(parts[:-1]).strip()
     return s
+
+
+# Regex: nom latin se terminant par un segment entre guillemets simples (cultivar)
+_CULTIVAR_SUFFIX_RE = re.compile(r"\s+'([^']+)'\s*$")
+# Parenthèse finale du type (Espèce 'Variante') ou ('Variante') à ignorer pour le parsing
+_TRAILING_PAREN_ALTERNATE_RE = re.compile(r"\s*\([^)]*'[^']+'[^)]*\)\s*$")
+
+
+def nom_latin_for_genus(nom_latin: str) -> str:
+    """
+    Retourne le nom latin « propre » utilisé pour déduire le genre :
+    normalisation guillemets, retrait parenthèse finale (Espèce 'Variante'),
+    retrait suffixe cultivar '...', retrait auteur.
+    """
+    if not nom_latin or not nom_latin.strip():
+        return ''
+    s = nom_latin.strip().replace('\u2019', "'").replace('\u2018', "'")
+    s = _TRAILING_PAREN_ALTERNATE_RE.sub('', s).strip()
+    m = _CULTIVAR_SUFFIX_RE.search(s)
+    if m:
+        s = s[: m.start()].strip()
+    s = latin_name_without_author(s)
+    return s.strip()
+
+
+def get_genus_from_nom_latin(nom_latin: str) -> str:
+    """
+    Extrait le genre botanique du nom latin (premier mot après nettoyage).
+    Gère hybrides (Genus x epithet) → genre = premier mot.
+    """
+    clean = nom_latin_for_genus(nom_latin or '')
+    if not clean:
+        return ''
+    first = clean.split()[0]
+    return first.strip() if first else ''
+
+
+def ensure_organism_genus(organism) -> None:
+    """
+    Calcule et assigne organism.genus à partir de organism.nom_latin.
+    Sauvegarde l'organisme si genus a été mis à jour. À appeler après création/mise à jour d'un Organism.
+    """
+    if not organism or not hasattr(organism, 'genus'):
+        return
+    nom = (organism.nom_latin or '').strip()
+    if not nom:
+        return
+    genus = get_genus_from_nom_latin(nom)
+    if genus and (not organism.genus or organism.genus != genus):
+        organism.genus = genus
+        organism.save(update_fields=['genus'])
+
+
+def parse_cultivar_from_latin(nom_latin: str) -> Tuple[str, Optional[str]]:
+    """
+    Sépare le nom latin en espèce de base et nom de cultivar si présent.
+
+    Ex: "Vaccinium corymbosum 'Bluecrop'" -> ("Vaccinium corymbosum", "Bluecrop")
+    Ex: "Malus pumila 'Dolgo'" -> ("Malus pumila", "Dolgo")
+    Ex: "Amelanchier alnifolia 'Smokey' ('Amelanchier alnifolia 'Smoky')" -> ("Amelanchier alnifolia", "Smokey")
+    Ex: "Vaccinium corymbosum" -> ("Vaccinium corymbosum", None)
+
+    Returns:
+        (nom_latin_espece, nom_cultivar ou None)
+    """
+    if not nom_latin or not nom_latin.strip():
+        return ('', None)
+    # Normaliser guillemets typographiques (U+2018, U+2019) en ASCII pour la regex
+    s = nom_latin.strip().replace('\u2019', "'").replace('\u2018', "'")
+    # Retirer une parenthèse finale type (Espèce 'Variante') pour ne parser que le premier cultivar
+    s = _TRAILING_PAREN_ALTERNATE_RE.sub('', s).strip()
+    m = _CULTIVAR_SUFFIX_RE.search(s)
+    if m:
+        cultivar_name = m.group(1).strip()
+        base_latin = s[: m.start()].strip()
+        if base_latin and cultivar_name:
+            return (base_latin, cultivar_name)
+    return (s, None)
+
+
+def get_unique_slug_cultivar(Cultivar, organism, nom_cultivar: str) -> str:
+    """
+    Retourne un slug_cultivar unique pour un cultivar sous une espèce donnée.
+    Format: {organism.slug_latin}-{nom_cultivar_slug}, avec suffixe numérique en cas de collision.
+    """
+    if not organism or not organism.slug_latin or not nom_cultivar or not nom_cultivar.strip():
+        return ''
+    base = organism.slug_latin + '-' + _slugify_latin(nom_cultivar.strip())
+    candidate = base
+    suffix = 2
+    while Cultivar.objects.filter(slug_cultivar=candidate).exists():
+        candidate = f"{base}-{suffix}"
+        suffix += 1
+    return candidate
 
 
 def normalize_latin_name(name: str) -> str:
@@ -227,33 +331,67 @@ def find_organism_by_common_name(Organism, nom_commun: str):
     return Organism.objects.filter(nom_commun__iexact=nom_commun.strip()).first()
 
 
+def get_unique_slug_latin(Organism, nom_latin: str) -> str:
+    """
+    Retourne un slug_latin unique à partir du nom latin (normalisation + suffixe si collision).
+    Utilisable par les commandes d'import pour éviter IntegrityError sur la contrainte unique.
+    """
+    if not nom_latin or not nom_latin.strip():
+        return ''
+    base = _slugify_latin(nom_latin.strip())
+    if not base:
+        return ''
+    candidate = base
+    suffix = 2
+    while Organism.objects.filter(slug_latin=candidate).exists():
+        candidate = f"{base}-{suffix}"
+        suffix += 1
+    return candidate
+
+
 def find_or_match_organism(
     Organism,
     nom_latin: str,
     nom_commun: str,
     defaults: Optional[Dict[str, Any]] = None,
+    *,
+    tsn: Optional[int] = None,
+    vascan_id: Optional[int] = None,
 ) -> Tuple[Any, bool]:
     """
     Trouve ou crée un organisme avec matching intelligent.
-    
-    Stratégie:
-    1. Si nom_latin fourni: chercher par nom_latin (exact puis fuzzy)
-    2. Si nom_latin manque mais nom_commun fourni: chercher par nom_commun
-    3. Si trouvé: compléter les champs manquants (ex. ajouter nom_latin si manquant)
-    4. Si rien trouvé: créer nouveau (nom_latin requis, utiliser nom_commun comme fallback)
-    
+
+    Ordre de recherche :
+    1. Si vascan_id fourni : chercher par vascan_id
+    2. Si tsn fourni : chercher par tsn
+    3. Si nom_latin fourni : chercher par nom_latin (exact, sans auteur, fuzzy)
+    4. Si nom_commun fourni : chercher par nom_commun
+    5. Créer nouveau (nom_latin requis, utiliser nom_commun comme fallback)
+
     Args:
         Organism: Classe modèle Organism
         nom_latin: Nom scientifique latin
         nom_commun: Nom commun
         defaults: Dict de valeurs par défaut pour création/mise à jour
-    
+        tsn: Taxonomic Serial Number (ITIS/USDA), optionnel
+        vascan_id: Identifiant VASCAN (Canadensys), optionnel
+
     Returns:
         Tuple (organism, was_created) où was_created est True si nouvel organisme créé.
     """
     defaults = defaults or {}
     was_created = False
-    
+
+    # 0. Recherche par identifiants taxonomiques (évite les doublons)
+    if vascan_id is not None:
+        by_vascan = Organism.objects.filter(vascan_id=vascan_id).first()
+        if by_vascan:
+            return by_vascan, False
+    if tsn is not None:
+        by_tsn = Organism.objects.filter(tsn=tsn).first()
+        if by_tsn:
+            return by_tsn, False
+
     # 1. Si nom_latin fourni, chercher par nom_latin (exact, sans auteur, fuzzy)
     if nom_latin and nom_latin.strip():
         nom_latin_clean = nom_latin.strip()
@@ -309,6 +447,10 @@ def find_or_match_organism(
     # 3. Créer nouveau si rien trouvé
     # nom_latin est requis pour créer, utiliser nom_commun comme fallback si nécessaire
     create_data = dict(defaults)
+    if tsn is not None:
+        create_data['tsn'] = tsn
+    if vascan_id is not None:
+        create_data['vascan_id'] = vascan_id
     if not create_data.get('nom_latin'):
         if nom_latin and nom_latin.strip():
             create_data['nom_latin'] = nom_latin.strip()
@@ -322,3 +464,71 @@ def find_or_match_organism(
     
     organism = Organism.objects.create(**create_data)
     return organism, True
+
+
+def find_organism_and_cultivar(
+    Organism,
+    Cultivar,
+    nom_latin: str,
+    nom_commun: str,
+    defaults_organism: Optional[Dict[str, Any]] = None,
+    defaults_cultivar: Optional[Dict[str, Any]] = None,
+    *,
+    tsn: Optional[int] = None,
+    vascan_id: Optional[int] = None,
+) -> Tuple[Any, Optional[Any], bool]:
+    """
+    Trouve ou crée l'espèce (Organism) et, si le nom latin contient un cultivar, le cultivar associé.
+
+    Si nom_latin contient un motif cultivar (ex. "Vaccinium corymbosum 'Bluecrop'") :
+      - Trouve ou crée l'Organism pour l'espèce de base.
+      - Crée ou récupère le Cultivar sous cet Organism.
+      - Retourne (organism, cultivar, was_organism_created).
+
+    Sinon : comportement identique à find_or_match_organism, avec (organism, None, was_created).
+
+    Returns:
+        (organism, cultivar ou None, was_organism_created)
+    """
+    base_latin, nom_cultivar = parse_cultivar_from_latin(nom_latin or '')
+    defaults_organism = defaults_organism or {}
+    defaults_cultivar = defaults_cultivar or {}
+
+    if nom_cultivar and base_latin:
+        # Dériver nom_commun espèce : retirer le nom du cultivar en fin de chaîne si présent
+        nom_commun_clean = (nom_commun or '').strip()
+        nom_commun_espece = re.sub(
+            r'\s+' + re.escape(nom_cultivar) + r'\s*$',
+            '',
+            nom_commun_clean,
+            flags=re.IGNORECASE,
+        ).strip() or nom_commun_clean
+        organism, was_created = find_or_match_organism(
+            Organism,
+            nom_latin=base_latin,
+            nom_commun=nom_commun_espece,
+            defaults=defaults_organism,
+            tsn=tsn,
+            vascan_id=vascan_id,
+        )
+        slug_cultivar = get_unique_slug_cultivar(Cultivar, organism, nom_cultivar)
+        cultivar_defaults = {
+            'nom': nom_cultivar,
+            **defaults_cultivar,
+        }
+        cultivar, _ = Cultivar.objects.get_or_create(
+            organism=organism,
+            slug_cultivar=slug_cultivar,
+            defaults=cultivar_defaults,
+        )
+        return (organism, cultivar, was_created)
+
+    organism, was_created = find_or_match_organism(
+        Organism,
+        nom_latin=nom_latin or '',
+        nom_commun=nom_commun or '',
+        defaults=defaults_organism,
+        tsn=tsn,
+        vascan_id=vascan_id,
+    )
+    return (organism, None, was_created)

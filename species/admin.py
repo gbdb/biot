@@ -6,6 +6,7 @@ from django.contrib import messages
 from django.http import HttpResponseRedirect
 from django.shortcuts import render
 from django.urls import path, reverse
+from django.utils import timezone
 from django.utils.html import format_html
 
 from .export_utils import (
@@ -16,11 +17,15 @@ from .export_utils import (
 )
 from .forms import ImportPFAFForm, ImportSeedsForm
 from .models import (
-    Organism, UserTag, CompanionRelation, Amendment, OrganismAmendment,
-    Specimen, Event, Reminder, Photo,
+    Organism, OrganismPropriete, OrganismUsage, OrganismCalendrier,
+    Cultivar, CultivarPollinator,
+    UserTag, CompanionRelation, Amendment, OrganismAmendment,
+    Specimen, SpecimenGroup, SpecimenGroupMember,
+    Event, Reminder, Photo,
     SeedSupplier, SeedCollection, SemisBatch,
     Garden, WeatherRecord, SprinklerZone,
     UserPreference,
+    DataImportRun,
 )
 
 
@@ -32,6 +37,38 @@ class PhotoOrganismInline(admin.TabularInline):
     fields = ('image', 'type_photo', 'titre', 'date_prise')
     verbose_name = "Photo de l'espèce"
     verbose_name_plural = "Photos de l'espèce"
+
+
+class OrganismProprieteInline(admin.TabularInline):
+    model = OrganismPropriete
+    extra = 0
+    fields = ('type_sol', 'ph_min', 'ph_max', 'tolerance_ombre', 'source')
+    verbose_name = "Propriété (sol / exposition)"
+    verbose_name_plural = "Propriétés (sol / exposition)"
+
+
+class OrganismUsageInline(admin.TabularInline):
+    model = OrganismUsage
+    extra = 0
+    fields = ('type_usage', 'parties', 'description', 'source')
+    verbose_name = "Usage"
+    verbose_name_plural = "Usages"
+
+
+class OrganismCalendrierInline(admin.TabularInline):
+    model = OrganismCalendrier
+    extra = 0
+    fields = ('type_periode', 'mois_debut', 'mois_fin', 'source')
+    verbose_name = "Calendrier (période)"
+    verbose_name_plural = "Calendrier (périodes)"
+
+
+class CultivarInline(admin.TabularInline):
+    model = Cultivar
+    extra = 0
+    fields = ('slug_cultivar', 'nom', 'couleur_fruit', 'gout', 'resistance_maladies')
+    verbose_name = "Cultivar"
+    verbose_name_plural = "Cultivars"
 
 
 class EventSpecimenInline(admin.TabularInline):
@@ -93,19 +130,29 @@ from .source_rules import (
 
 @admin.register(Organism)
 class OrganismAdmin(admin.ModelAdmin):
-    inlines = [PhotoOrganismInline]
+    inlines = [
+        CultivarInline,
+        PhotoOrganismInline,
+        OrganismProprieteInline,
+        OrganismUsageInline,
+        OrganismCalendrierInline,
+    ]
     actions = ["export_organismes_csv", "export_organismes_pdf"]
     change_list_template = "admin/species/organism/change_list.html"
+    change_form_template = "admin/species/organism/change_form.html"
 
     list_display = [
         'nom_commun',
-        'nom_latin', 
+        'nom_latin',
+        'slug_latin',
+        'vascan_id',
+        'tsn',
         'regne',
         'type_organisme',
         'besoin_eau',
         'besoin_soleil',
         'zones_display',
-        'comestible'
+        'comestible',
     ]
     
     list_filter = [
@@ -129,7 +176,7 @@ class OrganismAdmin(admin.ModelAdmin):
     
     fieldsets = (
         ('Identification', {
-            'fields': ('nom_commun', 'nom_latin', 'famille', 'regne', 'type_organisme')
+            'fields': ('nom_commun', 'nom_latin', 'vascan_id', 'tsn', 'famille', 'regne', 'type_organisme')
         }),
         ('Besoins Culturaux', {
             'fields': ('besoin_eau', 'besoin_soleil', 'zone_rusticite')
@@ -217,15 +264,52 @@ class OrganismAdmin(admin.ModelAdmin):
                 response = HttpResponse(pdf_bytes, content_type="application/pdf")
                 response["Content-Disposition"] = 'attachment; filename="organismes.pdf"'
                 return response
+        extra_context = extra_context or {}
+        extra_context["last_pfaf_run"] = DataImportRun.objects.filter(source="pfaf").order_by("-started_at").first()
+        extra_context["last_hydroquebec_run"] = (
+            DataImportRun.objects.filter(source="import_hydroquebec").order_by("-started_at").first()
+        )
         return super().changelist_view(request, extra_context)
 
     def get_urls(self):
-        """Ajoute la route pour l'import PFAF."""
+        """Ajoute les routes import PFAF et enrichissement d'une espèce."""
         urls = super().get_urls()
         custom_urls = [
             path('import-pfaf/', self.admin_site.admin_view(self.import_pfaf_view), name='species_organism_import_pfaf'),
+            path('enrich/<int:pk>/', self.admin_site.admin_view(self.enrich_organism_view), name='species_organism_enrich'),
         ]
         return custom_urls + urls
+
+    def enrich_organism_view(self, request, pk):
+        """Enrichit un organisme depuis VASCAN, USDA et Botanipedia (bouton sur la fiche)."""
+        from .enrichment import enrich_organism
+
+        organism = self.get_object(request, str(pk))
+        if organism is None:
+            messages.error(request, "Organisme introuvable.")
+            return HttpResponseRedirect(reverse("admin:species_organism_changelist"))
+        if not self.has_change_permission(request, organism):
+            messages.error(request, "Droits insuffisants.")
+            return HttpResponseRedirect(reverse("admin:species_organism_changelist"))
+
+        nom = organism.nom_commun or organism.nom_latin or f"ID {pk}"
+        if not (organism.nom_latin or "").strip():
+            messages.warning(request, "Enrichissement impossible : le nom latin est vide. Complétez-le puis réessayez.")
+            return HttpResponseRedirect(reverse("admin:species_organism_change", args=[pk]))
+
+        try:
+            results = enrich_organism(organism, delay=0.6)
+            ok_count = sum(1 for success, _ in results.values() if success)
+            for source, (success, msg) in results.items():
+                if success:
+                    messages.success(request, msg)
+                else:
+                    messages.warning(request, msg)
+            if ok_count > 0:
+                messages.success(request, f"Enrichissement terminé : {ok_count} source(s) mise(s) à jour pour « {nom} ».")
+        except Exception as e:
+            messages.error(request, f"Erreur lors de l'enrichissement : {e}")
+        return HttpResponseRedirect(reverse("admin:species_organism_change", args=[pk]))
 
     def import_pfaf_view(self, request):
         """Vue pour l'import PFAF depuis l'admin."""
@@ -243,6 +327,7 @@ class OrganismAdmin(admin.ModelAdmin):
                         tmp_file.write(chunk)
                     tmp_path = Path(tmp_file.name)
 
+                run = None
                 try:
                     # Charger les données
                     data = load_pfaf_data(tmp_path, db_table=table)
@@ -253,6 +338,13 @@ class OrganismAdmin(admin.ModelAdmin):
                     
                     if limit > 0:
                         data = data[:limit]
+
+                    run = DataImportRun.objects.create(
+                        source='pfaf',
+                        status='running',
+                        trigger='admin_import',
+                        user=request.user,
+                    )
 
                     # Validation: vérifier les colonnes disponibles et critiques
                     validation_warnings = []
@@ -467,9 +559,28 @@ class OrganismAdmin(admin.ModelAdmin):
                                     f'Détails des erreurs: {" | ".join(error_details)}'
                                 )
 
+                    if run:
+                        run.status = 'success'
+                        run.finished_at = timezone.now()
+                        run.stats = {
+                            'created': created,
+                            'updated': updated,
+                            'skipped': skipped,
+                            'errors': len(errors),
+                        }
+                        if error_details:
+                            run.output_snippet = '\n'.join(error_details)[:2000]
+                        run.save()
+
                     # Rediriger vers la liste des organismes
                     return HttpResponseRedirect(reverse('admin:species_organism_changelist'))
                 except Exception as e:
+                    if run:
+                        run.status = 'failure'
+                        run.finished_at = timezone.now()
+                        run.output_snippet = str(e)[:2000]
+                        run.stats = {}
+                        run.save()
                     messages.error(request, f'Erreur lors de l\'import: {str(e)}')
                 finally:
                     # Nettoyer le fichier temporaire
@@ -737,6 +848,61 @@ class WeatherRecordAdmin(admin.ModelAdmin):
     autocomplete_fields = ['garden']
 
 
+class CultivarPollinatorInline(admin.TabularInline):
+    model = CultivarPollinator
+    extra = 0
+    fk_name = 'cultivar'
+    autocomplete_fields = ['companion_cultivar', 'companion_organism']
+    fields = ('companion_cultivar', 'companion_organism', 'notes', 'source')
+
+
+@admin.register(Cultivar)
+class CultivarAdmin(admin.ModelAdmin):
+    list_display = ['slug_cultivar', 'nom', 'organism', 'couleur_fruit', 'date_ajout']
+    list_filter = ['organism']
+    search_fields = ['nom', 'slug_cultivar', 'organism__nom_latin', 'organism__nom_commun']
+    autocomplete_fields = ['organism']
+    readonly_fields = ['date_ajout', 'date_modification']
+    inlines = [CultivarPollinatorInline]
+
+
+@admin.register(CultivarPollinator)
+class CultivarPollinatorAdmin(admin.ModelAdmin):
+    list_display = ['cultivar', 'companion_cultivar', 'companion_organism', 'source']
+    list_filter = ['cultivar__organism']
+    search_fields = ['cultivar__nom', 'notes']
+    autocomplete_fields = ['cultivar', 'companion_cultivar', 'companion_organism']
+
+
+class SpecimenGroupMemberInline(admin.TabularInline):
+    model = SpecimenGroupMember
+    extra = 0
+    autocomplete_fields = ['specimen']
+    fields = ('specimen', 'role')
+
+
+@admin.register(SpecimenGroup)
+class SpecimenGroupAdmin(admin.ModelAdmin):
+    list_display = ['id', 'type_groupe', 'organisme', 'date_ajout', 'members_count']
+    list_filter = ['type_groupe']
+    search_fields = ['organisme__nom_commun']
+    autocomplete_fields = ['organisme']
+    inlines = [SpecimenGroupMemberInline]
+    readonly_fields = ['date_ajout']
+
+    def members_count(self, obj):
+        return obj.members.count() if obj.pk else 0
+    members_count.short_description = "Membres"
+
+
+@admin.register(SpecimenGroupMember)
+class SpecimenGroupMemberAdmin(admin.ModelAdmin):
+    list_display = ['group', 'specimen', 'role']
+    list_filter = ['group__type_groupe', 'role']
+    search_fields = ['specimen__nom', 'group__id']
+    autocomplete_fields = ['group', 'specimen']
+
+
 @admin.register(CompanionRelation)
 class CompanionRelationAdmin(admin.ModelAdmin):
     change_list_template = "admin/species/companionrelation/change_list.html"
@@ -950,6 +1116,10 @@ class SeedCollectionAdmin(admin.ModelAdmin):
             request.GET = get_copy
             cl = self.get_changelist_instance(request)
             return export_seed_collections_csv(cl.get_queryset(request))
+        extra_context = extra_context or {}
+        extra_context["last_seeds_run"] = (
+            DataImportRun.objects.filter(source="seeds").order_by("-started_at").first()
+        )
         return super().changelist_view(request, extra_context)
 
     def get_urls(self):
@@ -982,6 +1152,7 @@ class SeedCollectionAdmin(admin.ModelAdmin):
                         tmp_file.write(chunk)
                     tmp_path = Path(tmp_file.name)
 
+                run = None
                 try:
                     data = load_seed_data(tmp_path)
                     if not data:
@@ -989,6 +1160,13 @@ class SeedCollectionAdmin(admin.ModelAdmin):
                         return HttpResponseRedirect(reverse('admin:species_seedcollection_import_csv'))
                     if limit > 0:
                         data = data[:limit]
+
+                    run = DataImportRun.objects.create(
+                        source='seeds',
+                        status='running',
+                        trigger='admin_import',
+                        user=request.user,
+                    )
 
                     created_org, created_seed, updated_seed, skipped, errors = 0, 0, 0, 0, 0
 
@@ -1106,6 +1284,21 @@ class SeedCollectionAdmin(admin.ModelAdmin):
                         supplier.dernier_import = timezone.now()
                         supplier.save(update_fields=['dernier_import'])
 
+                    if run:
+                        run.status = 'success'
+                        run.finished_at = timezone.now()
+                        run.stats = {
+                            'created_org': created_org,
+                            'created_seed': created_seed,
+                            'updated_seed': updated_seed,
+                            'skipped': skipped,
+                            'errors': errors,
+                        }
+                        if supplier:
+                            run.stats['supplier_id'] = supplier.pk
+                            run.stats['supplier_name'] = supplier.nom
+                        run.save()
+
                     msg = (
                         f'Import terminé: {created_seed} créées, {updated_seed} mises à jour, '
                         f'{created_org} organismes créés, {skipped} ignorées'
@@ -1116,6 +1309,12 @@ class SeedCollectionAdmin(admin.ModelAdmin):
                     return HttpResponseRedirect(reverse('admin:species_seedcollection_changelist'))
 
                 except Exception as e:
+                    if run:
+                        run.status = 'failure'
+                        run.finished_at = timezone.now()
+                        run.output_snippet = str(e)[:2000]
+                        run.stats = {}
+                        run.save()
                     messages.error(request, f'Erreur lors de l\'import: {str(e)}')
                 finally:
                     if tmp_path.exists():
@@ -1151,6 +1350,7 @@ class SpecimenAdmin(admin.ModelAdmin):
     list_display = [
         'nom',
         'organisme',
+        'cultivar',
         'garden',
         'zone_jardin',
         'statut',
@@ -1413,3 +1613,21 @@ class UserPreferenceAdmin(admin.ModelAdmin):
     list_display = ['user', 'default_garden']
     list_filter = ['default_garden']
     autocomplete_fields = ['user', 'default_garden']
+
+
+@admin.register(DataImportRun)
+class DataImportRunAdmin(admin.ModelAdmin):
+    list_display = ['source', 'status', 'started_at', 'finished_at', 'trigger', 'user']
+    list_filter = ['source', 'status', 'trigger']
+    search_fields = ['output_snippet']
+    readonly_fields = [
+        'source', 'status', 'started_at', 'finished_at', 'stats', 'output_snippet', 'trigger', 'user',
+    ]
+    date_hierarchy = 'started_at'
+    ordering = ['-started_at']
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False

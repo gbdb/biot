@@ -44,6 +44,12 @@ mobile/
 - **Android** : idem
 - **Web** : NFC non supporté
 
+## Fonctionnalités (données riches)
+
+- **Fiche espèce** : variétés/cultivars avec pollinisateurs recommandés, usages, calendrier, compagnons.
+- **Fiche specimen** : section « Associé à (pollinisation) » (groupes mâle/femelle ou pollinisation croisée), distance et alerte « zone trop loin ».
+- **Paramètres** : jardin par défaut ; **distance de pollinisation par défaut** (m) pour les alertes entre plants associés.
+
 ## Backend
 
 Le backend Django doit tourner (`python manage.py runserver`) et l'API doit être accessible depuis l'appareil où tourne Expo.

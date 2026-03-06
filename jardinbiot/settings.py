@@ -38,7 +38,9 @@ SECRET_KEY = env(
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env("DEBUG")
 
-ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=[])
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1", "0.0.0.0"])
+if DEBUG and "0.0.0.0" not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append("0.0.0.0")
 
 
 # Application definition
@@ -72,7 +74,7 @@ ROOT_URLCONF = 'jardinbiot.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -147,6 +149,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# Répertoire des fichiers JSON Hydro-Québec téléchargés (pour import local depuis l'admin)
+IMPORT_HYDROQUEBEC_DIR = BASE_DIR / 'data' / 'hydroquebec'
+
 # Django REST Framework (API mobile)
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
@@ -168,6 +173,10 @@ SIMPLE_JWT = {
 
 # CORS - autoriser l'app mobile Expo (dev et prod)
 CORS_ALLOW_ALL_ORIGINS = env('CORS_ALLOW_ALL_ORIGINS')
+
+# Distance de pollinisation : valeur par défaut (mètres) quand l'espèce et l'utilisateur n'ont pas de valeur.
+# Référence : fiches techniques fruitiers (ex. 30-50 m pour pommiers). Fallback global.
+POLLINATION_DISTANCE_MAX_DEFAULT_M = float(env("POLLINATION_DISTANCE_MAX_DEFAULT_M", default=50))
 
 # Admin - regroupement et ordre du menu
 ADMIN_REORDER = [

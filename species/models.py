@@ -2,25 +2,63 @@ from django.conf import settings
 from django.db import models
 
 
+def _slugify_latin(name):
+    """Génère un slug à partir d'un nom latin (normalisation accents, espaces)."""
+    if not name or not isinstance(name, str):
+        return ''
+    import unicodedata
+    from django.utils.text import slugify
+    n = unicodedata.normalize('NFKD', name).encode('ascii', 'ignore').decode('ascii')
+    return slugify(n or name, allow_unicode=False) or ''
+
+
 class Organism(models.Model):
     """
-    Modèle pour tout organisme vivant du jardin/forêt comestible.
-    Inclut: plantes, arbres, arbustes, champignons, mousses.
+    Espèce botanique (une ligne par espèce). Données stables multi-sources (Hydro-Québec, Botanipedia).
+    Les variétés/cultivars sont dans la table Cultivar.
     """
     
     # === IDENTIFICATION ===
     nom_commun = models.CharField(
         max_length=200,
-        help_text="Ex: Pommier Dolgo, Basilic, Chanterelle"
+        help_text="Nom commun principal (ex: Pommier, Basilic)"
     )
     nom_latin = models.CharField(
         max_length=200,
-        help_text="Nom scientifique latin"
+        db_index=True,
+        help_text="Nom scientifique latin (ex: Malus pumila)"
+    )
+    slug_latin = models.SlugField(
+        max_length=220,
+        unique=True,
+        blank=True,
+        null=True,
+        help_text="Clé unique dérivée du nom latin (ex: malus-pumila). Utilisée pour fusion des imports."
+    )
+    tsn = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        unique=True,
+        db_index=True,
+        help_text="Taxonomic Serial Number (ITIS/USDA), clé de liaison sans doublon",
+    )
+    vascan_id = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        unique=True,
+        db_index=True,
+        help_text="Identifiant VASCAN (Canadensys), clé de liaison sans doublon",
     )
     famille = models.CharField(
         max_length=100,
         blank=True,
         help_text="Famille botanique"
+    )
+    genus = models.CharField(
+        max_length=80,
+        blank=True,
+        db_index=True,
+        help_text="Genre botanique (ex. Vaccinium, Amelanchier), dérivé du nom latin.",
     )
     
     # === RÈGNE BIOLOGIQUE ===
@@ -226,7 +264,13 @@ class Organism(models.Model):
         blank=True,
         help_text="Auto-fertile, besoin pollinisateur, variétés compatibles, etc."
     )
-    
+
+    distance_pollinisation_max = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Distance max de pollinisation en mètres (si pertinent). Prioritaire sur la préférence utilisateur et la config globale.",
+    )
+
     production_annuelle = models.CharField(
         max_length=100,
         blank=True,
@@ -300,19 +344,32 @@ class Organism(models.Model):
         help_text="Photo affichée par défaut pour cette espèce"
     )
 
+    # === NOTE D'ENRICHISSEMENT (stockée, mise à jour après imports) ===
+    enrichment_score_pct = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text="Note d'enrichissement de la fiche (0-100 %). Recalculée après import/migration."
+    )
+
     # === MÉTADONNÉES ===
     date_ajout = models.DateTimeField(auto_now_add=True)
     date_modification = models.DateTimeField(auto_now=True)
     
     class Meta:
-        verbose_name = "Organisme"
-        verbose_name_plural = "Organismes"
+        db_table = 'species_espece'
+        verbose_name = "Espèce"
+        verbose_name_plural = "Espèces"
         ordering = ['nom_commun']
     
     def __str__(self):
         if self.nom_latin:
             return f"{self.nom_commun} ({self.nom_latin})"
         return self.nom_commun
+    
+    def save(self, *args, **kwargs):
+        if not self.slug_latin and self.nom_latin:
+            self.slug_latin = _slugify_latin(self.nom_latin)
+        super().save(*args, **kwargs)
     
     def get_zones_by_source(self, source: str) -> list:
         """
@@ -345,6 +402,145 @@ class Organism(models.Model):
         from .source_rules import zone_rusticite_order
         zones_sorted = sorted(zones, key=zone_rusticite_order)
         return zones_sorted[0] if zones_sorted else ''
+
+
+class OrganismPropriete(models.Model):
+    """
+    Propriétés du sol et exposition pour un organisme (table normalisée, 1-N par source).
+    Source: hydroquebec, usda, vascan, manuel.
+    """
+    organisme = models.ForeignKey(
+        'species.Organism',
+        on_delete=models.CASCADE,
+        related_name='proprietes',
+    )
+    type_sol = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Liste de types: sablonneux, argileux, limoneux, loameux, rocailleux, tourbeux",
+    )
+    ph_min = models.FloatField(null=True, blank=True, help_text="pH minimum accepté")
+    ph_max = models.FloatField(null=True, blank=True, help_text="pH maximum accepté")
+    TOLERANCE_OMBRE_CHOICES = [
+        ('ombre_complete', 'Ombre complète'),
+        ('ombre', 'Ombre'),
+        ('mi_ombre', 'Mi-ombre'),
+        ('soleil_partiel', 'Soleil partiel'),
+        ('plein_soleil', 'Plein soleil'),
+    ]
+    tolerance_ombre = models.CharField(
+        max_length=20,
+        choices=TOLERANCE_OMBRE_CHOICES,
+        blank=True,
+        help_text="Tolérance à l'ombre / besoin en lumière",
+    )
+    source = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="Source: hydroquebec, usda, vascan, manuel",
+    )
+
+    class Meta:
+        verbose_name = "Propriété (sol / exposition)"
+        verbose_name_plural = "Propriétés (sol / exposition)"
+        ordering = ['organisme', 'source']
+
+    def __str__(self):
+        return f"{self.organisme.nom_commun} — {self.source or '?'}"
+
+
+class OrganismUsage(models.Model):
+    """
+    Usages d'un organisme: comestible (fruit, feuille, racine), médicinal, bois, etc.
+    Relation 1-N, une entrée par type d'usage ou par source.
+    """
+    organisme = models.ForeignKey(
+        'species.Organism',
+        on_delete=models.CASCADE,
+        related_name='usages',
+    )
+    TYPE_USAGE_CHOICES = [
+        ('comestible_fruit', 'Comestible (fruit)'),
+        ('comestible_feuille', 'Comestible (feuille)'),
+        ('comestible_racine', 'Comestible (racine)'),
+        ('comestible_fleur', 'Comestible (fleur)'),
+        ('comestible_autre', 'Comestible (autre)'),
+        ('medicinal', 'Médicinal'),
+        ('bois_oeuvre', 'Bois d\'œuvre'),
+        ('artisanat', 'Artisanat'),
+        ('ornement', 'Ornement'),
+        ('autre', 'Autre'),
+    ]
+    type_usage = models.CharField(
+        max_length=30,
+        choices=TYPE_USAGE_CHOICES,
+    )
+    parties = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Parties concernées (ex: fruit, feuille)",
+    )
+    description = models.TextField(blank=True)
+    source = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="Source: pfaf, hydroquebec, manuel",
+    )
+
+    class Meta:
+        verbose_name = "Usage"
+        verbose_name_plural = "Usages"
+        ordering = ['organisme', 'type_usage']
+
+    def __str__(self):
+        return f"{self.organisme.nom_commun} — {self.get_type_usage_display()}"
+
+
+class OrganismCalendrier(models.Model):
+    """
+    Périodes typiques par espèce: floraison, fructification, récolte, semis.
+    Permet d'alimenter les « événements attendus » et rappels suggérés.
+    """
+    organisme = models.ForeignKey(
+        'species.Organism',
+        on_delete=models.CASCADE,
+        related_name='calendrier',
+    )
+    TYPE_PERIODE_CHOICES = [
+        ('floraison', 'Floraison'),
+        ('fructification', 'Fructification'),
+        ('recolte', 'Récolte'),
+        ('semis', 'Semis'),
+        ('taille', 'Taille'),
+        ('autre', 'Autre'),
+    ]
+    type_periode = models.CharField(
+        max_length=20,
+        choices=TYPE_PERIODE_CHOICES,
+    )
+    mois_debut = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text="Mois de début (1-12)",
+    )
+    mois_fin = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text="Mois de fin (1-12)",
+    )
+    source = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="Source: pfaf, hydroquebec, usda, manuel",
+    )
+
+    class Meta:
+        verbose_name = "Calendrier (période)"
+        verbose_name_plural = "Calendrier (périodes)"
+        ordering = ['organisme', 'type_periode', 'mois_debut']
+
+    def __str__(self):
+        return f"{self.organisme.nom_commun} — {self.get_type_periode_display()} ({self.mois_debut or '?'}-{self.mois_fin or '?'})"
 
 
 class UserTag(models.Model):
@@ -456,7 +652,111 @@ class CompanionRelation(models.Model):
     def __str__(self):
         symbole = "✅" if "positif" in self.type_relation or "attire" in self.type_relation or "fixateur" in self.type_relation else "⚠️"
         return f"{symbole} {self.organisme_source.nom_commun} → {self.organisme_cible.nom_commun} ({self.get_type_relation_display()})"
-    
+
+
+class Cultivar(models.Model):
+    """
+    Variété / cultivar d'une espèce. Données « style Tisanji » : couleur fruit, goût, résistances.
+    Slug unique par cultivar (ex: malus-pumila-dolgo). Les assets spécifiques au cultivar (photos fruits)
+    se lient ici ; les assets espèce (racines, port) restent sur Organism.
+    """
+    organism = models.ForeignKey(
+        'species.Organism',
+        on_delete=models.CASCADE,
+        related_name='cultivars',
+        help_text="Espèce (ex: Malus pumila)",
+    )
+    slug_cultivar = models.SlugField(
+        max_length=250,
+        unique=True,
+        help_text="Clé unique (ex: malus-pumila-dolgo)",
+    )
+    nom = models.CharField(
+        max_length=200,
+        help_text="Nom du cultivar / variété (ex: Dolgo, Conica)",
+    )
+    description = models.TextField(blank=True)
+    couleur_fruit = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Couleur du fruit ou de la partie récoltée",
+    )
+    gout = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Goût, usage culinaire",
+    )
+    resistance_maladies = models.TextField(
+        blank=True,
+        help_text="Résistances ou sensibilités spécifiques",
+    )
+    notes = models.TextField(blank=True)
+    date_ajout = models.DateTimeField(auto_now_add=True)
+    date_modification = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'species_cultivar'
+        verbose_name = "Cultivar"
+        verbose_name_plural = "Cultivars"
+        ordering = ['organism__nom_latin', 'nom']
+
+    def __str__(self):
+        return f"{self.nom} ({self.organism.nom_latin})"
+
+
+class CultivarPollinator(models.Model):
+    """
+    Compagnon pollinisation au niveau cultivar : une variété peut avoir besoin
+    d'une autre variété précise (companion_cultivar) ou de n'importe quelle variété
+    d'une espèce (companion_organism) pour la fructification.
+    """
+    cultivar = models.ForeignKey(
+        'species.Cultivar',
+        on_delete=models.CASCADE,
+        related_name='pollinator_companions',
+        help_text="Cultivar qui a besoin d'un pollinisateur",
+    )
+    companion_cultivar = models.ForeignKey(
+        'species.Cultivar',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='+',
+        help_text="Variété compagne précise (ex. Liberty pour Dolgo)",
+    )
+    companion_organism = models.ForeignKey(
+        'species.Organism',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='+',
+        help_text="Espèce compagne (n'importe quelle variété de cette espèce)",
+    )
+    notes = models.TextField(blank=True)
+    source = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        db_table = 'species_cultivar_pollinator'
+        verbose_name = "Pollinisateur recommandé (cultivar)"
+        verbose_name_plural = "Pollinisateurs recommandés (cultivars)"
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(companion_cultivar__isnull=False) | models.Q(companion_organism__isnull=False),
+                name='cultivar_pollinator_companion_required',
+            ),
+        ]
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        if not self.companion_cultivar_id and not self.companion_organism_id:
+            raise ValidationError("Au moins un de companion_cultivar ou companion_organism doit être renseigné.")
+
+    def __str__(self):
+        if self.companion_cultivar_id:
+            return f"{self.cultivar.nom} ← {self.companion_cultivar.nom}"
+        return f"{self.cultivar.nom} ← espèce {self.companion_organism.nom_commun}"
+
+
 class SeedSupplier(models.Model):
     """
     Fournisseur de semences : semencier commercial, échange, récolte personnelle.
@@ -995,11 +1295,20 @@ class Specimen(models.Model):
         help_text="Jardin où se trouve ce spécimen"
     )
 
-    # Lien vers l'espèce/organisme
+    # Lien vers l'espèce et optionnellement le cultivar
     organisme = models.ForeignKey(
         'species.Organism',
-        on_delete=models.PROTECT,  # Empêche de supprimer l'organisme si des specimens existent
-        related_name='specimens'
+        on_delete=models.PROTECT,
+        related_name='specimens',
+        help_text="Espèce (ex: Malus pumila)",
+    )
+    cultivar = models.ForeignKey(
+        'species.Cultivar',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='specimens',
+        help_text="Variété/cultivar si connu (ex: Dolgo)",
     )
     
     # === IDENTIFICATION ===
@@ -1204,6 +1513,90 @@ class OrganismFavorite(models.Model):
         unique_together = [['user', 'organism']]
         verbose_name = "Espèce favorie"
         verbose_name_plural = "Espèces favorites"
+
+
+class SpecimenGroup(models.Model):
+    """
+    Groupe de spécimens liés pour la pollinisation :
+    - male_female : un pollinisateur (mâle) + jusqu'à 6 principaux (femelles)
+    - cross_pollination_cultivar : au moins 2 cultivars (partenaires) pour pollinisation croisée
+    """
+    TYPE_GROUPE_CHOICES = [
+        ('male_female', 'Mâle / femelle'),
+        ('cross_pollination_cultivar', 'Pollinisation croisée (cultivars)'),
+    ]
+    type_groupe = models.CharField(
+        max_length=30,
+        choices=TYPE_GROUPE_CHOICES,
+    )
+    organisme = models.ForeignKey(
+        'species.Organism',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='+',
+        help_text="Espèce commune (optionnel, pour cross_pollination_cultivar)",
+    )
+    date_ajout = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Groupe de pollinisation"
+        verbose_name_plural = "Groupes de pollinisation"
+        ordering = ['-date_ajout']
+
+    def __str__(self):
+        return f"Groupe {self.get_type_groupe_display()} ({self.members.count()} membres)"
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        if not self.pk:
+            return
+        members = list(self.members.all())
+        if self.type_groupe == 'male_female':
+            pollinisateurs = [m for m in members if m.role == 'pollinisateur']
+            principaux = [m for m in members if m.role == 'principal']
+            if len(pollinisateurs) > 1:
+                raise ValidationError({"role": "Un seul pollinisateur autorisé par groupe mâle/femelle."})
+            if len(principaux) > 6:
+                raise ValidationError({"role": "Au plus 6 plants principaux (femelles) par pollinisateur."})
+        elif self.type_groupe == 'cross_pollination_cultivar':
+            if len(members) < 2:
+                raise ValidationError({"members": "Au moins 2 specimens requis pour la pollinisation croisée."})
+
+
+class SpecimenGroupMember(models.Model):
+    """Membre d'un groupe de pollinisation (specimen + rôle)."""
+    ROLE_CHOICES = [
+        ('pollinisateur', 'Pollinisateur (mâle)'),
+        ('principal', 'Principal (femelle)'),
+        ('partenaire', 'Partenaire'),
+    ]
+    group = models.ForeignKey(
+        'species.SpecimenGroup',
+        on_delete=models.CASCADE,
+        related_name='members',
+    )
+    specimen = models.ForeignKey(
+        'species.Specimen',
+        on_delete=models.CASCADE,
+        related_name='pollination_groups',
+    )
+    role = models.CharField(
+        max_length=20,
+        choices=ROLE_CHOICES,
+        null=True,
+        blank=True,
+        help_text="pollinisateur (1 par groupe male_female), principal (jusqu'à 6), partenaire (cross_pollination)",
+    )
+
+    class Meta:
+        verbose_name = "Membre du groupe"
+        verbose_name_plural = "Membres du groupe"
+        unique_together = [['group', 'specimen']]
+        ordering = ['group', 'role', 'specimen__nom']
+
+    def __str__(self):
+        return f"{self.specimen.nom} ({self.get_role_display() or '—'}) dans {self.group}"
 
 
 class Event(models.Model):
@@ -1411,6 +1804,11 @@ class UserPreference(models.Model):
         blank=True,
         related_name='+',
         help_text="Jardin par défaut (saisons, repères)",
+    )
+    pollination_distance_max_default_m = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Distance de pollinisation par défaut (m) pour les plants. Utilisée quand l'espèce n'a pas de distance_pollinisation_max.",
     )
 
     class Meta:
@@ -1632,3 +2030,112 @@ class SprinklerZone(models.Model):
 
     def __str__(self):
         return f"{self.garden.nom} — {self.nom}"
+
+
+class DataImportRun(models.Model):
+    """
+    Historique des exécutions d'import / enrichissement.
+    Permet d'afficher le statut et l'historique sur la page Gestion des données et les change_list admin.
+    """
+    SOURCE_CHOICES = [
+        ('pfaf', 'PFAF'),
+        ('seeds', 'Semences (CSV/JSON)'),
+        ('import_vascan', 'Import VASCAN'),
+        ('import_usda', 'Import USDA'),
+        ('import_hydroquebec', 'Import Hydro-Québec'),
+        ('import_botanipedia', 'Import Botanipedia'),
+        ('merge_organism_duplicates', 'Merge doublons'),
+        ('populate_proprietes_usage_calendrier', 'Populate propriétés/usages/calendrier'),
+        ('wipe_species', 'Wipe species'),
+        ('wipe_db_and_media', 'Wipe DB and media'),
+    ]
+    STATUS_CHOICES = [
+        ('running', 'En cours'),
+        ('success', 'Succès'),
+        ('failure', 'Échec'),
+    ]
+    TRIGGER_CHOICES = [
+        ('admin_import', 'Admin (import)'),
+        ('gestion_donnees', 'Gestion des données'),
+        ('api', 'API'),
+    ]
+
+    source = models.CharField(
+        max_length=80,
+        choices=SOURCE_CHOICES,
+        db_index=True,
+        help_text="Type d'import ou commande exécutée",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='running',
+        db_index=True,
+    )
+    started_at = models.DateTimeField(auto_now_add=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    stats = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Résumé: created, updated, errors, etc.",
+    )
+    output_snippet = models.TextField(
+        blank=True,
+        help_text="Derniers caractères de la sortie (stdout/err) pour débogage",
+    )
+    trigger = models.CharField(
+        max_length=30,
+        choices=TRIGGER_CHOICES,
+        default='gestion_donnees',
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='data_import_runs',
+    )
+
+    class Meta:
+        verbose_name = "Exécution d'import"
+        verbose_name_plural = "Exécutions d'import"
+        ordering = ['-started_at']
+        indexes = [
+            models.Index(fields=['source', '-started_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.get_source_display()} — {self.started_at:%Y-%m-%d %H:%M} ({self.get_status_display()})"
+
+
+class BaseEnrichmentStats(models.Model):
+    """
+    Singleton : une seule ligne. Stocke la note d'enrichissement globale de la base
+    et la date du dernier recalcul. Mis à jour après chaque import / migration.
+    """
+    global_score_pct = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text="Note d'enrichissement moyenne de toutes les fiches (0-100 %)."
+    )
+    organism_count = models.PositiveIntegerField(
+        default=0,
+        help_text="Nombre d'organismes au moment du calcul."
+    )
+    last_updated = models.DateTimeField(
+        auto_now=True,
+        help_text="Dernière mise à jour des stats."
+    )
+    computed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Date/heure du dernier recalcul complet."
+    )
+
+    class Meta:
+        verbose_name = "Stats enrichissement (base)"
+        verbose_name_plural = "Stats enrichissement (base)"
+        db_table = "species_base_enrichment_stats"
+
+    def __str__(self):
+        return f"Enrichissement base: {self.global_score_pct}% ({self.organism_count} espèces)"

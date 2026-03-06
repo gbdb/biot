@@ -16,18 +16,37 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
 
-from .models import Organism, Garden, Specimen, SpecimenFavorite, OrganismFavorite, Event, Reminder, Photo, UserPreference
+from .models import (
+    Cultivar,
+    Organism,
+    OrganismCalendrier,
+    Garden,
+    Specimen,
+    SpecimenFavorite,
+    OrganismFavorite,
+    SpecimenGroup,
+    SpecimenGroupMember,
+    Event,
+    Reminder,
+    Photo,
+    UserPreference,
+)
 from django.db.models import Prefetch
 
 from .serializers import (
+    CultivarListSerializer,
     OrganismMinimalSerializer,
     OrganismDetailSerializer,
     OrganismCreateSerializer,
     OrganismUpdateSerializer,
     GardenMinimalSerializer,
+    GardenCreateSerializer,
     SpecimenListSerializer,
     SpecimenDetailSerializer,
     SpecimenCreateUpdateSerializer,
+    SpecimenGroupSerializer,
+    SpecimenGroupCreateUpdateSerializer,
+    SpecimenGroupMemberWriteSerializer,
     EventSerializer,
     EventCreateSerializer,
     EventUpdateSerializer,
@@ -69,7 +88,7 @@ class SpecimenViewSet(viewsets.ModelViewSet):
     """CRUD spécimens + liste avec filtres."""
 
     queryset = Specimen.objects.select_related(
-        'organisme', 'garden', 'photo_principale'
+        'organisme', 'cultivar', 'garden', 'photo_principale'
     ).prefetch_related('photos').order_by('-date_plantation', 'nom')
 
     def get_serializer_class(self):
@@ -116,6 +135,17 @@ class SpecimenViewSet(viewsets.ModelViewSet):
             include_enleve = self.request.query_params.get('include_enleve', 'false').lower() == 'true'
             if not include_enleve:
                 qs = qs.exclude(statut='enleve')
+        if self.action == 'retrieve':
+            qs = qs.prefetch_related(
+                Prefetch(
+                    'pollination_groups',
+                    queryset=SpecimenGroupMember.objects.select_related('group').prefetch_related(
+                        'group__members__specimen',
+                        'group__members__specimen__organisme',
+                        'group__members__specimen__cultivar',
+                    ),
+                ),
+            )
         return qs
 
     @action(detail=False, methods=['get'], url_path='recent_events')
@@ -570,7 +600,36 @@ class OrganismViewSet(
                     pass
             org_ids = specimen_filter.values_list('organisme_id', flat=True).distinct()
             qs = qs.filter(pk__in=org_ids)
-        return qs.select_related('photo_principale')
+        qs = qs.select_related('photo_principale')
+        if self.action == 'list':
+            qs = qs.order_by('genus', 'nom_commun')
+        if self.action == 'retrieve':
+            from .models import CompanionRelation, Cultivar, CultivarPollinator
+            qs = qs.prefetch_related(
+                'proprietes',
+                'usages',
+                'calendrier',
+                Prefetch(
+                    'cultivars',
+                    queryset=Cultivar.objects.prefetch_related(
+                        Prefetch(
+                            'pollinator_companions',
+                            queryset=CultivarPollinator.objects.select_related(
+                                'companion_cultivar', 'companion_organism'
+                            ),
+                        )
+                    ),
+                ),
+                Prefetch(
+                    'relations_sortantes',
+                    queryset=CompanionRelation.objects.select_related('organisme_cible'),
+                ),
+                Prefetch(
+                    'relations_entrantes',
+                    queryset=CompanionRelation.objects.select_related('organisme_source'),
+                ),
+            )
+        return qs
 
     @action(detail=True, methods=['post', 'delete'], url_path='favoris')
     def favoris(self, request, pk=None):
@@ -666,6 +725,39 @@ class OrganismViewSet(
         organism.save(update_fields=['photo_principale', 'date_modification'])
         return Response({'detail': 'Image par défaut définie'}, status=status.HTTP_200_OK)
 
+    @action(detail=True, methods=['post'], url_path='enrich')
+    def enrich(self, request, pk=None):
+        """
+        Enrichit cet organisme depuis VASCAN, USDA et Botanipedia.
+        Réservé aux utilisateurs staff. Retourne les résultats par source.
+        """
+        if not request.user.is_authenticated:
+            return Response({'detail': 'Authentification requise'}, status=status.HTTP_401_UNAUTHORIZED)
+        if not request.user.is_staff:
+            return Response({'detail': 'Droits insuffisants. Réservé aux administrateurs.'}, status=status.HTTP_403_FORBIDDEN)
+        organism = self.get_object()
+        if not (organism.nom_latin or '').strip():
+            return Response(
+                {'detail': 'Enrichissement impossible : le nom latin est vide.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        from species.enrichment import enrich_organism
+        try:
+            results = enrich_organism(organism, delay=0.6)
+            # Format pour le client: { source: { success, message } }
+            data = {
+                'results': {
+                    source: {'success': ok, 'message': msg}
+                    for source, (ok, msg) in results.items()
+                },
+            }
+            return Response(data, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response(
+                {'detail': f'Erreur lors de l\'enrichissement : {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
 
 def _download_image_from_url(url: str, timeout: int = 15, max_size: int = 10 * 1024 * 1024):
     """
@@ -696,19 +788,110 @@ def _download_image_from_url(url: str, timeout: int = 15, max_size: int = 10 * 1
         raise ValueError(f'Impossible de télécharger l\'image: {e}') from e
 
 
-# --- Garden ViewSet (lecture) ---
-class GardenViewSet(viewsets.ReadOnlyModelViewSet):
-    """Liste et détail des jardins."""
+# --- Cultivar ViewSet (liste en lecture seule) ---
+class CultivarPagination(PageNumberPagination):
+    """Même taille de page que les organismes."""
+    page_size = 50
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+
+class CultivarViewSet(
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    viewsets.GenericViewSet,
+):
+    """Liste et détail des cultivars (lecture seule). Filtre ?organism=<id> pour une espèce."""
+
+    queryset = Cultivar.objects.select_related('organism').order_by('organism__nom_latin', 'nom')
+    pagination_class = CultivarPagination
+    serializer_class = CultivarListSerializer
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        organism_id = self.request.query_params.get('organism')
+        if organism_id:
+            try:
+                qs = qs.filter(organism_id=int(organism_id))
+            except (ValueError, TypeError):
+                pass
+        search = self.request.query_params.get('search')
+        if search:
+            qs = qs.filter(
+                Q(nom__icontains=search)
+                | Q(organism__nom_commun__icontains=search)
+                | Q(organism__nom_latin__icontains=search)
+            )
+        qs = qs.select_related('organism', 'organism__photo_principale')
+        return qs
+
+
+# --- SpecimenGroup ViewSet (groupes de pollinisation) ---
+class SpecimenGroupViewSet(viewsets.ModelViewSet):
+    """CRUD groupes de pollinisation (mâle/femelle ou pollinisation croisée cultivars)."""
+    queryset = SpecimenGroup.objects.prefetch_related('members__specimen', 'members__specimen__organisme').order_by('-date_ajout')
+
+    def get_serializer_class(self):
+        if self.action in ('create', 'update', 'partial_update'):
+            return SpecimenGroupCreateUpdateSerializer
+        return SpecimenGroupSerializer
+
+    def get_queryset(self):
+        return super().get_queryset()
+
+    @action(detail=True, methods=['post'], url_path='members')
+    def add_member(self, request, pk=None):
+        """POST /api/specimen-groups/:id/members/ { "specimen": id, "role": "principal" }"""
+        group = self.get_object()
+        ser = SpecimenGroupMemberWriteSerializer(data=request.data, context={'request': request})
+        ser.is_valid(raise_exception=True)
+        if SpecimenGroupMember.objects.filter(group=group, specimen=ser.validated_data['specimen']).exists():
+            return Response({'detail': 'Ce spécimen est déjà dans le groupe.'}, status=status.HTTP_400_BAD_REQUEST)
+        SpecimenGroupMember.objects.create(group=group, **ser.validated_data)
+        out = SpecimenGroupSerializer(group, context={'request': request})
+        return Response(out.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['delete'], url_path='members/(?P<member_pk>[0-9]+)')
+    def remove_member(self, request, pk=None, member_pk=None):
+        """DELETE /api/specimen-groups/:id/members/:member_pk/"""
+        group = self.get_object()
+        member = SpecimenGroupMember.objects.filter(group=group, pk=member_pk).first()
+        if not member:
+            return Response({'detail': 'Membre introuvable.'}, status=status.HTTP_404_NOT_FOUND)
+        member.delete()
+        out = SpecimenGroupSerializer(group, context={'request': request})
+        return Response(out.data, status=status.HTTP_200_OK)
+
+
+# --- Garden ViewSet (liste, détail, création) ---
+class GardenViewSet(
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.CreateModelMixin,
+    viewsets.GenericViewSet,
+):
+    """Liste, détail et création des jardins (création réservée aux utilisateurs authentifiés)."""
 
     queryset = Garden.objects.order_by('nom')
     serializer_class = GardenMinimalSerializer
 
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return GardenCreateSerializer
+        return GardenMinimalSerializer
 
-# --- Préférences utilisateur (jardin par défaut) ---
+    def get_permissions(self):
+        from rest_framework.permissions import IsAuthenticated
+        if self.action == 'create':
+            return [IsAuthenticated()]
+        return []
+
+
+# --- Préférences utilisateur (jardin par défaut, distance pollinisation) ---
 class UserPreferencesView(APIView):
     """
-    GET /api/me/preferences/  -> { "default_garden_id": int | null }
-    PATCH /api/me/preferences/ -> body { "default_garden_id": int | null }
+    GET /api/me/preferences/  -> { "default_garden_id": int | null, "pollination_distance_max_default_m": float | null }
+    PATCH /api/me/preferences/ -> body { "default_garden_id": int | null, "pollination_distance_max_default_m": float | null }
     """
     def get(self, request):
         if not request.user.is_authenticated:
@@ -716,24 +899,161 @@ class UserPreferencesView(APIView):
         prefs, _ = UserPreference.objects.get_or_create(user=request.user, defaults={})
         return Response({
             'default_garden_id': prefs.default_garden_id,
+            'pollination_distance_max_default_m': prefs.pollination_distance_max_default_m,
         })
 
     def patch(self, request):
         if not request.user.is_authenticated:
             return Response({'detail': 'Authentification requise'}, status=status.HTTP_401_UNAUTHORIZED)
         prefs, _ = UserPreference.objects.get_or_create(user=request.user, defaults={})
-        gid = request.data.get('default_garden_id')
-        if gid is None:
-            prefs.default_garden_id = None
-        else:
-            if not Garden.objects.filter(pk=gid).exists():
-                return Response(
-                    {'detail': 'Jardin introuvable.'},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            prefs.default_garden_id = gid
+        if 'default_garden_id' in request.data:
+            gid = request.data.get('default_garden_id')
+            if gid is None:
+                prefs.default_garden_id = None
+            else:
+                if not Garden.objects.filter(pk=gid).exists():
+                    return Response(
+                        {'detail': 'Jardin introuvable.'},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                prefs.default_garden_id = gid
+        if 'pollination_distance_max_default_m' in request.data:
+            val = request.data.get('pollination_distance_max_default_m')
+            if val is None:
+                prefs.pollination_distance_max_default_m = None
+            else:
+                try:
+                    f = float(val)
+                    if f < 0:
+                        return Response(
+                            {'detail': 'La distance doit être positive ou nulle.'},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                    prefs.pollination_distance_max_default_m = f
+                except (TypeError, ValueError):
+                    return Response(
+                        {'detail': 'Valeur numérique invalide pour pollination_distance_max_default_m.'},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
         prefs.save()
-        return Response({'default_garden_id': prefs.default_garden_id})
+        return Response({
+            'default_garden_id': prefs.default_garden_id,
+            'pollination_distance_max_default_m': prefs.pollination_distance_max_default_m,
+        })
+
+
+# --- Profil utilisateur (moi) ---
+class MeView(APIView):
+    """
+    GET /api/me/  -> { "username", "email", "first_name", "last_name", "is_staff", "is_superuser" }
+    PATCH /api/me/ -> body { "email", "first_name", "last_name" } (optionnels)
+    """
+    def get(self, request):
+        if not request.user.is_authenticated:
+            return Response({'detail': 'Authentification requise'}, status=status.HTTP_401_UNAUTHORIZED)
+        u = request.user
+        return Response({
+            'username': u.username,
+            'email': u.email or '',
+            'first_name': u.first_name or '',
+            'last_name': u.last_name or '',
+            'is_staff': getattr(u, 'is_staff', False),
+            'is_superuser': getattr(u, 'is_superuser', False),
+        })
+
+    def patch(self, request):
+        if not request.user.is_authenticated:
+            return Response({'detail': 'Authentification requise'}, status=status.HTTP_401_UNAUTHORIZED)
+        u = request.user
+        if 'email' in request.data:
+            u.email = (request.data.get('email') or '').strip() or ''
+        if 'first_name' in request.data:
+            u.first_name = (request.data.get('first_name') or '').strip()[:150]
+        if 'last_name' in request.data:
+            u.last_name = (request.data.get('last_name') or '').strip()[:150]
+        u.save()
+        return Response({
+            'username': u.username,
+            'email': u.email or '',
+            'first_name': u.first_name or '',
+            'last_name': u.last_name or '',
+            'is_staff': getattr(u, 'is_staff', False),
+            'is_superuser': getattr(u, 'is_superuser', False),
+        })
+
+
+# --- Gestion des utilisateurs (superuser peut promouvoir en admin) ---
+class AdminUserListView(APIView):
+    """
+    GET /api/admin/users/
+    Liste des utilisateurs (id, username, email, is_staff, is_superuser).
+    Réservé aux utilisateurs staff.
+    """
+    def get(self, request):
+        if not request.user.is_authenticated:
+            return Response({'detail': 'Authentification requise'}, status=status.HTTP_401_UNAUTHORIZED)
+        if not request.user.is_staff:
+            return Response({'detail': 'Droits insuffisants'}, status=status.HTTP_403_FORBIDDEN)
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        users = User.objects.all().order_by('username').values('id', 'username', 'email', 'is_staff', 'is_superuser')
+        return Response(list(users))
+
+
+class AdminUserDetailView(APIView):
+    """
+    PATCH /api/admin/users/<id>/
+    Body: { "is_staff": bool }
+    Modifier le statut administrateur d'un utilisateur. Réservé aux superusers.
+    """
+    def patch(self, request, pk):
+        if not request.user.is_authenticated:
+            return Response({'detail': 'Authentification requise'}, status=status.HTTP_401_UNAUTHORIZED)
+        if not request.user.is_superuser:
+            return Response({'detail': 'Seul un superutilisateur peut modifier les droits.'}, status=status.HTTP_403_FORBIDDEN)
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        user = get_object_or_404(User, pk=pk)
+        if 'is_staff' in request.data:
+            user.is_staff = bool(request.data['is_staff'])
+            user.save(update_fields=['is_staff'])
+        return Response({
+            'id': user.id,
+            'username': user.username,
+            'email': user.email or '',
+            'is_staff': user.is_staff,
+            'is_superuser': user.is_superuser,
+        })
+
+
+class ChangePasswordView(APIView):
+    """
+    POST /api/me/change-password/
+    Body: { "current_password": str, "new_password": str }
+    """
+    def post(self, request):
+        if not request.user.is_authenticated:
+            return Response({'detail': 'Authentification requise'}, status=status.HTTP_401_UNAUTHORIZED)
+        current = request.data.get('current_password')
+        new_password = request.data.get('new_password')
+        if not current:
+            return Response(
+                {'detail': 'Mot de passe actuel requis.', 'current_password': 'Requis'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not new_password:
+            return Response(
+                {'detail': 'Nouveau mot de passe requis.', 'new_password': 'Requis'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not request.user.check_password(current):
+            return Response(
+                {'detail': 'Mot de passe actuel incorrect.', 'current_password': 'Incorrect'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        request.user.set_password(new_password)
+        request.user.save()
+        return Response({'detail': 'Mot de passe modifié.'})
 
 
 # --- Rappels à venir (page d'accueil) ---
@@ -763,6 +1083,54 @@ def _reminder_to_upcoming_item(r, request, today):
             'photo_url': photo_url,
         },
     }
+
+
+class ExpectedEventsView(APIView):
+    """
+    GET /api/expected-events/?month=5
+    Retourne les événements attendus (floraison, récolte, etc.) pour le mois donné,
+    basés sur OrganismCalendrier, pour les organismes des spécimens favoris et organismes favoris.
+    month: 1-12 (défaut: mois courant).
+    """
+    def get(self, request):
+        if not request.user.is_authenticated:
+            return Response({'detail': 'Authentification requise'}, status=status.HTTP_401_UNAUTHORIZED)
+        try:
+            month = int(request.query_params.get('month', date.today().month))
+        except (TypeError, ValueError):
+            month = date.today().month
+        if not 1 <= month <= 12:
+            month = date.today().month
+
+        organism_ids_specimens = SpecimenFavorite.objects.filter(
+            user=request.user
+        ).values_list('specimen__organisme_id', flat=True).distinct()
+        organism_ids_fav = OrganismFavorite.objects.filter(
+            user=request.user
+        ).values_list('organism_id', flat=True).distinct()
+        organism_ids = set(organism_ids_specimens) | set(organism_ids_fav)
+        if not organism_ids:
+            return Response([])
+
+        cal = OrganismCalendrier.objects.filter(
+            organisme_id__in=organism_ids,
+            mois_debut__lte=month,
+            mois_fin__gte=month,
+        ).select_related('organisme').order_by('type_periode', 'organisme__nom_commun')
+
+        result = []
+        for c in cal:
+            result.append({
+                'type_periode': c.type_periode,
+                'type_periode_display': c.get_type_periode_display(),
+                'mois_debut': c.mois_debut,
+                'mois_fin': c.mois_fin,
+                'organisme_id': c.organisme_id,
+                'organisme_nom': c.organisme.nom_commun,
+                'organisme_nom_latin': c.organisme.nom_latin or '',
+                'source': c.source,
+            })
+        return Response(result)
 
 
 class RemindersUpcomingView(APIView):
@@ -836,3 +1204,143 @@ class WeatherAlertsView(APIView):
                     'garden_nom': g.nom,
                 })
         return Response(alerts[:20])  # Limite pour éviter trop d'alertes
+
+
+# --- Stats espèces (admin) ---
+class SpeciesStatsView(APIView):
+    """
+    GET /api/admin/species-stats/
+    Retourne le nombre d'organismes (espèces) et la note d'enrichissement globale. Réservé aux staff.
+    """
+    def get(self, request):
+        if not request.user.is_authenticated:
+            return Response({'detail': 'Authentification requise'}, status=status.HTTP_401_UNAUTHORIZED)
+        if not request.user.is_staff:
+            return Response({'detail': 'Droits insuffisants'}, status=status.HTTP_403_FORBIDDEN)
+        from species.models import BaseEnrichmentStats
+        count = Organism.objects.count()
+        stats = BaseEnrichmentStats.objects.first()
+        global_score = stats.global_score_pct if stats else None
+        return Response({
+            'organism_count': count,
+            'global_enrichment_score_pct': global_score,
+        })
+
+
+# --- Import VASCAN depuis fichier (upload) ---
+class ImportVascanFileView(APIView):
+    """
+    POST /api/admin/import-vascan-file/
+    Body: multipart/form-data avec champ "file" (fichier texte ou tab-delimited).
+    Exécute import_vascan --file avec le fichier uploadé. Réservé aux staff.
+    """
+    def post(self, request):
+        if not request.user.is_authenticated:
+            return Response({'detail': 'Authentification requise'}, status=status.HTTP_401_UNAUTHORIZED)
+        if not request.user.is_staff:
+            return Response({'detail': 'Droits insuffisants'}, status=status.HTTP_403_FORBIDDEN)
+
+        uploaded = request.FILES.get('file')
+        if not uploaded:
+            return Response(
+                {'detail': 'Aucun fichier. Envoyez un fichier avec le champ "file".'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        import tempfile
+        from django.core.management import call_command
+        from io import StringIO
+
+        suffix = '.txt'
+        if uploaded.name and '.' in uploaded.name:
+            suffix = '.' + uploaded.name.rsplit('.', 1)[-1]
+        with tempfile.NamedTemporaryFile(mode='wb', suffix=suffix, delete=False) as f:
+            for chunk in uploaded.chunks():
+                f.write(chunk)
+            path = f.name
+        try:
+            out = StringIO()
+            err = StringIO()
+            try:
+                call_command('import_vascan', file=path, stdout=out, stderr=err)
+                output = (out.getvalue() + '\n' + err.getvalue()).strip()
+                return Response({'success': True, 'output': output or 'Import terminé.'})
+            except Exception as e:
+                output = (out.getvalue() + '\n' + err.getvalue()).strip() or str(e)
+                return Response({'success': False, 'output': output, 'detail': 'Erreur lors de l\'import'})
+        finally:
+            import os
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+
+
+# --- Commandes admin (paramètres avancés, staff uniquement) ---
+ALLOWED_ADMIN_COMMANDS = {
+    'import_vascan': {'enrich': bool, 'limit': int, 'delay': float},
+    'import_usda': {'enrich': bool, 'limit': int, 'delay': float},
+    'import_hydroquebec': {'limit': int, 'curl': bool, 'insecure': bool},
+    'import_botanipedia': {'enrich': bool, 'limit': int, 'delay': float, 'verbose': bool},
+    'merge_organism_duplicates': {'dry_run': bool, 'no_input': bool},
+    'populate_proprietes_usage_calendrier': {'limit': int},
+    'wipe_db_and_media': {'no_input': bool},
+    'wipe_species': {'no_input': bool},
+}
+
+
+def _build_command_kwargs(command_name: str, options: dict) -> dict:
+    """Construit les kwargs pour call_command à partir des options autorisées."""
+    allowed = ALLOWED_ADMIN_COMMANDS.get(command_name)
+    if not allowed:
+        return {}
+    kwargs = {}
+    for key, type_hint in allowed.items():
+        val = options.get(key)
+        if val is None:
+            continue
+        if type_hint is bool:
+            kwargs[key] = bool(val)
+        elif type_hint is int:
+            kwargs[key] = int(val) if val != '' else 0
+        elif type_hint is float:
+            kwargs[key] = float(val) if val != '' else 0.0
+    return kwargs
+
+
+class RunAdminCommandView(APIView):
+    """
+    POST /api/admin/run-command/
+    Body: { "command": "import_vascan", "options": { "enrich": true, "limit": 50 } }
+    Réservé aux utilisateurs staff. Exécute une commande de management autorisée et retourne la sortie.
+    """
+    def post(self, request):
+        if not request.user.is_authenticated:
+            return Response({'detail': 'Authentification requise'}, status=status.HTTP_401_UNAUTHORIZED)
+        if not request.user.is_staff:
+            return Response({'detail': 'Droits insuffisants'}, status=status.HTTP_403_FORBIDDEN)
+
+        command = (request.data.get('command') or '').strip()
+        if command not in ALLOWED_ADMIN_COMMANDS:
+            return Response(
+                {'detail': f'Commande non autorisée. Autorisées: {", ".join(sorted(ALLOWED_ADMIN_COMMANDS))}'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        options = request.data.get('options') or {}
+        cmd_kwargs = _build_command_kwargs(command, options)
+        if command in ('merge_organism_duplicates', 'wipe_db_and_media', 'wipe_species'):
+            cmd_kwargs.setdefault('no_input', True)
+
+        from io import StringIO
+        from django.core.management import call_command
+
+        out = StringIO()
+        err = StringIO()
+        try:
+            call_command(command, stdout=out, stderr=err, **cmd_kwargs)
+            output = (out.getvalue() + '\n' + err.getvalue()).strip()
+            return Response({'success': True, 'output': output or 'Commande exécutée.'})
+        except Exception as e:
+            output = (out.getvalue() + '\n' + err.getvalue()).strip() or str(e)
+            return Response({'success': False, 'output': output, 'detail': 'Erreur lors de l\'exécution'})

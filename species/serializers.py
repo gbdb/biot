@@ -3,7 +3,26 @@ Serializers pour l'API REST (app mobile Jardin Biot).
 """
 from rest_framework import serializers
 
-from .models import Organism, Garden, Specimen, SpecimenFavorite, OrganismFavorite, Event, Reminder, Photo, UserTag
+from .models import (
+    Organism,
+    OrganismPropriete,
+    OrganismUsage,
+    OrganismCalendrier,
+    CompanionRelation,
+    Cultivar,
+    CultivarPollinator,
+    Garden,
+    Specimen,
+    SpecimenFavorite,
+    OrganismFavorite,
+    SpecimenGroup,
+    SpecimenGroupMember,
+    Event,
+    Reminder,
+    Photo,
+    UserTag,
+)
+from .utils import distance_metres_between_specimens, get_pollination_distance_max_m
 from .source_rules import (
     find_organism_by_latin_fuzzy,
     find_organism_by_common_name,
@@ -30,14 +49,132 @@ class OrganismMinimalSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Organism
-        fields = ['id', 'nom_commun', 'nom_latin', 'type_organisme', 'is_favori', 'photo_principale_url']
+        fields = ['id', 'nom_commun', 'nom_latin', 'slug_latin', 'type_organisme', 'genus', 'is_favori', 'photo_principale_url']
+
+
+# --- Nested data for organism detail (proprietes, usages, calendrier, companions) ---
+class OrganismProprieteSerializer(serializers.ModelSerializer):
+    """Propriétés sol/exposition par source."""
+
+    class Meta:
+        model = OrganismPropriete
+        fields = ['id', 'type_sol', 'ph_min', 'ph_max', 'tolerance_ombre', 'source']
+
+
+class OrganismUsageSerializer(serializers.ModelSerializer):
+    """Usages (comestible, médicinal, etc.) par type."""
+
+    type_usage_display = serializers.CharField(source='get_type_usage_display', read_only=True)
+
+    class Meta:
+        model = OrganismUsage
+        fields = ['id', 'type_usage', 'type_usage_display', 'parties', 'description', 'source']
+
+
+class OrganismCalendrierSerializer(serializers.ModelSerializer):
+    """Périodes (floraison, récolte, semis) par source."""
+
+    type_periode_display = serializers.CharField(source='get_type_periode_display', read_only=True)
+
+    class Meta:
+        model = OrganismCalendrier
+        fields = ['id', 'type_periode', 'type_periode_display', 'mois_debut', 'mois_fin', 'source']
+
+
+class CultivarPollinatorCompanionSerializer(serializers.Serializer):
+    """Un compagnon pollinisateur recommandé pour un cultivar (lecture seule)."""
+    id = serializers.IntegerField(read_only=True)
+    companion_cultivar = serializers.SerializerMethodField()
+    companion_organism = serializers.SerializerMethodField()
+    notes = serializers.CharField(read_only=True)
+    source = serializers.CharField(read_only=True)
+
+    def get_companion_cultivar(self, obj):
+        if not obj.companion_cultivar_id:
+            return None
+        c = obj.companion_cultivar
+        return {'id': c.id, 'nom': c.nom, 'slug_cultivar': c.slug_cultivar}
+
+    def get_companion_organism(self, obj):
+        if not obj.companion_organism_id:
+            return None
+        o = obj.companion_organism
+        return {'id': o.id, 'nom_commun': o.nom_commun, 'nom_latin': o.nom_latin or ''}
+
+
+class CultivarSerializer(serializers.ModelSerializer):
+    """Cultivar / variété d'une espèce (liste pour détail organisme) avec pollinisateurs recommandés."""
+
+    pollinateurs_recommandes = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Cultivar
+        fields = [
+            'id', 'slug_cultivar', 'nom', 'description',
+            'couleur_fruit', 'gout', 'resistance_maladies', 'notes',
+            'pollinateurs_recommandes',
+        ]
+
+    def get_pollinateurs_recommandes(self, obj):
+        companions = getattr(obj, 'pollinator_companions', None)
+        if companions is None:
+            companions = obj.pollinator_companions.all()
+        return CultivarPollinatorCompanionSerializer(companions, many=True).data
+
+
+class CultivarListSerializer(serializers.ModelSerializer):
+    """Cultivar pour liste API (avec espèce minimale)."""
+
+    organisme = OrganismMinimalSerializer(source='organism', read_only=True)
+
+    class Meta:
+        model = Cultivar
+        fields = ['id', 'slug_cultivar', 'nom', 'organisme']
+
+
+# Companion relation: other organism + relation type (for display on species detail)
+_COMPANION_POSITIVE_TYPES = {
+    'compagnon_positif', 'fixateur_azote', 'attire_pollinisateurs', 'repousse_nuisibles',
+    'abri', 'coupe_vent', 'support_physique', 'mycorhize', 'accumulateur',
+}
+
+
+def _serialize_companion_relation(rel, current_organism_id):
+    """Build one companion relation dict for API (other_organism, type, beneficial vs avoid)."""
+    if rel.organisme_source_id == current_organism_id:
+        other = rel.organisme_cible
+        direction = 'as_source'  # this species helps the other
+    else:
+        other = rel.organisme_source
+        direction = 'as_target'  # the other helps this species
+    return {
+        'id': rel.id,
+        'direction': direction,
+        'other_organism': {
+            'id': other.id,
+            'nom_commun': other.nom_commun,
+            'nom_latin': other.nom_latin or '',
+        },
+        'type_relation': rel.type_relation,
+        'type_relation_display': rel.get_type_relation_display(),
+        'force': rel.force,
+        'distance_optimale': rel.distance_optimale,
+        'description': rel.description or '',
+        'source_info': rel.source_info or '',
+        'is_positive': rel.type_relation in _COMPANION_POSITIVE_TYPES,
+    }
 
 
 class OrganismDetailSerializer(serializers.ModelSerializer):
-    """Détail complet pour affichage et édition."""
+    """Détail complet pour affichage et édition (inclut proprietes, usages, calendrier, compagnons)."""
     is_favori = serializers.SerializerMethodField()
     photo_principale_url = serializers.SerializerMethodField()
     photos = serializers.SerializerMethodField()
+    proprietes = serializers.SerializerMethodField()
+    usages = serializers.SerializerMethodField()
+    calendrier = serializers.SerializerMethodField()
+    cultivars = serializers.SerializerMethodField()
+    companion_relations = serializers.SerializerMethodField()
 
     def get_is_favori(self, obj):
         request = self.context.get('request')
@@ -53,17 +190,39 @@ class OrganismDetailSerializer(serializers.ModelSerializer):
     def get_photos(self, obj):
         return PhotoSerializer(obj.photos.all(), many=True, context=self.context).data
 
+    def get_proprietes(self, obj):
+        return OrganismProprieteSerializer(obj.proprietes.all(), many=True).data
+
+    def get_usages(self, obj):
+        return OrganismUsageSerializer(obj.usages.all(), many=True).data
+
+    def get_calendrier(self, obj):
+        return OrganismCalendrierSerializer(obj.calendrier.all(), many=True).data
+
+    def get_cultivars(self, obj):
+        return CultivarSerializer(obj.cultivars.all(), many=True).data
+
+    def get_companion_relations(self, obj):
+        out = []
+        for rel in obj.relations_sortantes.all().select_related('organisme_cible'):
+            out.append(_serialize_companion_relation(rel, obj.id))
+        for rel in obj.relations_entrantes.all().select_related('organisme_source'):
+            out.append(_serialize_companion_relation(rel, obj.id))
+        return out
+
     class Meta:
         model = Organism
         fields = [
-            'id', 'nom_commun', 'nom_latin', 'famille', 'regne', 'type_organisme', 'is_favori',
+            'id', 'nom_commun', 'nom_latin', 'slug_latin', 'famille', 'regne', 'type_organisme', 'is_favori',
             'photo_principale_url', 'photos',
             'besoin_eau', 'besoin_soleil', 'zone_rusticite', 'sol_textures', 'sol_ph', 'sol_drainage', 'sol_richesse',
             'hauteur_max', 'largeur_max', 'vitesse_croissance',
             'comestible', 'parties_comestibles', 'toxicite',
-            'type_noix', 'age_fructification', 'periode_recolte', 'pollinisation', 'production_annuelle',
+            'type_noix', 'age_fructification', 'periode_recolte', 'pollinisation', 'distance_pollinisation_max', 'production_annuelle',
             'fixateur_azote', 'accumulateur_dynamique', 'mellifere', 'produit_juglone', 'indigene',
             'description', 'notes', 'usages_autres',
+            'proprietes', 'usages', 'calendrier', 'cultivars', 'companion_relations',
+            'enrichment_score_pct',
         ]
 
 
@@ -77,7 +236,7 @@ class OrganismUpdateSerializer(serializers.ModelSerializer):
             'besoin_eau', 'besoin_soleil', 'sol_textures', 'sol_ph', 'sol_drainage', 'sol_richesse',
             'hauteur_max', 'largeur_max', 'vitesse_croissance',
             'comestible', 'parties_comestibles', 'toxicite',
-            'type_noix', 'age_fructification', 'periode_recolte', 'pollinisation', 'production_annuelle',
+            'type_noix', 'age_fructification', 'periode_recolte', 'pollinisation', 'distance_pollinisation_max', 'production_annuelle',
             'fixateur_azote', 'accumulateur_dynamique', 'mellifere', 'produit_juglone', 'indigene',
             'description', 'notes', 'usages_autres',
         ]
@@ -193,6 +352,14 @@ class GardenMinimalSerializer(serializers.ModelSerializer):
         fields = ['id', 'nom', 'ville', 'adresse', 'latitude', 'longitude']
 
 
+class GardenCreateSerializer(serializers.ModelSerializer):
+    """Création d'un jardin (nom requis, adresse optionnelle)."""
+
+    class Meta:
+        model = Garden
+        fields = ['nom', 'ville', 'adresse']
+
+
 def _get_photo_url(request, photo):
     """Retourne l'URL absolue d'une photo ou None."""
     if not photo or not photo.image or not request:
@@ -237,12 +404,20 @@ class SpecimenListSerializer(serializers.ModelSerializer):
 
 
 class SpecimenDetailSerializer(serializers.ModelSerializer):
-    """Détail complet d'un spécimen."""
+    """Détail complet d'un spécimen (inclut groupes de pollinisation et distance/alerte)."""
 
     organisme = OrganismMinimalSerializer(read_only=True)
+    cultivar = serializers.SerializerMethodField()
     garden = GardenMinimalSerializer(read_only=True, allow_null=True)
     is_favori = serializers.SerializerMethodField()
     photo_principale_url = serializers.SerializerMethodField()
+    pollination_associations = serializers.SerializerMethodField()
+
+    def get_cultivar(self, obj):
+        if not getattr(obj, 'cultivar_id', None) or not obj.cultivar_id:
+            return None
+        c = obj.cultivar
+        return {'id': c.id, 'nom': c.nom, 'slug_cultivar': c.slug_cultivar}
 
     def get_is_favori(self, obj):
         request = self.context.get('request')
@@ -257,14 +432,48 @@ class SpecimenDetailSerializer(serializers.ModelSerializer):
         first = obj.photos.first()
         return _get_photo_url(request, first) if first else None
 
+    def get_pollination_associations(self, obj):
+        request = self.context.get('request')
+        user = request.user if request and request.user.is_authenticated else None
+        max_m = get_pollination_distance_max_m(obj.organisme, user)
+        out = []
+        for membership in obj.pollination_groups.all():
+            group = membership.group
+            role = membership.role
+            other_members = []
+            for m in group.members.all():
+                if m.specimen_id == obj.id:
+                    continue
+                spec = m.specimen
+                dist = distance_metres_between_specimens(obj, spec)
+                alerte_distance = dist is not None and max_m is not None and dist > max_m
+                other_members.append({
+                    'specimen_id': spec.id,
+                    'nom': spec.nom,
+                    'organisme_nom': spec.organisme.nom_commun if spec.organisme_id else None,
+                    'cultivar_nom': spec.cultivar.nom if getattr(spec, 'cultivar_id', None) and spec.cultivar_id else None,
+                    'role': m.role,
+                    'statut': spec.statut,
+                    'distance_metres': round(dist, 1) if dist is not None else None,
+                    'alerte_distance': alerte_distance,
+                })
+            out.append({
+                'group_id': group.id,
+                'type_groupe': group.type_groupe,
+                'role': role,
+                'other_members': other_members,
+            })
+        return out
+
     class Meta:
         model = Specimen
         fields = [
-            'id', 'nom', 'code_identification', 'nfc_tag_uid', 'organisme', 'garden',
+            'id', 'nom', 'code_identification', 'nfc_tag_uid', 'organisme', 'cultivar', 'garden',
             'zone_jardin', 'latitude', 'longitude', 'date_plantation', 'age_plantation',
             'source', 'pepiniere_fournisseur', 'statut', 'sante', 'hauteur_actuelle',
             'premiere_fructification', 'notes', 'date_ajout', 'date_modification', 'is_favori',
             'photo_principale_url', 'photo_principale',
+            'pollination_associations',
         ]
 
 
@@ -275,13 +484,14 @@ class SpecimenCreateUpdateSerializer(serializers.ModelSerializer):
         model = Specimen
         fields = [
             'id',
-            'organisme', 'garden', 'nom', 'code_identification', 'nfc_tag_uid',
+            'organisme', 'cultivar', 'garden', 'nom', 'code_identification', 'nfc_tag_uid',
             'zone_jardin', 'latitude', 'longitude', 'date_plantation', 'age_plantation',
             'source', 'pepiniere_fournisseur', 'seed_collection', 'statut', 'sante',
             'hauteur_actuelle', 'premiere_fructification', 'notes',
         ]
         extra_kwargs = {
             'id': {'read_only': True},
+            'cultivar': {'required': False, 'allow_null': True},
             'code_identification': {'required': False, 'allow_blank': True},
             'nfc_tag_uid': {'required': False, 'allow_blank': True},
         }
@@ -360,19 +570,22 @@ class RecentEventSerializer(serializers.Serializer):
     event_id = serializers.IntegerField(source='id')
     type_event = serializers.CharField()
     date = serializers.DateField()
-    titre = serializers.CharField()
-    specimen_id = serializers.IntegerField(source='specimen_id')
-    specimen_nom = serializers.CharField(source='specimen.nom')
+    titre = serializers.CharField(allow_blank=True, default='')
+    specimen_id = serializers.IntegerField()
+    specimen_nom = serializers.CharField(source='specimen.nom', allow_blank=True, default='')
     photo_url = serializers.SerializerMethodField()
 
     def get_photo_url(self, obj):
-        first_photo = getattr(obj, '_first_photo', None) or (obj.photos.first() if hasattr(obj, 'photos') else None)
-        if not first_photo or not first_photo.image:
+        try:
+            first_photo = getattr(obj, '_first_photo', None) or (obj.photos.first() if hasattr(obj, 'photos') else None)
+            if not first_photo or not first_photo.image:
+                return None
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(first_photo.image.url)
             return None
-        request = self.context.get('request')
-        if request:
-            return request.build_absolute_uri(first_photo.image.url)
-        return None
+        except Exception:
+            return None
 
 
 # --- Reminder ---
@@ -468,6 +681,42 @@ class PhotoCreateSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'image': {'required': True},
         }
+
+
+# --- SpecimenGroup (groupes de pollinisation) ---
+class SpecimenGroupMemberReadSerializer(serializers.ModelSerializer):
+    """Membre d'un groupe (lecture)."""
+    specimen_id = serializers.IntegerField(source='specimen.id', read_only=True)
+    specimen_nom = serializers.CharField(source='specimen.nom', read_only=True)
+    organisme_nom = serializers.CharField(source='specimen.organisme.nom_commun', read_only=True)
+
+    class Meta:
+        model = SpecimenGroupMember
+        fields = ['id', 'specimen_id', 'specimen_nom', 'organisme_nom', 'role']
+
+
+class SpecimenGroupSerializer(serializers.ModelSerializer):
+    """Groupe de pollinisation (lecture + écriture)."""
+    members = SpecimenGroupMemberReadSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = SpecimenGroup
+        fields = ['id', 'type_groupe', 'organisme', 'date_ajout', 'members']
+        read_only_fields = ['date_ajout']
+
+
+class SpecimenGroupMemberWriteSerializer(serializers.ModelSerializer):
+    """Ajout d'un membre à un groupe."""
+    class Meta:
+        model = SpecimenGroupMember
+        fields = ['specimen', 'role']
+
+
+class SpecimenGroupCreateUpdateSerializer(serializers.ModelSerializer):
+    """Création / mise à jour d'un groupe (sans les membres)."""
+    class Meta:
+        model = SpecimenGroup
+        fields = ['type_groupe', 'organisme']
 
 
 # --- UserTag (pour organismes, optionnel) ---

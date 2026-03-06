@@ -1,10 +1,13 @@
 """
 Import Plants For A Future (PFAF) — complément à Hydro-Québec.
 
+Licence : la base PFAF est désormais payante (Standard Home 50 USD, Commercial 150 USD,
+Student 30 USD pour ~7400 plantes). N'utiliser que des fichiers acquis légalement via pfaf.org.
+
 Formats supportés (détection par extension) :
   - JSON  : liste d'objets (clés en anglais ou français, avec ou sans espaces)
   - CSV   : délimiteur auto (virgule, point-virgule, tab), en-têtes normalisés
-  - SQLite: base pfaf-data (github.com/saulshanabrook/pfaf-data), table plant_data
+  - SQLite: table plant_data (ou --table=...)
 
 Utilise species.pfaf_mapping pour unifier les noms de champs (Latin Name, latin_name,
 nom_latin, etc.). Par défaut --merge=fill_gaps pour préserver Hydro-Québec.
@@ -13,7 +16,7 @@ Données brutes stockées dans Organism.data_sources['pfaf'].
 from pathlib import Path
 
 from django.core.management.base import BaseCommand
-from species.models import Organism
+from species.models import Cultivar, Organism
 from species.pfaf_mapping import (
     PFAF_FIELD_ALIASES,
     get_available_columns,
@@ -25,14 +28,19 @@ from species.source_rules import (
     MERGE_OVERWRITE,
     SOURCE_PFAF,
     apply_fill_gaps,
+    ensure_organism_genus,
+    find_organism_and_cultivar,
     find_or_match_organism,
+    get_unique_slug_latin,
     merge_zones_rusticite,
+    parse_cultivar_from_latin,
 )
 
 
 class Command(BaseCommand):
     help = (
         'Importe des plantes depuis un fichier PFAF (JSON, CSV ou SQLite). '
+        'Base PFAF payante (50–150 USD) — n\'utiliser que des fichiers acquis via pfaf.org. '
         'Par défaut merge=fill_gaps pour préserver les données Hydro-Québec.'
     )
 
@@ -197,32 +205,46 @@ class Command(BaseCommand):
                     except (TypeError, ValueError):
                         pass
 
-                # Chercher ou créer l'organisme avec matching intelligent
-                # (find_or_match_organism gère le cas où nom_latin manque)
-                organism, est_nouveau = find_or_match_organism(
-                    Organism,
-                    nom_latin=nom_latin,
-                    nom_commun=nom_commun or nom_latin,  # Fallback sur nom_latin si nom_commun manque
-                    defaults={
-                        'nom_commun': nom_commun or nom_latin,
-                        'famille': famille,
-                        'regne': 'plante',
-                        'type_organisme': self._type_from_row(row),
-                        'besoin_soleil': besoin_soleil,
-                        'besoin_eau': besoin_eau,
-                        'hauteur_max': hauteur_max,
-                        'description': description,
-                        'parties_comestibles': get_row_value(
-                            row, PFAF_FIELD_ALIASES['edible_parts'], default=''
-                        ),
-                        'usages_autres': get_row_value(
-                            row, PFAF_FIELD_ALIASES['uses'], default=''
-                        ),
-                        'toxicite': get_row_value(
-                            row, PFAF_FIELD_ALIASES['toxicite'], default=''
-                        ),
-                    }
-                )
+                # Détecter cultivar dans le nom latin : si oui, rattacher à l'espèce + Cultivar
+                base_latin, nom_cultivar = parse_cultivar_from_latin(nom_latin or '')
+                defaults_common = {
+                    'nom_commun': nom_commun or nom_latin,
+                    'famille': famille,
+                    'regne': 'plante',
+                    'type_organisme': self._type_from_row(row),
+                    'besoin_soleil': besoin_soleil,
+                    'besoin_eau': besoin_eau,
+                    'hauteur_max': hauteur_max,
+                    'description': description,
+                    'parties_comestibles': get_row_value(
+                        row, PFAF_FIELD_ALIASES['edible_parts'], default=''
+                    ),
+                    'usages_autres': get_row_value(
+                        row, PFAF_FIELD_ALIASES['uses'], default=''
+                    ),
+                    'toxicite': get_row_value(
+                        row, PFAF_FIELD_ALIASES['toxicite'], default=''
+                    ),
+                }
+                if nom_cultivar and base_latin:
+                    defaults_common['slug_latin'] = get_unique_slug_latin(Organism, base_latin)
+                    organism, _cultivar, est_nouveau = find_organism_and_cultivar(
+                        Organism,
+                        Cultivar,
+                        nom_latin=nom_latin or '',
+                        nom_commun=nom_commun or nom_latin or '',
+                        defaults_organism=defaults_common,
+                        defaults_cultivar={},
+                    )
+                else:
+                    organism, est_nouveau = find_or_match_organism(
+                        Organism,
+                        nom_latin=nom_latin or '',
+                        nom_commun=nom_commun or nom_latin,
+                        defaults=defaults_common,
+                    )
+                
+                ensure_organism_genus(organism)
                 
                 # Gérer fixateur_azote
                 fixateur = get_row_value(
@@ -322,6 +344,12 @@ class Command(BaseCommand):
         self.stdout.write(f'  ✅ Créés: {created}')
         self.stdout.write(f'  🔄 Mis à jour: {updated}')
         self.stdout.write(f'  ⚠️ Ignorés: {skipped} ({skipped_empty_names} noms vides, {skipped_errors} erreurs)')
+        try:
+            from species.enrichment_score import update_enrichment_scores
+            res = update_enrichment_scores()
+            self.stdout.write(self.style.SUCCESS(f'  📊 Enrichissement: note globale {res["global_score_pct"]}%'))
+        except Exception as e:
+            self.stdout.write(self.style.WARNING(f'  ⚠️ Recalcul enrichissement: {e}'))
 
     def _serializable_payload(self, row: dict) -> dict:
         """Construit un dict JSON-serialisable pour data_sources['pfaf']."""

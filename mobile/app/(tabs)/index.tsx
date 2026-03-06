@@ -46,6 +46,7 @@ export default function HomeScreen() {
   const [loadingAlerts, setLoadingAlerts] = useState(true);
   const [recentEvents, setRecentEvents] = useState<RecentEvent[]>([]);
   const [loadingRecentEvents, setLoadingRecentEvents] = useState(true);
+  const [recentEventsError, setRecentEventsError] = useState<string | null>(null);
 
   const fetchNearby = useCallback(async () => {
     setLoadingNearby(true);
@@ -120,11 +121,13 @@ export default function HomeScreen() {
 
   const fetchRecentEvents = useCallback(async () => {
     setLoadingRecentEvents(true);
+    setRecentEventsError(null);
     try {
       const list = await getRecentEvents({ limit: 6 });
       setRecentEvents(list);
-    } catch {
+    } catch (err) {
       setRecentEvents([]);
+      setRecentEventsError(err instanceof Error ? err.message : 'Impossible de charger les événements');
     } finally {
       setLoadingRecentEvents(false);
     }
@@ -343,21 +346,25 @@ export default function HomeScreen() {
         </View>
       ) : null}
 
-      {/* Événements récents */}
-      {loadingRecentEvents ? (
-        <ActivityIndicator size="small" color="#1a3c27" style={styles.favorisLoader} />
-      ) : recentEvents.length > 0 ? (
-        <View style={styles.recentEventsSection}>
-          <View style={styles.recentEventsHeader}>
-            <Text style={styles.favorisTitle}>Événements récents</Text>
-            <TouchableOpacity
-              onPress={() => router.push('/events/recent')}
-              style={styles.voirToutButton}
-            >
-              <Text style={styles.voirToutText}>Voir tout</Text>
-              <Ionicons name="chevron-forward" size={18} color="#1a3c27" />
-            </TouchableOpacity>
-          </View>
+      {/* Événements récents — toujours visible pour que l’utilisateur voie la section */}
+      <View style={styles.recentEventsSection}>
+        <View style={styles.recentEventsHeader}>
+          <Text style={styles.favorisTitle}>Événements récents</Text>
+          <TouchableOpacity
+            onPress={() => router.push('/events/recent')}
+            style={styles.voirToutButton}
+          >
+            <Text style={styles.voirToutText}>Voir tout</Text>
+            <Ionicons name="chevron-forward" size={18} color="#1a3c27" />
+          </TouchableOpacity>
+        </View>
+        {loadingRecentEvents ? (
+          <ActivityIndicator size="small" color="#1a3c27" style={styles.favorisLoader} />
+        ) : recentEventsError ? (
+          <Text style={styles.recentEventsErrorText}>{recentEventsError}</Text>
+        ) : recentEvents.length === 0 ? (
+          <Text style={styles.recentEventsEmptyText}>Aucun événement récent</Text>
+        ) : (
           <View style={[styles.favorisGrid, { width: containerWidth }]}>
             {recentEvents.slice(0, 6).map((ev) => (
               <TouchableOpacity
@@ -388,8 +395,8 @@ export default function HomeScreen() {
               </TouchableOpacity>
             ))}
           </View>
-        </View>
-      ) : null}
+        )}
+      </View>
 
       <ActionToolbar
         actions={[
@@ -447,6 +454,16 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#666',
     marginTop: 2,
+  },
+  recentEventsErrorText: {
+    fontSize: 14,
+    color: '#c44',
+    marginBottom: 8,
+  },
+  recentEventsEmptyText: {
+    fontSize: 14,
+    color: '#888',
+    marginBottom: 8,
   },
   weatherSection: {
     marginBottom: 20,

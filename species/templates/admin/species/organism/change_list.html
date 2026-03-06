@@ -1,8 +1,28 @@
 {% extends "admin/change_list.html" %}
 {% load i18n admin_urls %}
 
+{% block content %}
+{% if last_pfaf_run or last_hydroquebec_run %}
+<div class="import-status" style="margin-bottom:1rem; padding:0.5rem 0.75rem; background:#f8f9fa; border:1px solid #e0e0e0; border-radius:4px; font-size:0.9em;">
+    {% if last_pfaf_run %}
+    <span title="{{ last_pfaf_run.started_at|date:'Y-m-d H:i' }}">Dernier import PFAF : {{ last_pfaf_run.started_at|date:"d/m/Y H:i" }} — {{ last_pfaf_run.get_status_display }}{% if last_pfaf_run.stats.created is not None %} ({{ last_pfaf_run.stats.created }} créés, {{ last_pfaf_run.stats.updated }} mis à jour){% endif %}</span>
+    {% endif %}
+    {% if last_pfaf_run and last_hydroquebec_run %} | {% endif %}
+    {% if last_hydroquebec_run %}
+    <span title="{{ last_hydroquebec_run.started_at|date:'Y-m-d H:i' }}">Dernier Hydro-Québec : {{ last_hydroquebec_run.started_at|date:"d/m/Y H:i" }} — {{ last_hydroquebec_run.get_status_display }}</span>
+    {% endif %}
+</div>
+{% endif %}
+{{ block.super }}
+{% endblock %}
+
 {% block object-tools-items %}
     {{ block.super }}
+    <li>
+        <a href="{% url 'gestion_donnees' %}" class="viewsitelink">
+            📦 Gestion des données
+        </a>
+    </li>
     <li>
         <a href="{% url 'admin:species_organism_import_pfaf' %}" class="addlink">
             Importer PFAF

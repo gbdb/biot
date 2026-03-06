@@ -20,6 +20,8 @@ import type {
   OrganismDetail,
   OrganismUpdate,
   GardenMinimal,
+  GardenCreate,
+  CultivarListEntry,
   TokenPair,
   ApiError,
 } from '@/types/api';
@@ -167,6 +169,28 @@ export async function login(username: string, password: string): Promise<TokenPa
   const data = await handleResponse<TokenPair>(res);
   await setTokens(data.access, data.refresh);
   return data;
+}
+
+export interface RegisterPayload {
+  username: string;
+  password: string;
+  password_confirm: string;
+  email?: string;
+}
+
+/** Crée un compte utilisateur. Ne connecte pas automatiquement. */
+export async function register(data: RegisterPayload): Promise<{ detail: string }> {
+  const res = await fetchWithTimeout(`${API_BASE_URL}${ENDPOINTS.auth.register}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      username: data.username.trim(),
+      password: data.password,
+      password_confirm: data.password_confirm,
+      ...(data.email?.trim() && { email: data.email.trim() }),
+    }),
+  });
+  return handleResponse<{ detail: string }>(res);
 }
 
 export async function logout(): Promise<void> {
@@ -681,6 +705,30 @@ export async function getOrganismsPaginated(params?: {
   return { results, hasMore, count };
 }
 
+/** Liste paginée des cultivars (vue "Tous les cultivars"). */
+export async function getCultivarsPaginated(params?: {
+  search?: string;
+  organism?: number;
+  page?: number;
+}): Promise<{ results: CultivarListEntry[]; hasMore: boolean; count: number }> {
+  const searchParams = new URLSearchParams();
+  if (params?.search) searchParams.set('search', params.search);
+  if (params?.organism != null) searchParams.set('organism', String(params.organism));
+  if (params?.page) searchParams.set('page', String(params.page));
+  const qs = searchParams.toString();
+  const url = `${API_BASE_URL}${ENDPOINTS.cultivars}${qs ? `?${qs}` : ''}`;
+  const res = await fetchWithAuth(url);
+  const data = (await handleResponse<unknown>(res)) as {
+    results?: CultivarListEntry[];
+    next?: string | null;
+    count?: number;
+  };
+  const results = Array.isArray(data?.results) ? data.results : [];
+  const hasMore = !!data?.next;
+  const count = typeof data?.count === 'number' ? data.count : results.length;
+  return { results, hasMore, count };
+}
+
 /** Nombre total d'espèces (sans filtres). Pour afficher "X / total". */
 export async function getOrganismsCount(params?: {
   search?: string;
@@ -757,6 +805,20 @@ export async function updateOrganism(id: number, data: Partial<OrganismUpdate>):
   return handleResponse<OrganismDetail>(res);
 }
 
+/** Résultat d'enrichissement pour une source (VASCAN, USDA, Botanipedia). */
+export type EnrichResult = { success: boolean; message: string };
+
+/** Enrichit un organisme depuis VASCAN, USDA et Botanipedia. Réservé aux staff. */
+export async function enrichOrganism(id: number): Promise<{
+  results: { vascan?: EnrichResult; usda?: EnrichResult; botanipedia?: EnrichResult };
+}> {
+  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.organisms}${id}/enrich/`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+  return handleResponse<{ results: { vascan?: EnrichResult; usda?: EnrichResult; botanipedia?: EnrichResult } }>(res);
+}
+
 /** Erreur de validation API (400) avec données structurées (duplicate, similar) */
 export class ApiValidationError extends Error {
   constructor(
@@ -803,6 +865,19 @@ export async function getGardens(): Promise<GardenMinimal[]> {
 
 export async function getGarden(id: number): Promise<GardenMinimal> {
   const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.gardens}${id}/`);
+  return handleResponse<GardenMinimal>(res);
+}
+
+export async function createGarden(data: GardenCreate): Promise<GardenMinimal> {
+  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.gardens}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      nom: data.nom.trim(),
+      ...(data.ville?.trim() && { ville: data.ville.trim() }),
+      ...(data.adresse?.trim() && { adresse: data.adresse.trim() }),
+    }),
+  });
   return handleResponse<GardenMinimal>(res);
 }
 
@@ -854,8 +929,66 @@ export async function completeSpecimenReminder(
 }
 
 // --- User preferences (default garden) ---
+// --- Profil utilisateur (moi) ---
+export interface MeProfile {
+  username: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  is_staff?: boolean;
+  is_superuser?: boolean;
+}
+
+export async function getMe(): Promise<MeProfile> {
+  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.me.profile}`);
+  return handleResponse<MeProfile>(res);
+}
+
+export async function updateMe(data: Partial<Pick<MeProfile, 'email' | 'first_name' | 'last_name'>>): Promise<MeProfile> {
+  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.me.profile}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  return handleResponse<MeProfile>(res);
+}
+
+export async function changePassword(current_password: string, new_password: string): Promise<{ detail: string }> {
+  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.me.changePassword}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ current_password, new_password }),
+  });
+  return handleResponse<{ detail: string }>(res);
+}
+
+// --- Admin : liste et modification des utilisateurs (staff / superuser) ---
+export interface AdminUser {
+  id: number;
+  username: string;
+  email: string;
+  is_staff: boolean;
+  is_superuser: boolean;
+}
+
+export async function getAdminUsers(): Promise<AdminUser[]> {
+  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.admin.users}`);
+  return handleResponse<AdminUser[]>(res);
+}
+
+export async function updateAdminUser(id: number, data: { is_staff?: boolean }): Promise<AdminUser> {
+  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.admin.userDetail(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  return handleResponse<AdminUser>(res);
+}
+
 export interface UserPreferences {
   default_garden_id: number | null;
+  /** Distance de pollinisation par défaut (m) pour les plants. */
+  pollination_distance_max_default_m?: number | null;
 }
 
 export async function getUserPreferences(): Promise<UserPreferences> {
@@ -863,12 +996,77 @@ export async function getUserPreferences(): Promise<UserPreferences> {
   return handleResponse<UserPreferences>(res);
 }
 
-export async function updateUserPreferences(data: UserPreferences): Promise<UserPreferences> {
+export async function updateUserPreferences(data: Partial<UserPreferences>): Promise<UserPreferences> {
   const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.me.preferences}`, {
     method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
   return handleResponse<UserPreferences>(res);
+}
+
+// --- Admin (paramètres avancés, staff uniquement) ---
+export interface RunAdminCommandOptions {
+  enrich?: boolean;
+  limit?: number;
+  delay?: number;
+  dry_run?: boolean;
+  no_input?: boolean;
+  curl?: boolean;
+  insecure?: boolean;
+}
+
+export interface RunAdminCommandResult {
+  success: boolean;
+  output: string;
+  detail?: string;
+}
+
+export async function runAdminCommand(
+  command: string,
+  options: RunAdminCommandOptions = {}
+): Promise<RunAdminCommandResult> {
+  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.admin.runCommand}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ command, options }),
+  });
+  const data = await handleResponse<RunAdminCommandResult>(res);
+  return data;
+}
+
+export interface SpeciesStats {
+  organism_count: number;
+  global_enrichment_score_pct?: number | null;
+}
+
+export async function getSpeciesStats(): Promise<SpeciesStats> {
+  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.admin.speciesStats}`);
+  return handleResponse<SpeciesStats>(res);
+}
+
+export interface ImportVascanFileResult {
+  success: boolean;
+  output: string;
+  detail?: string;
+}
+
+export async function uploadVascanFile(file: {
+  uri: string;
+  name?: string;
+  type?: string;
+}): Promise<ImportVascanFileResult> {
+  const formData = new FormData();
+  formData.append('file', {
+    uri: file.uri,
+    name: file.name ?? 'vascan.txt',
+    type: file.type ?? 'text/plain',
+  } as unknown as Blob);
+  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.admin.importVascanFile}`, {
+    method: 'POST',
+    body: formData,
+  });
+  return handleResponse<ImportVascanFileResult>(res);
 }
 
 // --- Weather alerts (page d'accueil) ---

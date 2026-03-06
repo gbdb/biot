@@ -107,6 +107,14 @@ Plus de diversité = plus de stabilité = moins de maladies = meilleure résilie
 - [x] Force et description détaillée des interactions
 - [x] Visualisation graphique des réseaux de relations
 
+**Cultivars et pollinisation** 🌸
+- [x] **Variétés / cultivars** par espèce (couleur fruit, goût, résistances) — voir [Pollinisation et groupes](docs/pollinisation-cultivars-groupes-specimens.md)
+- [x] **Pollinisateurs recommandés** au niveau cultivar (CultivarPollinator : variété compagne ou espèce compagne)
+- [x] **Regroupement de spécimens** : deux types — (1) mâle/femelle (un pollinisateur, jusqu’à 6 principaux), (2) pollinisation croisée (au moins 2 cultivars d’une même espèce) ; rôles par specimen
+- [x] **Distance de pollinisation** : paramètre utilisateur configurable (Paramètres) pour la distance par défaut (m) ; valeur de repli globale (settings) ; option par espèce (`distance_pollinisation_max`)
+- [x] **Alerte « zone trop loin »** : si distance entre partenaires > seuil (haversine), affichée sur la fiche specimen
+- [ ] Rappel début de saison de planification (commander un plant si pollinisateur mort) et rappel à la floraison
+
 **Sols & Amendements** 🌱
 - [x] Base de données d'amendements :
   - Compost, fumiers, engrais verts
@@ -133,7 +141,7 @@ Plus de diversité = plus de stabilité = moins de maladies = meilleure résilie
   - Interface de sélection intuitive (filter_horizontal)
 - [x] Import automatique depuis sources ouvertes :
   - ✅ Hydro-Québec (arbres zone Québec)
-  - ✅ Plants For A Future (PFAF) - plantes comestibles permaculture
+  - ✅ Plants For A Future (PFAF) - plantes comestibles permaculture (base payante : 50–150 USD, voir pfaf.org)
   - ✅ **Semences** - Catalogues semenciers (CSV/JSON) via `python manage.py import_seeds`
   - ⏳ OpenFarm - légumes et cultures maraîchères
   - ⏳ USDA Plants Database - données botaniques
@@ -440,11 +448,11 @@ cd mobile && npx expo start
 - ⭐ **Priorité** : Source primaire pour arbres et arbustes (contexte québécois)
 
 **2. Plants For A Future (PFAF)** ⏳
-- 📋 **Licence** : Gratuit, fonctionne sur dons
-- 🌿 **Contenu** : 7000+ plantes comestibles, médicinales, utilitaires
+- 📋 **Licence** : **Payante** — Standard Home 50 USD (usage privé), Commercial 150 USD, Student 30 USD (~7400 plantes tempérées)
+- 🌿 **Contenu** : Plantes comestibles, médicinales, utilitaires
 - 📍 **Spécificités** : Excellent pour permaculture, plantes sauvages, usages multiples
-- 🔗 **Site** : [pfaf.org](https://pfaf.org)
-- ⭐ **Priorité** : Plantes comestibles sauvages, vivaces, permaculture
+- 🔗 **Site** : [pfaf.org](https://pfaf.org) (achat et téléchargement)
+- ⭐ **Priorité** : Plantes comestibles sauvages, vivaces, permaculture — n’importer que des fichiers acquis légalement
 
 **3. OpenFarm** ⏳
 - 📋 **Licence** : Domaine public (CC0)
@@ -513,7 +521,7 @@ Accédez à l'application : `http://localhost:8000`
 
 **Import de données :**
 ```bash
-# Import PFAF (plantes comestibles)
+# Import PFAF (plantes comestibles — base payante, n'utiliser que des fichiers acquis via pfaf.org)
 python manage.py import_pfaf --file=votre_fichier.csv
 
 # Import catalogues de semences (CSV ou JSON)
@@ -631,7 +639,7 @@ L'AGPL garantit que le code reste libre et open-source, même si quelqu'un hébe
 ## 🙏 Remerciements
 
 - **Hydro-Québec** pour leur répertoire d'arbres en données ouvertes (CC-BY 4.0)
-- **Plants For A Future (PFAF)** pour leur travail colossal de documentation des plantes comestibles
+- **Plants For A Future (PFAF)** pour leur travail colossal de documentation des plantes comestibles (base désormais sous licence payante)
 - **OpenFarm** pour leur base de données communautaire de cultures potagères
 - **USDA Plants Database** pour leurs données botaniques scientifiques
 - La communauté **permaculture** mondiale pour leur inspiration et connaissances partagées

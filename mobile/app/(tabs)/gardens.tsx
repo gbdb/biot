@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
-import { useEffect, useState } from 'react';
-import { useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { getGardens } from '@/api/client';
 import type { GardenMinimal } from '@/types/api';
 
@@ -10,12 +10,16 @@ export default function GardensScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadGardens = useCallback(() => {
+    setLoading(true);
+    setError(null);
     getGardens()
       .then(setGardens)
       .catch((err) => setError(err instanceof Error ? err.message : 'Erreur'))
       .finally(() => setLoading(false));
   }, []);
+
+  useFocusEffect(loadGardens);
 
   if (loading) {
     return (

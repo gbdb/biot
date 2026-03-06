@@ -10,7 +10,7 @@ from pathlib import Path
 
 from django.core.management.base import BaseCommand
 
-from species.models import Organism, SeedCollection, SeedSupplier
+from species.models import Cultivar, Organism, SeedCollection, SeedSupplier
 from species.seed_mapping import (
     SEED_FIELD_ALIASES,
     get_available_columns,
@@ -21,7 +21,13 @@ from species.seed_mapping import (
     parse_int,
     parse_int_or_range,
 )
-from species.source_rules import find_or_match_organism
+from species.source_rules import (
+    ensure_organism_genus,
+    find_organism_and_cultivar,
+    find_or_match_organism,
+    get_unique_slug_latin,
+    parse_cultivar_from_latin,
+)
 
 
 class Command(BaseCommand):
@@ -136,18 +142,32 @@ class Command(BaseCommand):
                     self.stdout.write(f'  [DRY] {nom_commun or nom_latin}')
                     continue
 
-                # Trouver ou créer l'organisme
-                organisme, org_created = find_or_match_organism(
-                    Organism,
-                    nom_latin=nom_latin,
-                    nom_commun=nom_commun or nom_latin,
-                    defaults={
-                        'nom_commun': nom_commun or nom_latin,
-                        'famille': get_row_value(row, SEED_FIELD_ALIASES['family'], default=''),
-                        'regne': 'plante',
-                        'type_organisme': 'vivace',
-                    }
-                )
+                # Détecter cultivar dans le nom latin : si oui, rattacher à l'espèce + Cultivar
+                base_latin, nom_cultivar = parse_cultivar_from_latin(nom_latin or '')
+                defaults_org = {
+                    'nom_commun': nom_commun or nom_latin,
+                    'famille': get_row_value(row, SEED_FIELD_ALIASES['family'], default=''),
+                    'regne': 'plante',
+                    'type_organisme': 'vivace',
+                }
+                if nom_cultivar and base_latin:
+                    defaults_org['slug_latin'] = get_unique_slug_latin(Organism, base_latin)
+                    organisme, _cultivar, org_created = find_organism_and_cultivar(
+                        Organism,
+                        Cultivar,
+                        nom_latin=nom_latin or '',
+                        nom_commun=nom_commun or nom_latin or '',
+                        defaults_organism=defaults_org,
+                        defaults_cultivar={},
+                    )
+                else:
+                    organisme, org_created = find_or_match_organism(
+                        Organism,
+                        nom_latin=nom_latin or '',
+                        nom_commun=nom_commun or nom_latin,
+                        defaults=defaults_org,
+                    )
+                ensure_organism_genus(organisme)
                 if org_created:
                     created_org += 1
 

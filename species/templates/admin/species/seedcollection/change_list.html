@@ -1,8 +1,22 @@
 {% extends "admin/change_list.html" %}
 {% load i18n admin_urls %}
 
+{% block content %}
+{% if last_seeds_run %}
+<div class="import-status" style="margin-bottom:1rem; padding:0.5rem 0.75rem; background:#f8f9fa; border:1px solid #e0e0e0; border-radius:4px; font-size:0.9em;">
+    <span title="{{ last_seeds_run.started_at|date:'Y-m-d H:i' }}">Dernier import semences : {{ last_seeds_run.started_at|date:"d/m/Y H:i" }} — {{ last_seeds_run.get_status_display }}{% if last_seeds_run.stats.created_seed is not None %} ({{ last_seeds_run.stats.created_seed }} créées, {{ last_seeds_run.stats.updated_seed }} mises à jour){% endif %}</span>
+</div>
+{% endif %}
+{{ block.super }}
+{% endblock %}
+
 {% block object-tools-items %}
     {{ block.super }}
+    <li>
+        <a href="{% url 'gestion_donnees' %}" class="viewsitelink">
+            📦 Gestion des données
+        </a>
+    </li>
     <li>
         <a href="{% url 'admin:species_seedcollection_import_csv' %}" class="addlink">
             📤 Importer CSV

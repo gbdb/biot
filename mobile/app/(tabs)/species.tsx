@@ -308,13 +308,22 @@ export default function SpeciesScreen() {
           <Text style={styles.noGardenText}>
             Choisissez un jardin dans les paramètres pour afficher les espèces de votre terrain.
           </Text>
-          <TouchableOpacity
-            style={styles.noGardenButton}
-            onPress={() => router.push('/settings')}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.noGardenButtonText}>Choisir un jardin</Text>
-          </TouchableOpacity>
+          <View style={styles.noGardenButtons}>
+            <TouchableOpacity
+              style={styles.noGardenButton}
+              onPress={() => router.push('/settings')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.noGardenButtonText}>Choisir un jardin</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.noGardenButton, styles.noGardenButtonSecondary]}
+              onPress={() => router.push('/garden/create')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.noGardenButtonTextSecondary}>Créer un jardin</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     );
@@ -721,14 +730,30 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     lineHeight: 22,
   },
+  noGardenButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
   noGardenButton: {
     backgroundColor: '#1a3c27',
     paddingHorizontal: 24,
     paddingVertical: 14,
     borderRadius: 12,
   },
+  noGardenButtonSecondary: {
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    borderColor: '#1a3c27',
+  },
   noGardenButtonText: {
     color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  noGardenButtonTextSecondary: {
+    color: '#1a3c27',
     fontSize: 16,
     fontWeight: '600',
   },

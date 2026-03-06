@@ -57,6 +57,19 @@ function SpeciesHeaderRight() {
   );
 }
 
+function GardensHeaderRight() {
+  const router = useRouter();
+  return (
+    <TouchableOpacity
+      onPress={() => router.push('/garden/create')}
+      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+      style={{ marginRight: 16 }}
+    >
+      <Text style={{ fontSize: 24, color: '#fff', fontWeight: '300' }}>+</Text>
+    </TouchableOpacity>
+  );
+}
+
 export default function TabLayout() {
   return (
     <Tabs
@@ -108,6 +121,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="map-outline" size={size} color={color} />
           ),
+          headerRight: () => <GardensHeaderRight />,
         }}
       />
     </Tabs>

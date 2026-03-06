@@ -6,7 +6,7 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
+  SectionList,
   TouchableOpacity,
   ActivityIndicator,
   TextInput,
@@ -15,7 +15,7 @@ import {
   Image,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import {
   getOrganismsPaginated,
@@ -138,6 +138,20 @@ export default function SpeciesLibraryScreen() {
   const [filteredCount, setFilteredCount] = useState<number | null>(null);
   const [totalCount, setTotalCount] = useState<number | null>(null);
   const [defaultGardenId, setDefaultGardenId] = useState<number | null>(null);
+
+  /** Regroupe les espèces par genre (ex. Amelanchier) pour affichage en sections. */
+  const sections = useMemo(() => {
+    const byGenus = new Map<string, OrganismMinimal[]>();
+    for (const org of organisms) {
+      const g = (org.genus ?? '').trim() || 'Autres';
+      if (!byGenus.has(g)) byGenus.set(g, []);
+      byGenus.get(g)!.push(org);
+    }
+    const keys = [...byGenus.keys()].sort((a, b) =>
+      a === 'Autres' ? 1 : b === 'Autres' ? -1 : a.localeCompare(b, 'fr')
+    );
+    return keys.map((title) => ({ title, data: byGenus.get(title)! }));
+  }, [organisms]);
 
   const fetchOrganisms = useCallback(
     async (pageNum: number, append: boolean) => {
@@ -307,6 +321,14 @@ export default function SpeciesLibraryScreen() {
           <Ionicons name="add-circle-outline" size={20} color="#1a3c27" />
           <Text style={styles.createLinkText}>Espèce introuvable ? Créer une espèce</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.createLink, { marginTop: 8 }]}
+          onPress={() => router.push('/species/cultivars')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="list-outline" size={20} color="#1a3c27" />
+          <Text style={styles.createLinkText}>Voir tous les cultivars</Text>
+        </TouchableOpacity>
       </View>
 
       {(filteredCount != null || totalCount != null) && (
@@ -443,8 +465,8 @@ export default function SpeciesLibraryScreen() {
         )}
       </ScrollView>
 
-      <FlatList
-        data={organisms}
+      <SectionList
+        sections={sections}
         keyExtractor={(item) => String(item.id)}
         contentContainerStyle={styles.list}
         onEndReached={loadMore}
@@ -452,6 +474,7 @@ export default function SpeciesLibraryScreen() {
         initialNumToRender={15}
         maxToRenderPerBatch={15}
         windowSize={10}
+        stickySectionHeadersEnabled={false}
         ListFooterComponent={
           loadingMore ? (
             <View style={styles.loadingMore}>
@@ -459,6 +482,11 @@ export default function SpeciesLibraryScreen() {
             </View>
           ) : null
         }
+        renderSectionHeader={({ section }) => (
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>{section.title}</Text>
+          </View>
+        )}
         renderItem={({ item }) => (
           <LibraryOrganismRow
             item={item}
@@ -755,6 +783,19 @@ const styles = StyleSheet.create({
   list: {
     padding: 16,
     paddingTop: 8,
+  },
+  sectionHeader: {
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    marginBottom: 6,
+    borderBottomWidth: 2,
+    borderBottomColor: '#1a3c27',
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1a3c27',
+    textTransform: 'capitalize',
   },
   card: {
     flexDirection: 'row',

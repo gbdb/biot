@@ -12,13 +12,26 @@ import {
   FlatList,
   Alert,
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { useEffect, useState, useCallback } from 'react';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { NfcScanModal } from '@/components/NfcScanModal';
-import { createSpecimen, getOrganisms, getGardens, getOrganism } from '@/api/client';
-import type { OrganismMinimal, GardenMinimal, SpecimenCreateUpdate, SpecimenStatut } from '@/types/api';
+import {
+  createSpecimen,
+  getOrganisms,
+  getGardens,
+  getOrganism,
+  getCultivarsPaginated,
+  getUserPreferences,
+} from '@/api/client';
+import type {
+  OrganismMinimal,
+  GardenMinimal,
+  SpecimenCreateUpdate,
+  SpecimenStatut,
+  CultivarListEntry,
+} from '@/types/api';
 import { SPECIMEN_STATUT_LABELS } from '@/types/api';
 
 const DEFAULT_STATUT: SpecimenStatut = 'planifie';
@@ -106,12 +119,14 @@ function GardenPickerModal({
   onSelect,
   onClose,
   onSelectNone,
+  onCreateGarden,
 }: {
   visible: boolean;
   gardens: GardenMinimal[];
   onSelect: (garden: GardenMinimal) => void;
   onClose: () => void;
   onSelectNone: () => void;
+  onCreateGarden?: () => void;
 }) {
   if (!visible) return null;
 
@@ -156,6 +171,20 @@ function GardenPickerModal({
               </Text>
             </TouchableOpacity>
           )}
+          ListFooterComponent={
+            onCreateGarden ? (
+              <TouchableOpacity
+                style={[modalStyles.item, modalStyles.itemCreate]}
+                onPress={() => {
+                  onClose();
+                  onCreateGarden();
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={modalStyles.itemTitleCreate}>+ Créer un jardin</Text>
+              </TouchableOpacity>
+            ) : null
+          }
         />
       </View>
     </Modal>
@@ -198,6 +227,8 @@ const modalStyles = StyleSheet.create({
   },
   itemTitle: { fontSize: 16, fontWeight: '600', color: '#1a3c27' },
   itemSubtitle: { fontSize: 14, color: '#666', marginTop: 4 },
+  itemCreate: { borderStyle: 'dashed', borderColor: '#1a3c27' },
+  itemTitleCreate: { fontSize: 16, fontWeight: '600', color: '#1a3c27' },
   emptyText: { fontSize: 14, color: '#888', textAlign: 'center', marginTop: 24 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 });
@@ -206,6 +237,9 @@ export default function SpecimenCreateScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ nfc_tag_uid?: string; organisme?: string; garden?: string }>();
   const [organisme, setOrganisme] = useState<OrganismMinimal | null>(null);
+  const [cultivar, setCultivar] = useState<CultivarListEntry | null>(null);
+  const [cultivarsForOrganism, setCultivarsForOrganism] = useState<CultivarListEntry[]>([]);
+  const [cultivarModalVisible, setCultivarModalVisible] = useState(false);
   const [nom, setNom] = useState('');
   const [garden, setGarden] = useState<GardenMinimal | null>(null);
   const [zoneJardin, setZoneJardin] = useState('');
@@ -222,11 +256,21 @@ export default function SpecimenCreateScreen() {
   const [locationError, setLocationError] = useState<string | null>(null);
   const [capturingLocation, setCapturingLocation] = useState(false);
 
-  useEffect(() => {
+  const refreshGardens = useCallback(() => {
     getGardens()
       .then(setGardens)
       .catch(() => setGardens([]));
   }, []);
+
+  useEffect(() => {
+    refreshGardens();
+  }, [refreshGardens]);
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshGardens();
+    }, [refreshGardens])
+  );
 
   useEffect(() => {
     if (params.nfc_tag_uid) setNfcTagUid(params.nfc_tag_uid);
@@ -238,7 +282,13 @@ export default function SpecimenCreateScreen() {
     const orgId = organismeParam ? Number(organismeParam) : NaN;
     if (!isNaN(orgId) && orgId > 0) {
       getOrganism(orgId)
-        .then((org) => setOrganisme(org))
+        .then((org) => {
+          setOrganisme(org);
+          setCultivar(null);
+          getCultivarsPaginated({ organism: orgId, page: 1 })
+            .then(({ results }) => setCultivarsForOrganism(results))
+            .catch(() => setCultivarsForOrganism([]));
+        })
         .catch(() => {});
     }
   }, [params.organisme]);
@@ -255,6 +305,21 @@ export default function SpecimenCreateScreen() {
         })
         .catch(() => {});
     }
+  }, [params.garden]);
+
+  // Présélectionner le jardin par défaut quand aucun jardin n'est passé en paramètre
+  useEffect(() => {
+    const raw = params.garden;
+    const gardenParam = raw == null ? undefined : Array.isArray(raw) ? raw[0] : raw;
+    if (gardenParam != null) return;
+    Promise.all([getGardens(), getUserPreferences()])
+      .then(([gardensList, prefs]) => {
+        if (prefs.default_garden_id != null && gardensList.length > 0) {
+          const g = gardensList.find((x) => x.id === prefs.default_garden_id);
+          if (g) setGarden((current) => (current == null ? g : current));
+        }
+      })
+      .catch(() => {});
   }, [params.garden]);
 
   const validate = (): boolean => {
@@ -278,6 +343,7 @@ export default function SpecimenCreateScreen() {
         nom: nom.trim(),
         statut,
       };
+      if (cultivar?.id) data.cultivar = cultivar.id;
       if (zoneJardin.trim()) data.zone_jardin = zoneJardin.trim();
       if (notes.trim()) data.notes = notes.trim();
       if (nfcTagUid.trim()) data.nfc_tag_uid = nfcTagUid.trim();
@@ -333,6 +399,24 @@ export default function SpecimenCreateScreen() {
             <Ionicons name="chevron-forward" size={20} color="#666" />
           </TouchableOpacity>
           {errors.organisme ? <Text style={styles.errorText}>{errors.organisme}</Text> : null}
+
+          {organisme && cultivarsForOrganism.length > 0 && (
+            <>
+              <Text style={styles.label}>Variété / cultivar (optionnel)</Text>
+              <TouchableOpacity
+                style={styles.picker}
+                onPress={() => setCultivarModalVisible(true)}
+                activeOpacity={0.7}
+              >
+                {cultivar ? (
+                  <Text style={styles.pickerText}>{cultivar.nom}</Text>
+                ) : (
+                  <Text style={styles.pickerPlaceholder}>Aucune variété</Text>
+                )}
+                <Ionicons name="chevron-forward" size={20} color="#666" />
+              </TouchableOpacity>
+            </>
+          )}
 
           <Text style={styles.label}>Nom *</Text>
           <TextInput
@@ -502,7 +586,14 @@ export default function SpecimenCreateScreen() {
 
       <OrganismPickerModal
         visible={organismModalVisible}
-        onSelect={setOrganisme}
+        onSelect={(org) => {
+          setOrganismModalVisible(false);
+          setOrganisme(org);
+          setCultivar(null);
+          getCultivarsPaginated({ organism: org.id, page: 1 })
+            .then(({ results }) => setCultivarsForOrganism(results))
+            .catch(() => setCultivarsForOrganism([]));
+        }}
         onClose={() => setOrganismModalVisible(false)}
       />
       <GardenPickerModal
@@ -511,7 +602,40 @@ export default function SpecimenCreateScreen() {
         onSelect={setGarden}
         onClose={() => setGardenModalVisible(false)}
         onSelectNone={() => setGarden(null)}
+        onCreateGarden={() => {
+          setGardenModalVisible(false);
+          router.push('/garden/create');
+        }}
       />
+      <Modal visible={cultivarModalVisible} animationType="slide" onRequestClose={() => setCultivarModalVisible(false)}>
+        <View style={modalStyles.container}>
+          <View style={modalStyles.header}>
+            <TouchableOpacity onPress={() => setCultivarModalVisible(false)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+              <Text style={modalStyles.closeBtn}>✕</Text>
+            </TouchableOpacity>
+            <Text style={modalStyles.headerTitle}>Variété (optionnel)</Text>
+            <View style={{ width: 28 }} />
+          </View>
+          <FlatList
+            data={[{ id: 0, nom: 'Aucune variété' }, ...cultivarsForOrganism]}
+            keyExtractor={(item) => (item.id === 0 ? 'none' : `cultivar-${item.id}`)}
+            style={modalStyles.list}
+            contentContainerStyle={modalStyles.listContent}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={modalStyles.item}
+                onPress={() => {
+                  setCultivarModalVisible(false);
+                  setCultivar(item.id === 0 ? null : item);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={modalStyles.itemText}>{item.nom}</Text>
+              </TouchableOpacity>
+            )}
+          />
+        </View>
+      </Modal>
       <NfcScanModal
         visible={nfcScanModalVisible}
         onSuccess={(uid) => setNfcTagUid(uid)}

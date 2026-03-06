@@ -1,5 +1,25 @@
 # Notes de Développement - Jardin bIOT
 
+## Dev local Mac (app + simulateur)
+
+Pour éviter git push / pull / recompile sur la VM, faire tourner l’app contre Django sur le Mac :
+
+1. **Backend (à la racine du projet)**  
+   - Créer ou éditer `.env` avec au minimum :  
+     `ALLOWED_HOSTS=localhost,127.0.0.1,192.168.0.143`  
+     (remplacer `192.168.0.143` par l’IP de ton Mac si différente : `ifconfig | grep "inet "`).
+   - Lancer : `python manage.py runserver 0.0.0.0:8000`  
+     (obligatoire : `0.0.0.0` pour que le simulateur puisse joindre le Mac).
+
+2. **Mobile (`mobile/.env`)**  
+   - `EXPO_PUBLIC_API_URL=http://192.168.0.143:8000` (même IP que ci‑dessus, avec le port).
+
+3. **Simulateur**  
+   - Après changement d’URL, relancer avec cache vide : `npx expo start --clear` puis `i` (iOS).  
+   - Si la connexion échoue avec « Aborted » ou « Serveur injoignable », vérifier que Django tourne bien sur le Mac et que l’IP dans les deux `.env` est la bonne.
+
+---
+
 ## Contexte du Projet
 - Projet pour Les Jardins Comestibles du Mont Caprice (3 acres, zone 4a)
 - Focus: arbres fruitiers, vivaces comestibles, permaculture

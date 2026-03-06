@@ -9,6 +9,8 @@ export interface OrganismMinimal {
   nom_commun: string;
   nom_latin: string;
   type_organisme: string;
+  /** Genre botanique (ex. Amelanchier) pour regroupement en bibliothèque. */
+  genus?: string | null;
   is_favori?: boolean;
   photo_principale_url?: string | null;
 }
@@ -44,6 +46,94 @@ export interface OrganismDetail extends OrganismMinimal {
   notes: string;
   usages_autres: string;
   is_favori?: boolean;
+  /** Propriétés sol/exposition par source (OrganismPropriete). */
+  proprietes?: OrganismPropriete[];
+  /** Usages (comestible, médicinal, etc.) par type (OrganismUsage). */
+  usages?: OrganismUsage[];
+  /** Périodes floraison, récolte, semis (OrganismCalendrier). */
+  calendrier?: OrganismCalendrier[];
+  /** Relations de compagnonnage (cette espèce ↔ autres). */
+  companion_relations?: CompanionRelationItem[];
+  /** Distance max pollinisation (m) pour cette espèce, si définie. */
+  distance_pollinisation_max?: number | null;
+  /** Variétés / cultivars de cette espèce. */
+  cultivars?: CultivarDetail[];
+  /** Note d'enrichissement de la fiche (0-100 %). */
+  enrichment_score_pct?: number | null;
+}
+
+/** Entrée liste cultivars (API liste cultivars). */
+export interface CultivarListEntry {
+  id: number;
+  slug_cultivar: string;
+  nom: string;
+  organisme: OrganismMinimal;
+}
+
+/** Cultivar / variété (détail pour fiche espèce). */
+export interface CultivarDetail {
+  id: number;
+  slug_cultivar: string;
+  nom: string;
+  description: string;
+  couleur_fruit: string;
+  gout: string;
+  resistance_maladies: string;
+  notes: string;
+  pollinateurs_recommandes?: CultivarPollinatorCompanion[];
+}
+
+/** Compagnon pollinisateur recommandé pour un cultivar. */
+export interface CultivarPollinatorCompanion {
+  id: number;
+  companion_cultivar: { id: number; nom: string; slug_cultivar: string } | null;
+  companion_organism: { id: number; nom_commun: string; nom_latin: string } | null;
+  notes: string;
+  source: string;
+}
+
+/** Propriété sol/exposition (OrganismPropriete). */
+export interface OrganismPropriete {
+  id: number;
+  type_sol: string[];
+  ph_min: number | null;
+  ph_max: number | null;
+  tolerance_ombre: string;
+  source: string;
+}
+
+/** Usage (comestible, médicinal, etc.) (OrganismUsage). */
+export interface OrganismUsage {
+  id: number;
+  type_usage: string;
+  type_usage_display: string;
+  parties: string;
+  description: string;
+  source: string;
+}
+
+/** Période calendrier (OrganismCalendrier). */
+export interface OrganismCalendrier {
+  id: number;
+  type_periode: string;
+  type_periode_display: string;
+  mois_debut: number | null;
+  mois_fin: number | null;
+  source: string;
+}
+
+/** Une relation de compagnonnage (cette espèce avec une autre). */
+export interface CompanionRelationItem {
+  id: number;
+  direction: 'as_source' | 'as_target';
+  other_organism: { id: number; nom_commun: string; nom_latin: string };
+  type_relation: string;
+  type_relation_display: string;
+  force: number;
+  distance_optimale: number | null;
+  description: string;
+  source_info: string;
+  is_positive: boolean;
 }
 
 export interface OrganismUpdate {
@@ -87,6 +177,12 @@ export interface GardenMinimal {
   adresse: string;
   latitude: number | null;
   longitude: number | null;
+}
+
+export interface GardenCreate {
+  nom: string;
+  ville?: string;
+  adresse?: string;
 }
 
 // --- Specimen ---
@@ -141,6 +237,7 @@ export interface SpecimenDetail {
   code_identification: string | null;
   nfc_tag_uid: string | null;
   organisme: OrganismMinimal;
+  cultivar?: { id: number; nom: string; slug_cultivar: string } | null;
   garden: GardenMinimal | null;
   zone_jardin: string | null;
   latitude: number | null;
@@ -159,10 +256,32 @@ export interface SpecimenDetail {
   is_favori?: boolean;
   photo_principale?: number | null;
   photo_principale_url?: string | null;
+  /** Groupes de pollinisation (mâle/femelle ou cultivars) avec distance et alerte. */
+  pollination_associations?: PollinationAssociation[];
+}
+
+/** Une association de pollinisation (ce specimen dans un groupe). */
+export interface PollinationAssociation {
+  group_id: number;
+  type_groupe: 'male_female' | 'cross_pollination_cultivar';
+  role: string | null;
+  other_members: PollinationOtherMember[];
+}
+
+export interface PollinationOtherMember {
+  specimen_id: number;
+  nom: string;
+  organisme_nom: string | null;
+  cultivar_nom: string | null;
+  role: string | null;
+  statut: string;
+  distance_metres: number | null;
+  alerte_distance: boolean;
 }
 
 export interface SpecimenCreateUpdate {
   organisme: number;
+  cultivar?: number | null;
   garden: number | null;
   nom?: string;
   code_identification?: string;

@@ -1,7 +1,9 @@
 import json
+import re
 import shutil
 import ssl
 import subprocess
+import time
 import warnings
 from pathlib import Path
 
@@ -15,14 +17,18 @@ try:
     import certifi
 except ImportError:
     certifi = None
-from species.models import Organism
+from species.models import Cultivar, Organism
 from species.source_rules import (
     MERGE_FILL_GAPS,
     MERGE_OVERWRITE,
     SOURCE_HYDROQUEBEC,
     apply_fill_gaps,
+    ensure_organism_genus,
+    find_organism_and_cultivar,
     find_or_match_organism,
+    get_unique_slug_latin,
     merge_zones_rusticite,
+    parse_cultivar_from_latin,
 )
 
 
@@ -45,6 +51,23 @@ class Command(BaseCommand):
         'Importe les arbres et arbustes depuis Hydro-Québec. '
         'Si l\'API bloque Python (SSL), utilisez --file avec un JSON enregistré depuis le navigateur.'
     )
+
+    # Corrections optionnelles de noms (fautes de frappe connues dans la source HQ)
+    NOM_LATIN_CORRECTIONS = {}
+
+    def _clean_import_names(self, nom_latin: str, nom_commun: str):
+        """
+        Nettoie les noms issus de l'API : trim, normalisation des espaces,
+        application des corrections optionnelles (NOM_LATIN_CORRECTIONS).
+        """
+        nom_latin = (nom_latin or '').strip()
+        nom_commun = (nom_commun or '').strip()
+        nom_latin = re.sub(r'\s+', ' ', nom_latin).strip()
+        nom_commun = re.sub(r'\s+', ' ', nom_commun).strip()
+        for wrong, right in self.NOM_LATIN_CORRECTIONS.items():
+            if wrong and nom_latin:
+                nom_latin = nom_latin.replace(wrong, right)
+        return nom_latin, nom_commun
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -105,10 +128,25 @@ class Command(BaseCommand):
                 'Recommandé si l\'API échoue avec SSLV3_ALERT_HANDSHAKE_FAILURE.'
             )
         )
+        parser.add_argument(
+            '--output',
+            type=str,
+            default=None,
+            metavar='FICHIER',
+            help=(
+                'Sauvegarder le JSON récupéré dans ce fichier sans importer en base. '
+                'Exemple: --limit 0 --output arbres_hq.json puis --file arbres_hq.json pour importer.'
+            )
+        )
 
     def handle(self, *args, **options):
         limit = options['limit']
         file_path = options.get('file')
+        output_path = options.get('output')
+        # Téléchargement complet : avec --output et sans --file, forcer limit=0 (tout récupérer)
+        if output_path and not file_path and limit != 0:
+            limit = 0
+            self.stdout.write(self.style.NOTICE('--output sans --file : limite ignorée (téléchargement complet).'))
         merge_mode = options.get('merge', MERGE_OVERWRITE)
         fetch_details = options.get('fetch_details', False)
         enrich_from_api = options.get('enrich_from_api', False)
@@ -149,6 +187,21 @@ class Command(BaseCommand):
             arbres = arbres[:limit]
         self.stdout.write(self.style.SUCCESS(f'✅ {len(arbres)} arbres à traiter.'))
 
+        # Mode téléchargement seul : sauvegarder le JSON et quitter sans importer
+        output_path = options.get('output')
+        if output_path:
+            out = Path(output_path)
+            try:
+                with open(out, 'w', encoding='utf-8') as f:
+                    json.dump(arbres, f, ensure_ascii=False, indent=2)
+                self.stdout.write(self.style.SUCCESS(
+                    f'✅ {len(arbres)} espèces sauvegardées dans {out}. '
+                    f'Pour importer plus tard : python manage.py import_hydroquebec --file {out}'
+                ))
+            except OSError as e:
+                self.stdout.write(self.style.ERROR(f'❌ Impossible d\'écrire {out}: {e}'))
+            return
+
         session = None
         if fetch_details:
             session = requests.Session()
@@ -168,9 +221,11 @@ class Command(BaseCommand):
 
         for arbre in arbres:
             try:
-                # .strip() sur None plante si l'API envoie null
-                nom_latin = (arbre.get('nomLatin') or '').strip()
-                nom_francais = (arbre.get('nomFrancais') or '').strip()
+                # Lire et nettoyer les noms (trim, espaces, corrections optionnelles)
+                nom_latin, nom_francais = self._clean_import_names(
+                    arbre.get('nomLatin') or '',
+                    arbre.get('nomFrancais') or '',
+                )
 
                 if not nom_latin or not nom_francais:
                     skipped += 1
@@ -211,41 +266,92 @@ class Command(BaseCommand):
                     'fleursDescription': arbre.get('fleursDescription') or '',
                     'fruitsDescription': arbre.get('fruitsDescription') or '',
                 }
-                
-                # Chercher ou créer l'organisme avec matching intelligent
-                defaults = {
-                    'nom_commun': nom_francais,
-                    'famille': famille,
-                    'regne': 'plante',
-                    'type_organisme': type_organisme,
-                    'besoin_eau': self._convertir_humidite(
-                        arbre.get('solHumidites') or []
-                    ),
-                    'besoin_soleil': self._convertir_exposition(
-                        arbre.get('expositionsLumiere') or []
-                    ),
-                    'sol_textures': sol_textures,
-                    'sol_ph': sol_ph,
-                    'hauteur_max': arbre.get('hauteur'),
-                    'largeur_max': arbre.get('largeur'),
-                    'vitesse_croissance': self._convertir_croissance(
-                        arbre.get('croissance') or ''
-                    ),
-                    'description': description,
-                }
                 usages_hq = arbre.get('usages') or ''
-                if usages_hq:
-                    defaults['usages_autres'] = usages_hq
-                if toxicite:
-                    defaults['toxicite'] = toxicite
-                if parties_comestibles:
-                    defaults['parties_comestibles'] = parties_comestibles
-                organism, est_nouveau = find_or_match_organism(
-                    Organism,
-                    nom_latin=nom_latin,
-                    nom_commun=nom_francais,
-                    defaults=defaults
-                )
+
+                # Détecter cultivar dans le nom latin : si oui, rattacher à l'espèce + Cultivar
+                base_latin, nom_cultivar = parse_cultivar_from_latin(nom_latin)
+                if nom_cultivar and base_latin:
+                    slug_latin_espece = get_unique_slug_latin(Organism, base_latin)
+                    defaults_organism = {
+                        'nom_commun': nom_francais,
+                        'famille': famille,
+                        'regne': 'plante',
+                        'type_organisme': type_organisme,
+                        'slug_latin': slug_latin_espece,
+                        'besoin_eau': self._convertir_humidite(
+                            arbre.get('solHumidites') or []
+                        ),
+                        'besoin_soleil': self._convertir_exposition(
+                            arbre.get('expositionsLumiere') or []
+                        ),
+                        'sol_textures': sol_textures,
+                        'sol_ph': sol_ph,
+                        'hauteur_max': arbre.get('hauteur'),
+                        'largeur_max': arbre.get('largeur'),
+                        'vitesse_croissance': self._convertir_croissance(
+                            arbre.get('croissance') or ''
+                        ),
+                        'description': description,
+                    }
+                    if usages_hq:
+                        defaults_organism['usages_autres'] = usages_hq
+                    if toxicite:
+                        defaults_organism['toxicite'] = toxicite
+                    if parties_comestibles:
+                        defaults_organism['parties_comestibles'] = parties_comestibles
+                    cultivar_notes = (arbre.get('remarquesFicheDeBase') or '').strip()
+                    if arbre.get('fruitsDescription') and cultivar_notes:
+                        cultivar_notes = (arbre.get('fruitsDescription') or '')[:500] + '\n\n' + cultivar_notes
+                    elif arbre.get('fruitsDescription'):
+                        cultivar_notes = (arbre.get('fruitsDescription') or '')[:500]
+                    defaults_cultivar = {}
+                    if cultivar_notes:
+                        defaults_cultivar['description'] = cultivar_notes[: 2000]
+                    organism, _cultivar, est_nouveau = find_organism_and_cultivar(
+                        Organism,
+                        Cultivar,
+                        nom_latin=nom_latin,
+                        nom_commun=nom_francais,
+                        defaults_organism=defaults_organism,
+                        defaults_cultivar=defaults_cultivar,
+                    )
+                else:
+                    slug_latin_unique = get_unique_slug_latin(Organism, nom_latin)
+                    defaults = {
+                        'nom_commun': nom_francais,
+                        'famille': famille,
+                        'regne': 'plante',
+                        'type_organisme': type_organisme,
+                        'slug_latin': slug_latin_unique,
+                        'besoin_eau': self._convertir_humidite(
+                            arbre.get('solHumidites') or []
+                        ),
+                        'besoin_soleil': self._convertir_exposition(
+                            arbre.get('expositionsLumiere') or []
+                        ),
+                        'sol_textures': sol_textures,
+                        'sol_ph': sol_ph,
+                        'hauteur_max': arbre.get('hauteur'),
+                        'largeur_max': arbre.get('largeur'),
+                        'vitesse_croissance': self._convertir_croissance(
+                            arbre.get('croissance') or ''
+                        ),
+                        'description': description,
+                    }
+                    if usages_hq:
+                        defaults['usages_autres'] = usages_hq
+                    if toxicite:
+                        defaults['toxicite'] = toxicite
+                    if parties_comestibles:
+                        defaults['parties_comestibles'] = parties_comestibles
+                    organism, est_nouveau = find_or_match_organism(
+                        Organism,
+                        nom_latin=nom_latin,
+                        nom_commun=nom_francais,
+                        defaults=defaults
+                    )
+                
+                ensure_organism_genus(organism)
                 
                 # Gérer les zones de rusticité (format JSONField avec source)
                 current_zones = list(organism.zone_rusticite or [])
@@ -337,6 +443,13 @@ class Command(BaseCommand):
         self.stdout.write(f'  ✅ Créés: {created}')
         self.stdout.write(f'  🔄 Mis à jour: {updated}')
         self.stdout.write(f'  ⚠️ Ignorés: {skipped}')
+        # Recalcul des notes d'enrichissement
+        try:
+            from species.enrichment_score import update_enrichment_scores
+            res = update_enrichment_scores()
+            self.stdout.write(self.style.SUCCESS(f'  📊 Enrichissement: note globale {res["global_score_pct"]}%'))
+        except Exception as e:
+            self.stdout.write(self.style.WARNING(f'  ⚠️ Recalcul enrichissement: {e}'))
         # Résumé par type pour vérifier la classification
         from django.db.models import Count
         type_counts = Organism.objects.values('type_organisme').annotate(n=Count('id')).order_by('-n')
@@ -433,10 +546,13 @@ class Command(BaseCommand):
             return []
         return data
 
+    # Pause entre chaque bloc API (évite "Connection reset by peer")
+    _CURL_DELAY_BETWEEN_CHUNKS = 2.5
+
     def _charger_api(self, limit, insecure=False):
         """
         Charge les arbres depuis l'API partiel (données complètes).
-        L'endpoint /tous retourne des nulls ; /partiel fournit fruits/feuilles/fleurs.
+        Pause automatique entre les blocs.
         """
         try:
             self.stdout.write('📡 Connexion à l\'API Hydro-Québec (partiel)...')
@@ -454,7 +570,11 @@ class Command(BaseCommand):
             arbres = []
             chunk_size = 500
             index = 0
+            first_chunk = True
             while True:
+                if not first_chunk:
+                    time.sleep(self._CURL_DELAY_BETWEEN_CHUNKS)
+                first_chunk = False
                 url = f'https://arbres.hydroquebec.com/public/api/v1.0.0/arbres/fr/rechercher/partiel/{index}/{chunk_size}'
                 response = session.get(url, timeout=120, verify=verify)
                 response.raise_for_status()
@@ -478,13 +598,21 @@ class Command(BaseCommand):
             ))
             return None
         except requests.exceptions.RequestException as e:
-            self.stdout.write(self.style.ERROR(f'❌ Erreur de connexion à l\'API: {e}'))
+            if arbres:
+                self.stdout.write(self.style.WARNING(
+                    f'⚠️ Connexion interrompue après {len(arbres)} espèces. Ces espèces seront importées.'
+                ))
+                return arbres
+            self.stdout.write(self.style.ERROR(
+                f'❌ Erreur de connexion à l\'API: {e}\n'
+                '   Solutions : --curl --limit 500 ou --file=arbres.json'
+            ))
             return None
 
     def _charger_api_via_curl(self, limit):
         """
-        Charge les arbres via curl (utilise le SSL système, contourne les erreurs Python).
-        L'API Hydro-Québec contient 1700+ espèces ; pagination par blocs de 500.
+        Charge les arbres via curl. Pagination par blocs de 500.
+        Pause automatique entre les blocs pour limiter les coupures de connexion.
         """
         if not shutil.which('curl'):
             self.stdout.write(self.style.ERROR(
@@ -496,7 +624,11 @@ class Command(BaseCommand):
             arbres = []
             chunk_size = 500
             index = 0
+            first_chunk = True
             while True:
+                if not first_chunk:
+                    time.sleep(self._CURL_DELAY_BETWEEN_CHUNKS)
+                first_chunk = False
                 url = f'https://arbres.hydroquebec.com/public/api/v1.0.0/arbres/fr/rechercher/partiel/{index}/{chunk_size}'
                 result = subprocess.run(
                     ['curl', '-sS', '-L', '-H', 'Accept: application/json', url],
@@ -505,19 +637,37 @@ class Command(BaseCommand):
                     timeout=120,
                 )
                 if result.returncode != 0:
+                    err = (result.stderr or result.stdout or '').strip()
+                    if arbres:
+                        self.stdout.write(self.style.WARNING(
+                            f'⚠️ Connexion interrompue après {len(arbres)} espèces.\n'
+                            f'   Détail: {err}\n'
+                            f'   Les {len(arbres)} espèces déjà récupérées seront importées. '
+                            f'Pour tout récupérer : relancez l\'import, utilisez une limite de 500, '
+                            f'ou --file avec un JSON téléchargé depuis le navigateur.'
+                        ))
+                        return arbres
                     self.stdout.write(self.style.ERROR(
-                        f'❌ curl a échoué: {result.stderr or result.stdout}'
+                        f'❌ Connexion à l\'API Hydro-Québec impossible.\n'
+                        f'   Détail: {err}\n'
+                        f'   Causes possibles : réseau instable, pare-feu, ou serveur surchargé.\n'
+                        f'   Solutions : utilisez « Avec limite » 500 dans Paramètres, '
+                        f'ou téléchargez le JSON (URL partiel/0/500) et --file=arbres.json'
                     ))
                     return None
                 raw = (result.stdout or '').strip()
                 if not raw:
-                    # Réponse vide = fin des données
                     break
                 try:
                     chunk = json.loads(raw)
                 except json.JSONDecodeError:
-                    # Réponse non-JSON (erreur 404, HTML, etc.) = fin des données
-                    break
+                    if arbres:
+                        self.stdout.write(self.style.WARNING(
+                            f'⚠️ Réponse invalide après le bloc {index}. Les {len(arbres)} espèces déjà récupérées seront importées.'
+                        ))
+                        return arbres
+                    self.stdout.write(self.style.ERROR('❌ Réponse serveur invalide (pas du JSON).'))
+                    return None
                 if not chunk:
                     break
                 arbres.extend(chunk)
@@ -525,12 +675,18 @@ class Command(BaseCommand):
                 if limit > 0 and len(arbres) >= limit:
                     arbres = arbres[:limit]
                     break
-                # Avancer et continuer (l'API peut retourner 499 au lieu de 500, il reste 1200+ espèces)
                 index += len(chunk)
             self.stdout.write(self.style.SUCCESS(f'   ✅ {len(arbres)} espèces récupérées depuis l\'API'))
             return arbres
         except subprocess.TimeoutExpired:
-            self.stdout.write(self.style.ERROR('❌ curl: timeout'))
+            if arbres:
+                self.stdout.write(self.style.WARNING(
+                    f'⚠️ Délai dépassé après {len(arbres)} espèces. Ces espèces seront tout de même importées.'
+                ))
+                return arbres
+            self.stdout.write(self.style.ERROR(
+                '❌ Délai de connexion dépassé (timeout). Réessayez ou utilisez une limite de 500.'
+            ))
             return None
         except json.JSONDecodeError as e:
             self.stdout.write(self.style.ERROR(f'❌ Réponse JSON invalide: {e}'))

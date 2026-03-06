@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { login } from '@/api/client';
@@ -25,7 +25,16 @@ export default function LoginScreen() {
       setAuthenticated(true);
       router.replace('/(tabs)');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erreur de connexion');
+      const msg = err instanceof Error ? err.message : 'Erreur de connexion';
+      // Timeout ou connexion refusée → message explicite pour le dev local
+      const isNetwork =
+        /aborted|network request failed|failed to fetch|connection refused|econnrefused/i.test(msg) ||
+        msg === 'Aborted';
+      setError(
+        isNetwork
+          ? 'Serveur injoignable. Vérifiez que Django tourne sur ce Mac (runserver 0.0.0.0:8000) et que l’IP dans .env est correcte (ex. http://192.168.0.143:8000).'
+          : msg
+      );
     } finally {
       setLoading(false);
     }
@@ -76,6 +85,14 @@ export default function LoginScreen() {
           disabled={loading}
           style={styles.loginFAB}
         />
+
+        <TouchableOpacity
+          style={styles.registerLink}
+          onPress={() => router.push('/register')}
+          disabled={loading}
+        >
+          <Text style={styles.registerLinkText}>Nouvel utilisateur ? Créer un compte</Text>
+        </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
   );
@@ -125,5 +142,14 @@ const styles = StyleSheet.create({
   },
   loginFAB: {
     marginTop: 24,
+  },
+  registerLink: {
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  registerLinkText: {
+    fontSize: 16,
+    color: '#1a3c27',
+    textDecorationLine: 'underline',
   },
 });

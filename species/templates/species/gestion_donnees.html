@@ -1,0 +1,351 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}Gestion des données - Jardin bIOT{% endblock %}
+
+{% block extrahead %}
+<style>
+  .gestion-donnees { max-width: 1100px; }
+  .stats-box {
+    display: flex;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .stat-item {
+    background: #f0f7ff;
+    border: 1px solid #79aec8;
+    border-radius: 6px;
+    padding: 0.75rem 1.25rem;
+    font-size: 1.05em;
+  }
+  .stat-item strong { color: #417690; }
+  .section {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 1rem 1.5rem;
+    margin-bottom: 1.5rem;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+  .section h2 { margin-top: 0; color: #417690; font-size: 1.1em; }
+  .cmd-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+  }
+  .cmd-form {
+    background: #f8f9fa;
+    border-radius: 6px;
+    padding: 1rem;
+    border: 1px solid #e0e0e0;
+  }
+  .cmd-form h3 { margin: 0 0 0.5rem 0; font-size: 0.95em; color: #333; }
+  .cmd-form input[type="number"], .cmd-form input[type="text"] {
+    width: 80px;
+    margin-right: 0.5rem;
+    margin-bottom: 0.4rem;
+  }
+  .cmd-form label { font-size: 0.9em; color: #555; margin-right: 0.25rem; }
+  .cmd-form .opts { margin: 0.5rem 0; }
+  .cmd-form button { margin-top: 0.5rem; }
+  .log-box {
+    background: #1e1e1e;
+    color: #d4d4d4;
+    border-radius: 6px;
+    padding: 1rem;
+    max-height: 400px;
+    overflow: auto;
+    font-family: ui-monospace, monospace;
+    font-size: 0.85em;
+  }
+  .log-entry {
+    border-left: 4px solid #555;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.75rem;
+    background: #252526;
+    border-radius: 0 6px 6px 0;
+  }
+  .log-entry.success { border-left-color: #4caf50; }
+  .log-entry.error { border-left-color: #f44336; }
+  .log-entry .meta { color: #858585; font-size: 0.9em; margin-bottom: 0.35rem; }
+  .log-entry pre { margin: 0; white-space: pre-wrap; word-break: break-all; }
+  .upload-form { margin: 1rem 0; }
+  .upload-form input[type="file"] { margin-right: 0.5rem; }
+  .source-card {
+    background: #fafafa;
+    border: 1px solid #e8e8e8;
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.75rem;
+  }
+  .source-card h3 { font-size: 0.95em; margin: 0 0 0.35rem 0; color: #333; }
+  .source-card p.desc { color: #666; font-size: 0.85em; margin: 0 0 0.5rem 0; }
+  .source-card a { margin-right: 1rem; }
+  .coverage-table { width: 100%; max-width: 400px; border-collapse: collapse; margin-top: 0.5rem; }
+  .coverage-table th, .coverage-table td { text-align: left; padding: 0.35rem 0.5rem; border-bottom: 1px solid #eee; }
+  .coverage-table th { color: #555; font-weight: normal; }
+  .last-runs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0.75rem; margin-top: 0.5rem; }
+  .last-run-card { background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 6px; padding: 0.6rem 0.8rem; font-size: 0.9em; }
+  .last-run-card.running { border-left: 4px solid #ff9800; }
+  .last-run-card.success { border-left: 4px solid #4caf50; }
+  .last-run-card.failure { border-left: 4px solid #f44336; }
+  .last-run-card .source-name { font-weight: 600; color: #333; }
+  .last-run-card .meta { color: #666; font-size: 0.85em; margin-top: 0.25rem; }
+  .workflow-list { margin: 0.5rem 0; padding-left: 1.25rem; }
+  .workflow-list li { margin-bottom: 0.35rem; }
+  .history-table { width: 100%; border-collapse: collapse; font-size: 0.9em; margin-top: 0.5rem; }
+  .history-table th, .history-table td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid #eee; }
+  .history-table th { color: #555; font-weight: normal; }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1>📦 Gestion des données</h1>
+
+<div class="gestion-donnees">
+  <div class="section">
+    <h2>Vue d'ensemble de la base</h2>
+    <div class="stats-box">
+      <div class="stat-item">Organismes : <strong>{{ stats.organism_count }}</strong></div>
+      <div class="stat-item">Spécimens : <strong>{{ stats.specimen_count }}</strong></div>
+      <div class="stat-item">Enrichissement base : <strong>{% if global_enrichment_score_pct is not None %}{{ global_enrichment_score_pct }} %{% else %}—{% endif %}</strong></div>
+    </div>
+    <div class="section" style="margin-top:0.75rem; padding:0.75rem 1rem;">
+      <h3 style="margin:0 0 0.5rem 0; font-size:0.95em; color:#417690;">Résumé santé de la base</h3>
+      <p style="margin:0; font-size:0.9em; color:#555;">
+        Note globale : <strong>{% if global_enrichment_score_pct is not None %}{{ global_enrichment_score_pct }} %{% else %}—{% endif %}</strong>
+        · Espèces : <strong>{{ stats.organism_count }}</strong>
+        · Genus distincts : <strong>{{ distinct_genus_count }}</strong>
+        · Cultivars : <strong>{{ total_cultivar_count }}</strong>
+        {% if enrichment_computed_at %}<br><span style="color:#888;">Dernier recalcul : {{ enrichment_computed_at|date:"d/m/Y H:i" }}</span>{% endif %}
+      </p>
+    </div>
+    <h3 style="margin-top:1rem; font-size:1em; color:#555;">Couverture par source</h3>
+    <p style="color:#666; font-size:0.9em;">Nombre d'organismes ayant des données de chaque source (data_sources).</p>
+    <table class="coverage-table">
+      <thead><tr><th>Source</th><th>Organismes</th></tr></thead>
+      <tbody>
+        <tr><td>Hydro-Québec</td><td>{{ coverage_by_source.hydroquebec|default:0 }}</td></tr>
+        <tr><td>PFAF</td><td>{{ coverage_by_source.pfaf|default:0 }}</td></tr>
+        <tr><td>VASCAN</td><td>{{ coverage_by_source.vascan|default:0 }}</td></tr>
+        <tr><td>USDA</td><td>{{ coverage_by_source.usda|default:0 }}</td></tr>
+        <tr><td>Botanipedia</td><td>{{ coverage_by_source.botanipedia|default:0 }}</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top:1.25rem; font-size:1em; color:#555;">État des données par champ</h3>
+    <p style="color:#666; font-size:0.9em;">Pourcentage d'organismes avec le champ rempli. Ce qui manque le plus / ce qui est le mieux documenté.</p>
+    <form method="get" action="" style="margin-bottom:0.75rem;">
+      <label for="source_filter">Filtrer par source :</label>
+      <select name="source_filter" id="source_filter" onchange="this.form.submit()">
+        <option value="">Tous les organismes</option>
+        {% for key in data_source_keys %}
+        <option value="{{ key }}" {% if source_filter == key %}selected{% endif %}>{{ key|capfirst }}</option>
+        {% endfor %}
+      </select>
+    </form>
+    {% if source_filter %}<p style="color:#666; font-size:0.85em;">Affichage limité aux organismes ayant des données <strong>{{ source_filter }}</strong>.</p>{% endif %}
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1.5rem; margin-top:0.5rem;">
+      <div>
+        <strong style="font-size:0.9em; color:#c00;">Ce qui manque le plus (top champs à enrichir)</strong>
+        <table class="coverage-table">
+          <thead><tr><th>Champ</th><th>%</th><th>N</th></tr></thead>
+          <tbody>
+            {% for item in field_coverage_asc %}
+            <tr><td>{{ item.label }}</td><td>{{ item.pct }} %</td><td>{{ item.count }}</td></tr>
+            {% empty %}<tr><td colspan="3">—</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <p style="margin-top:0.35rem;"><a href="{% url 'admin:species_organism_changelist' %}">Voir les espèces en admin</a></p>
+      </div>
+      <div>
+        <strong style="font-size:0.9em; color:#0a0;">Mieux documenté</strong>
+        <table class="coverage-table">
+          <thead><tr><th>Champ</th><th>%</th><th>N</th></tr></thead>
+          <tbody>
+            {% for item in field_coverage_desc %}
+            <tr><td>{{ item.label }}</td><td>{{ item.pct }} %</td><td>{{ item.count }}</td></tr>
+            {% empty %}<tr><td colspan="3">—</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <h3 style="margin-top:1.25rem; font-size:1em; color:#555;">Genus et cultivars</h3>
+    <p style="color:#666; font-size:0.9em;">Nombre de genus distincts : <strong>{{ distinct_genus_count }}</strong>. Top 25 par nombre d'espèces.</p>
+    <table class="coverage-table" style="max-width:500px;">
+      <thead><tr><th>Genre</th><th>Espèces</th><th>Cultivars</th></tr></thead>
+      <tbody>
+        {% for g in genus_stats %}
+        <tr><td>{{ g.genus }}</td><td>{{ g.organism_count }}</td><td>{{ g.cultivar_count }}</td></tr>
+        {% empty %}<tr><td colspan="3">Aucun genus renseigné.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <h2>Dernières exécutions</h2>
+    {% if last_runs_by_source %}
+    <div class="last-runs-grid">
+      {% for source_key, run in last_runs_by_source.items %}
+      <div class="last-run-card {{ run.status }}">
+        <div class="source-name">{{ run.get_source_display }}</div>
+        <div class="meta">{{ run.started_at|date:"d/m/Y H:i" }} — {{ run.get_status_display }}{% if run.status == 'running' %} (en cours…){% endif %}</div>
+        {% if run.stats and run.status != 'running' %}
+          {% if run.stats.created is not None %}<div class="meta">{{ run.stats.created }} créés, {{ run.stats.updated }} mis à jour</div>{% endif %}
+          {% if run.stats.created_seed is not None %}<div class="meta">{{ run.stats.created_seed }} semences créées, {{ run.stats.updated_seed }} mises à jour</div>{% endif %}
+          {% if run.stats.global_score_before is not None and run.stats.global_score_after is not None and run.stats.global_score_after < run.stats.global_score_before %}
+          <div class="meta" style="color:#c00;">⚠️ Note globale en baisse ({{ run.stats.global_score_before }}% → {{ run.stats.global_score_after }}%). Vérifier doublons ou données écrasées.</div>
+          {% endif %}
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p style="color:#666;">Aucune exécution enregistrée. Lancez un import ou une commande ci-dessous.</p>
+    {% endif %}
+  </div>
+
+  <div class="section">
+    <h2>Recommandations (ordre des opérations)</h2>
+    <ol class="workflow-list">
+      <li>Importer les sources (Hydro-Québec, PFAF, VASCAN, USDA) via les sections ci-dessous ou <a href="{% url 'admin:species_organism_import_pfaf' %}">Importer PFAF</a> / <a href="{% url 'admin:species_seedcollection_import_csv' %}">Importer semences</a>.</li>
+      <li>Fusionner les doublons : lancer la commande <strong>merge_organism_duplicates</strong> dans le bloc « Commandes d'import et maintenance ».</li>
+      <li>Remplir les tables dérivées : lancer <strong>populate_proprietes_usage_calendrier</strong>.</li>
+    </ol>
+  </div>
+
+  <div class="section">
+    <h2>📥 Téléchargements et fiches des sources</h2>
+    <p style="color:#666; font-size:0.9em; margin-bottom:1rem;">Liens vers les bases et fiches complètes des sources utilisées par les commandes d'import (VASCAN, Hydro-Québec, USDA/ITIS, Botanipedia, PFAF).</p>
+    {% for source in data_source_links %}
+    <div class="source-card">
+      <h3>{{ source.name }}</h3>
+      <p class="desc">{{ source.description }}</p>
+      {% for link in source.links %}
+      <a href="{{ link.url }}" target="_blank" rel="noopener noreferrer">{{ link.label }}</a>
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="section">
+    <h2>Hydro-Québec — Téléchargement et import local</h2>
+    <p style="color:#666; font-size:0.9em;">Récupérer le jeu complet (~1700 espèces) depuis l'API puis l'importer depuis un fichier local.</p>
+
+    <div style="margin-bottom:1.25rem;">
+      <strong>1. Télécharger le jeu complet</strong> (enregistre <code>arbres_hq.json</code> dans <code>data/hydroquebec/</code>) :
+      <form method="post" action="{% url 'gestion_donnees' %}" style="display:inline-flex; align-items:center; gap:0.75rem; flex-wrap:wrap; margin-top:0.5rem;">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="download_hydroquebec_full">
+        <label style="display:inline-flex; align-items:center; gap:0.35rem;"><input type="checkbox" name="use_curl" value="1"> Utiliser curl (si erreur SSL)</label>
+        <button type="submit" class="button">Télécharger le jeu complet Hydro-Québec</button>
+      </form>
+      <p style="color:#888; font-size:0.8em; margin-top:0.35rem;">Peut prendre 1 à 2 minutes. Ne pas quitter la page avant la fin.</p>
+    </div>
+
+    <div>
+      <strong>2. Importer depuis un fichier local</strong> (fichiers déjà présents dans <code>data/hydroquebec/</code>) :
+      <form method="post" action="{% url 'gestion_donnees' %}" style="display:flex; align-items:center; gap:1rem; flex-wrap:wrap; margin-top:0.5rem;">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="import_hydroquebec_local">
+        <label for="local_file">Fichier :</label>
+        <select name="local_file" id="local_file" required>
+          <option value="">— Choisir un fichier —</option>
+          {% for f in hydroquebec_local_files %}
+          <option value="{{ f }}">{{ f }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="button">Démarrer l'importation locale</button>
+      </form>
+    </div>
+    {% if not hydroquebec_local_files %}
+    <p style="color:#888; font-size:0.85em; margin-top:0.75rem;">Aucun fichier .json pour l'instant. Cliquez sur « Télécharger le jeu complet » ci-dessus.</p>
+    {% endif %}
+  </div>
+
+  <div class="section">
+    <h2>Import VASCAN (fichier)</h2>
+    <p style="color:#666; font-size:0.9em;">Fichier texte avec un nom latin par ligne. Utilise <code>import_vascan --file</code>.</p>
+    <form class="upload-form" method="post" enctype="multipart/form-data" action="{% url 'gestion_donnees' %}">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="upload_vascan">
+      <input type="file" name="file" accept=".txt,.csv">
+      <button type="submit" class="button">Importer le fichier</button>
+    </form>
+  </div>
+
+  <div class="section">
+    <h2>Commandes d'import et maintenance</h2>
+    <div class="cmd-grid">
+      {% for c in commands_with_opts %}
+      <div class="cmd-form">
+        <h3>{{ c.name }}</h3>
+        {% if c.help_text %}<p class="help" style="margin:0 0 0.5rem 0; font-size:0.85em; color:#666;">{{ c.help_text }}</p>{% endif %}
+        <form method="post" action="{% url 'gestion_donnees' %}">
+          {% csrf_token %}
+          <input type="hidden" name="command" value="{{ c.name }}">
+          <div class="opts">
+            {% for opt_name, opt_type in c.options %}
+              {% if opt_type == "bool" %}
+              <label><input type="checkbox" name="opt_{{ opt_name }}" value="1"> {{ opt_name }}</label><br>
+              {% elif opt_type == "int" %}
+              <label>{{ opt_name }}: <input type="number" name="opt_{{ opt_name }}" value="{% if opt_name == 'limit' %}0{% else %}1{% endif %}" min="0"></label><br>
+              {% elif opt_type == "float" %}
+              <label>{{ opt_name }}: <input type="number" name="opt_{{ opt_name }}" value="0.5" min="0" step="0.1"></label><br>
+              {% endif %}
+            {% endfor %}
+          </div>
+          <button type="submit" class="button">Exécuter</button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+    <p style="color:#666; font-size:0.85em; margin-top:0.5rem;">Options optionnelles. no_input est forcé à True pour merge_organism_duplicates, wipe_species, wipe_db_and_media.</p>
+  </div>
+
+  <div class="section">
+    <h2>Historique des imports (persistant)</h2>
+    <p style="color:#666; font-size:0.9em;">Les 50 dernières exécutions enregistrées en base. <a href="{% url 'admin:species_dataimportrun_changelist' %}">Voir tout l'historique en admin</a>.</p>
+    {% if import_history %}
+    <table class="history-table">
+      <thead><tr><th>Date</th><th>Source</th><th>Statut</th><th>Déclencheur</th><th>Alerte</th></tr></thead>
+      <tbody>
+        {% for run in import_history %}
+        <tr>
+          <td>{{ run.started_at|date:"d/m/Y H:i" }}</td>
+          <td>{{ run.get_source_display }}</td>
+          <td>{{ run.get_status_display }}</td>
+          <td>{{ run.get_trigger_display }}</td>
+          <td>{% if run.stats.global_score_before is not None and run.stats.global_score_after is not None and run.stats.global_score_after < run.stats.global_score_before %}<span style="color:#c00;" title="Note globale en baisse">⚠️</span>{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p style="color:#666;">Aucun historique pour l'instant.</p>
+    {% endif %}
+  </div>
+
+  <div class="section">
+    <h2>Journal des sorties (session)</h2>
+    <p style="color:#666; font-size:0.9em;">Dernières sorties en mémoire (perdu à la déconnexion). Pour l'historique persistant, voir ci-dessus.</p>
+    {% if log %}
+    <div class="log-box">
+      {% for entry in log %}
+      <div class="log-entry {% if entry.success %}success{% else %}error{% endif %}">
+        <div class="meta">{{ entry.time }} — {{ entry.command }}{% if entry.success %} ✓{% else %} ✗{% endif %}</div>
+        <pre>{{ entry.output }}</pre>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p style="color:#666;">Aucune exécution récente. Lancez une commande ou un import ci-dessus.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

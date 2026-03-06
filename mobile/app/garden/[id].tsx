@@ -1,7 +1,8 @@
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { getGarden } from '@/api/client';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { useEffect, useState, useCallback } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { getGarden, getUserPreferences, updateUserPreferences } from '@/api/client';
 import type { GardenMinimal } from '@/types/api';
 
 export default function GardenDetailScreen() {
@@ -9,6 +10,8 @@ export default function GardenDetailScreen() {
   const [garden, setGarden] = useState<GardenMinimal | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isDefault, setIsDefault] = useState(false);
+  const [settingDefault, setSettingDefault] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -23,6 +26,29 @@ export default function GardenDetailScreen() {
       .catch((err) => setError(err instanceof Error ? err.message : 'Erreur'))
       .finally(() => setLoading(false));
   }, [id]);
+
+  const refreshIsDefault = useCallback(() => {
+    if (!id || !garden) return;
+    const numId = parseInt(id, 10);
+    getUserPreferences()
+      .then((prefs) => setIsDefault(prefs.default_garden_id === numId))
+      .catch(() => setIsDefault(false));
+  }, [id, garden]);
+
+  useFocusEffect(refreshIsDefault);
+
+  const handleSetDefault = async () => {
+    if (!garden || settingDefault) return;
+    setSettingDefault(true);
+    try {
+      await updateUserPreferences({ default_garden_id: garden.id });
+      setIsDefault(true);
+    } catch {
+      // ignore
+    } finally {
+      setSettingDefault(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -53,6 +79,34 @@ export default function GardenDetailScreen() {
           Coordonnées : {garden.latitude.toFixed(4)}, {garden.longitude.toFixed(4)}
         </Text>
       )}
+
+      <View style={styles.defaultSection}>
+        {isDefault ? (
+          <View style={styles.defaultBadge}>
+            <Ionicons name="checkmark-circle" size={22} color="#1a3c27" />
+            <Text style={styles.defaultBadgeText}>Jardin par défaut</Text>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={[styles.defaultButton, settingDefault && styles.defaultButtonDisabled]}
+            onPress={handleSetDefault}
+            disabled={settingDefault}
+            activeOpacity={0.7}
+          >
+            {settingDefault ? (
+              <ActivityIndicator size="small" color="#1a3c27" />
+            ) : (
+              <>
+                <Ionicons name="star-outline" size={22} color="#1a3c27" />
+                <Text style={styles.defaultButtonText}>Définir comme jardin par défaut</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
+        <Text style={styles.defaultHint}>
+          Le jardin par défaut sera présélectionné lors de la création de spécimens et autres contenus.
+        </Text>
+      </View>
     </ScrollView>
   );
 }
@@ -85,6 +139,49 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginTop: 16,
+  },
+  defaultSection: {
+    marginTop: 28,
+    padding: 16,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e8e8e8',
+  },
+  defaultBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  defaultBadgeText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1a3c27',
+  },
+  defaultButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#1a3c27',
+  },
+  defaultButtonDisabled: {
+    opacity: 0.7,
+  },
+  defaultButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1a3c27',
+  },
+  defaultHint: {
+    fontSize: 13,
+    color: '#666',
+    marginTop: 12,
+    lineHeight: 18,
   },
   error: {
     color: '#c44',

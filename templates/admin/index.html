@@ -1,0 +1,13 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block content %}
+<div class="module" style="margin-bottom:1.25rem;">
+  <h2>Import &amp; données</h2>
+  <p>
+    <a href="{% url 'gestion_donnees' %}" class="viewsitelink" style="font-size:1.05em;">📦 Gestion des données</a>
+    — Tableau de bord des imports, couverture par source, dernières exécutions et historique.
+  </p>
+</div>
+{% include "admin/app_list.html" %}
+{% endblock %}

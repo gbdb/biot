@@ -13,6 +13,7 @@ function RootLayoutNav() {
   const segments = useSegments();
 
   const isOnLogin = segments[0] === 'login';
+  const isOnRegister = segments[0] === 'register';
 
   if (authenticated === null) {
     return (
@@ -22,7 +23,7 @@ function RootLayoutNav() {
     );
   }
 
-  if (!authenticated && !isOnLogin) {
+  if (!authenticated && !isOnLogin && !isOnRegister) {
     return <Redirect href="/login" />;
   }
 
@@ -36,6 +37,7 @@ function RootLayoutNav() {
         }}
       >
         <Stack.Screen name="login" options={{ headerShown: false }} />
+        <Stack.Screen name="register" options={{ title: 'Nouvel utilisateur' }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen
           name="specimen/create"
@@ -56,6 +58,10 @@ function RootLayoutNav() {
         <Stack.Screen
           name="garden/[id]"
           options={{ title: 'Détail jardin' }}
+        />
+        <Stack.Screen
+          name="garden/create"
+          options={{ title: 'Nouveau jardin' }}
         />
         <Stack.Screen
           name="scan"

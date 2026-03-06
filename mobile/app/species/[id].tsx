@@ -24,9 +24,18 @@ import {
   uploadOrganismPhoto,
   uploadOrganismPhotoFromUrl,
   setOrganismDefaultPhoto,
+  getMe,
+  enrichOrganism,
 } from '@/api/client';
 import { PhotoCarousel, type PhotoCarouselItem } from '@/components/PhotoCarousel';
-import type { OrganismDetail, SpecimenList } from '@/types/api';
+import type {
+  OrganismDetail,
+  OrganismUsage,
+  OrganismPropriete,
+  OrganismCalendrier,
+  CompanionRelationItem,
+  SpecimenList,
+} from '@/types/api';
 
 const TYPE_LABELS: Record<string, string> = {
   arbre_fruitier: '🌳 Arbre fruitier',
@@ -100,6 +109,30 @@ const SOL_RICHESSE_LABELS: Record<string, string> = {
   riche: 'Riche/Fertile',
 };
 
+const MONTH_NAMES = [
+  'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+  'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
+];
+
+function formatMonthRange(moisDebut: number | null, moisFin: number | null): string {
+  if (moisDebut == null && moisFin == null) return '—';
+  if (moisDebut != null && moisFin != null) {
+    const a = MONTH_NAMES[moisDebut - 1] ?? String(moisDebut);
+    const b = MONTH_NAMES[moisFin - 1] ?? String(moisFin);
+    return a === b ? a : `${a} – ${b}`;
+  }
+  const m = moisDebut ?? moisFin;
+  return MONTH_NAMES[(m ?? 1) - 1] ?? String(m);
+}
+
+const TOLERANCE_OMBRE_LABELS: Record<string, string> = {
+  ombre_complete: 'Ombre complète',
+  ombre: 'Ombre',
+  mi_ombre: 'Mi-ombre',
+  soleil_partiel: 'Soleil partiel',
+  plein_soleil: 'Plein soleil',
+};
+
 export default function SpeciesDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -111,6 +144,8 @@ export default function SpeciesDetailScreen() {
   const [addPhotoModalVisible, setAddPhotoModalVisible] = useState(false);
   const [photoUrlInput, setPhotoUrlInput] = useState('');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [me, setMe] = useState<{ is_staff?: boolean } | null>(null);
+  const [enriching, setEnriching] = useState(false);
 
   const fetchOrganism = useCallback(async () => {
     const orgId = id ? parseInt(id, 10) : NaN;
@@ -130,6 +165,7 @@ export default function SpeciesDetailScreen() {
   useFocusEffect(
     useCallback(() => {
       fetchOrganism();
+      getMe().then(setMe).catch(() => setMe(null));
     }, [fetchOrganism])
   );
 
@@ -153,6 +189,34 @@ export default function SpeciesDetailScreen() {
   const handleCreateSpecimen = () => {
     if (organism) {
       router.push(`/specimen/create?organisme=${organism.id}`);
+    }
+  };
+
+  const handleEnrich = async () => {
+    if (!organism?.nom_latin?.trim()) {
+      Alert.alert('Enrichissement', 'Le nom latin est vide. Complétez-le (Modifier l\'espèce) puis réessayez.');
+      return;
+    }
+    setEnriching(true);
+    try {
+      const data = await enrichOrganism(organism.id);
+      await fetchOrganism();
+      const r = data.results ?? {};
+      const lines: string[] = [];
+      if (r.vascan) lines.push(`VASCAN : ${r.vascan.success ? '✓' : '—'} ${r.vascan.message}`);
+      if (r.usda) lines.push(`USDA : ${r.usda.success ? '✓' : '—'} ${r.usda.message}`);
+      if (r.botanipedia) lines.push(`Botanipedia : ${r.botanipedia.success ? '✓' : '—'} ${r.botanipedia.message}`);
+      const okCount = [r.vascan, r.usda, r.botanipedia].filter((x) => x?.success).length;
+      Alert.alert(
+        'Enrichissement terminé',
+        lines.length ? lines.join('\n') : 'Aucune source traitée.',
+        [{ text: 'OK' }]
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erreur lors de l\'enrichissement';
+      Alert.alert('Erreur', msg);
+    } finally {
+      setEnriching(false);
     }
   };
 
@@ -251,6 +315,9 @@ export default function SpeciesDetailScreen() {
             <Text style={styles.type}>
               {TYPE_LABELS[organism.type_organisme] ?? organism.type_organisme}
             </Text>
+            {organism.enrichment_score_pct != null && (
+              <Text style={styles.enrichmentScore}>Enrichissement : {organism.enrichment_score_pct} %</Text>
+            )}
           </View>
           <TouchableOpacity
             onPress={handleToggleFavori}
@@ -434,12 +501,181 @@ export default function SpeciesDetailScreen() {
           <Field label="Toxicité / précautions" value={organism.toxicite} />
         </View>
 
+        {organism.cultivars && organism.cultivars.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Variétés / cultivars</Text>
+            {organism.cultivars.map((c: { id: number; nom: string; couleur_fruit?: string; gout?: string; resistance_maladies?: string; pollinateurs_recommandes?: { companion_cultivar: { nom: string } | null; companion_organism: { nom_commun: string } | null }[] }) => (
+              <View key={c.id} style={styles.cultivarBlock}>
+                <Text style={styles.cultivarNom}>{c.nom}</Text>
+                {c.couleur_fruit?.trim() ? <Text style={styles.cultivarDetail}>Couleur : {c.couleur_fruit}</Text> : null}
+                {c.gout?.trim() ? <Text style={styles.cultivarDetail}>Goût : {c.gout}</Text> : null}
+                {c.resistance_maladies?.trim() ? <Text style={styles.cultivarDetail}>Résistances : {c.resistance_maladies}</Text> : null}
+                {c.pollinateurs_recommandes && c.pollinateurs_recommandes.length > 0 ? (
+                  <Text style={styles.cultivarPollinators}>
+                    Pollinisateurs recommandés : {c.pollinateurs_recommandes.map((p) => p.companion_cultivar?.nom ?? p.companion_organism?.nom_commun ?? '—').join(', ')}
+                  </Text>
+                ) : null}
+              </View>
+            ))}
+          </View>
+        )}
+
+        {organism.usages && organism.usages.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Usages</Text>
+            <View style={styles.chipRow}>
+              {organism.usages.map((u: OrganismUsage) => (
+                <View key={u.id} style={styles.chip}>
+                  <Text style={styles.chipText}>{u.type_usage_display}</Text>
+                  {u.parties?.trim() ? (
+                    <Text style={styles.chipSubtext}>{u.parties}</Text>
+                  ) : null}
+                </View>
+              ))}
+            </View>
+            {organism.usages.some((u) => u.description?.trim()) && (
+              <View style={styles.usagesDetails}>
+                {organism.usages.filter((u) => u.description?.trim()).map((u) => (
+                  <View key={u.id} style={styles.usageBlock}>
+                    <Text style={styles.usageBlockLabel}>{u.type_usage_display}</Text>
+                    <Text style={styles.usageBlockDesc}>{u.description}</Text>
+                    {u.source?.trim() ? (
+                      <Text style={styles.sourceHint}>Source : {u.source}</Text>
+                    ) : null}
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+
+        {organism.proprietes && organism.proprietes.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Sol & exposition (détail)</Text>
+            {organism.proprietes.map((p: OrganismPropriete) => (
+              <View key={p.id} style={styles.proprieteCard}>
+                {p.type_sol?.length > 0 ? (
+                  <Field
+                    label="Types de sol"
+                    value={Array.isArray(p.type_sol) ? p.type_sol.join(', ') : String(p.type_sol)}
+                  />
+                ) : null}
+                {(p.ph_min != null || p.ph_max != null) && (
+                  <Field
+                    label="pH"
+                    value={
+                      p.ph_min != null && p.ph_max != null
+                        ? `${p.ph_min} – ${p.ph_max}`
+                        : p.ph_min != null
+                          ? `≥ ${p.ph_min}`
+                          : p.ph_max != null
+                            ? `≤ ${p.ph_max}`
+                            : null
+                    }
+                  />
+                )}
+                {p.tolerance_ombre?.trim() && (
+                  <Field
+                    label="Exposition"
+                    value={TOLERANCE_OMBRE_LABELS[p.tolerance_ombre] ?? p.tolerance_ombre}
+                  />
+                )}
+                {p.source?.trim() ? (
+                  <Text style={styles.sourceHint}>Source : {p.source}</Text>
+                ) : null}
+              </View>
+            ))}
+          </View>
+        )}
+
+        {organism.calendrier && organism.calendrier.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Calendrier</Text>
+            <View style={styles.calendrierGrid}>
+              {organism.calendrier.map((c: OrganismCalendrier) => (
+                <View key={c.id} style={styles.calendrierRow}>
+                  <Text style={styles.calendrierLabel}>{c.type_periode_display}</Text>
+                  <Text style={styles.calendrierValue}>
+                    {formatMonthRange(c.mois_debut, c.mois_fin)}
+                  </Text>
+                  {c.source?.trim() ? (
+                    <Text style={styles.calendrierSource}>{c.source}</Text>
+                  ) : null}
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Description</Text>
           <Field label="Description générale" value={organism.description} />
           <Field label="Notes" value={organism.notes} />
           <Field label="Usages autres" value={organism.usages_autres} />
         </View>
+
+        {organism.companion_relations && organism.companion_relations.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Companions</Text>
+            {(() => {
+              const bons = organism.companion_relations.filter((r: CompanionRelationItem) => r.is_positive);
+              const eviter = organism.companion_relations.filter((r: CompanionRelationItem) => !r.is_positive);
+              return (
+                <>
+                  {bons.length > 0 && (
+                    <View style={styles.companionGroup}>
+                      <Text style={styles.companionGroupTitle}>Bons compagnons</Text>
+                      {bons.map((r: CompanionRelationItem) => (
+                        <TouchableOpacity
+                          key={r.id}
+                          style={styles.companionRow}
+                          onPress={() => router.push(`/species/${r.other_organism.id}`)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.companionRowLabel}>
+                            {r.other_organism.nom_commun}
+                            {r.other_organism.nom_latin ? ` (${r.other_organism.nom_latin})` : ''}
+                          </Text>
+                          <Text style={styles.companionRowType}>{r.type_relation_display}</Text>
+                          {r.description?.trim() ? (
+                            <Text style={styles.companionRowDesc} numberOfLines={2}>{r.description}</Text>
+                          ) : null}
+                          {r.distance_optimale != null && (
+                            <Text style={styles.companionRowDist}>Distance ~{r.distance_optimale} m</Text>
+                          )}
+                          <Ionicons name="chevron-forward" size={18} color="#888" style={styles.companionChevron} />
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                  {eviter.length > 0 && (
+                    <View style={styles.companionGroup}>
+                      <Text style={[styles.companionGroupTitle, styles.companionGroupTitleAvoid]}>À éviter</Text>
+                      {eviter.map((r: CompanionRelationItem) => (
+                        <TouchableOpacity
+                          key={r.id}
+                          style={[styles.companionRow, styles.companionRowAvoid]}
+                          onPress={() => router.push(`/species/${r.other_organism.id}`)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.companionRowLabel}>
+                            {r.other_organism.nom_commun}
+                            {r.other_organism.nom_latin ? ` (${r.other_organism.nom_latin})` : ''}
+                          </Text>
+                          <Text style={styles.companionRowType}>{r.type_relation_display}</Text>
+                          {r.description?.trim() ? (
+                            <Text style={styles.companionRowDesc} numberOfLines={2}>{r.description}</Text>
+                          ) : null}
+                          <Ionicons name="chevron-forward" size={18} color="#888" style={styles.companionChevron} />
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                </>
+              );
+            })()}
+          </View>
+        )}
       </View>
 
       <TouchableOpacity
@@ -459,6 +695,24 @@ export default function SpeciesDetailScreen() {
         <Ionicons name="pencil" size={24} color="#1a3c27" />
         <Text style={styles.editButtonText}>Modifier l&apos;espèce</Text>
       </TouchableOpacity>
+
+      {me?.is_staff && organism.nom_latin?.trim() && (
+        <TouchableOpacity
+          style={[styles.editButton, enriching && styles.editButtonDisabled]}
+          onPress={handleEnrich}
+          disabled={enriching}
+          activeOpacity={0.7}
+        >
+          {enriching ? (
+            <ActivityIndicator size="small" color="#1a3c27" style={{ marginRight: 8 }} />
+          ) : (
+            <Ionicons name="cloud-download-outline" size={24} color="#1a3c27" />
+          )}
+          <Text style={styles.editButtonText}>
+            {enriching ? 'Enrichissement en cours…' : 'Enrichir cette espèce (VASCAN, USDA, Botanipedia)'}
+          </Text>
+        </TouchableOpacity>
+      )}
 
       {specimens.length > 0 && (
         <View style={styles.specimensSection}>
@@ -543,6 +797,11 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 12,
   },
+  enrichmentScore: {
+    fontSize: 13,
+    color: '#417690',
+    marginTop: 6,
+  },
   favoriBtn: { padding: 8 },
   section: {
     marginTop: 20,
@@ -605,6 +864,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: '#1a3c27',
+  },
+  editButtonDisabled: {
+    opacity: 0.7,
   },
   addPhotoButton: {
     flexDirection: 'row',
@@ -753,5 +1015,173 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
     marginTop: 2,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 8,
+  },
+  chip: {
+    backgroundColor: '#e8f0e8',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    maxWidth: '100%',
+  },
+  chipText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1a3c27',
+  },
+  chipSubtext: {
+    fontSize: 11,
+    color: '#4a6741',
+    marginTop: 2,
+  },
+  cultivarBlock: {
+    marginBottom: 14,
+    paddingLeft: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: '#1a3c27',
+  },
+  cultivarNom: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1a3c27',
+    marginBottom: 4,
+  },
+  cultivarDetail: {
+    fontSize: 13,
+    color: '#333',
+    marginTop: 2,
+    lineHeight: 18,
+  },
+  cultivarPollinators: {
+    fontSize: 12,
+    color: '#4a6741',
+    marginTop: 6,
+    fontStyle: 'italic',
+  },
+  usagesDetails: {
+    marginTop: 12,
+    gap: 10,
+  },
+  usageBlock: {
+    marginBottom: 10,
+    paddingLeft: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: '#1a3c27',
+  },
+  usageBlockLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1a3c27',
+    marginBottom: 4,
+  },
+  usageBlockDesc: {
+    fontSize: 14,
+    color: '#333',
+    lineHeight: 20,
+  },
+  sourceHint: {
+    fontSize: 11,
+    color: '#888',
+    marginTop: 6,
+    fontStyle: 'italic',
+  },
+  proprieteCard: {
+    backgroundColor: '#f8faf8',
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#e8eee8',
+  },
+  calendrierGrid: {
+    gap: 4,
+  },
+  calendrierRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  calendrierLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1a3c27',
+    width: 120,
+  },
+  calendrierValue: {
+    fontSize: 14,
+    color: '#333',
+    flex: 1,
+  },
+  calendrierSource: {
+    fontSize: 11,
+    color: '#888',
+    width: '100%',
+    marginTop: 2,
+    marginLeft: 120,
+  },
+  companionGroup: {
+    marginBottom: 20,
+  },
+  companionGroupTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1a3c27',
+    marginBottom: 10,
+  },
+  companionGroupTitleAvoid: {
+    color: '#8b3a3a',
+  },
+  companionRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    backgroundColor: '#f0f7f0',
+    padding: 14,
+    paddingRight: 40,
+    borderRadius: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#e0ebe0',
+  },
+  companionRowAvoid: {
+    backgroundColor: '#fdf2f2',
+    borderColor: '#f0d8d8',
+  },
+  companionRowLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1a3c27',
+    width: '100%',
+  },
+  companionRowType: {
+    fontSize: 12,
+    color: '#4a6741',
+    marginTop: 4,
+    width: '100%',
+  },
+  companionRowDesc: {
+    fontSize: 13,
+    color: '#555',
+    marginTop: 6,
+    lineHeight: 18,
+    width: '100%',
+  },
+  companionRowDist: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+  },
+  companionChevron: {
+    position: 'absolute',
+    right: 12,
+    top: 14,
   },
 });

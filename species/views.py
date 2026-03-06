@@ -2,14 +2,23 @@
 Vues pour Jardin bIOT.
 """
 import json
-from datetime import date, timedelta
+import os
+import tempfile
+from datetime import date, datetime, timedelta
+from io import StringIO
+from pathlib import Path
 
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
+from django.core.management import call_command
+from django.conf import settings
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
-from .models import CompanionRelation, Garden, SprinklerZone
+from django.db.models import Count, Q
+from django.utils import timezone
+
+from .models import BaseEnrichmentStats, CompanionRelation, Cultivar, Garden, Organism, Specimen, SprinklerZone, DataImportRun
 from .weather_service import (
     fetch_forecast,
     fetch_weather_for_garden,
@@ -176,3 +185,431 @@ def trigger_sprinkler_view(request, zone_id):
         messages.error(request, f"Erreur : {msg}")
 
     return redirect("weather_dashboard")
+
+
+SESSION_LOG_KEY = "gestion_donnees_log"
+SESSION_LOG_MAX = 20
+
+# Liens vers les fiches complètes / téléchargements des sources utilisées par les commandes d'import
+DATA_SOURCE_LINKS = [
+    {
+        "name": "VASCAN (Canadensys)",
+        "description": "Plantes vasculaires du Canada — checklist et archive complète.",
+        "links": [
+            {"label": "Checklist & téléchargement", "url": "https://data.canadensys.net/vascan/checklist"},
+            {"label": "Archive DwC-A complète (IPT)", "url": "https://data.canadensys.net/ipt/archive.do?r=vascan"},
+        ],
+    },
+    {
+        "name": "Hydro-Québec — Arbres et arbustes",
+        "description": "Fiches détaillées des arbres et arbustes. Télécharger tout : python manage.py import_hydroquebec --limit 0 --output arbres_hq.json (ajouter --curl si SSL échoue). Puis importer : --file arbres_hq.json",
+        "links": [
+            {"label": "Site Arbres Hydro-Québec", "url": "https://arbres.hydroquebec.com/"},
+            {"label": "Données ouvertes HQ (doc, API)", "url": "https://hydroquebec.com/documents-donnees/donnees-ouvertes/repertoire-arbres.html"},
+        ],
+    },
+    {
+        "name": "USDA PLANTS / ITIS",
+        "description": "Bases USDA Plants et ITIS (TSN) — noms scientifiques, familles, répartition.",
+        "links": [
+            {"label": "USDA PLANTS Database", "url": "https://plants.usda.gov/home"},
+            {"label": "Téléchargements ITIS", "url": "https://www.itis.gov/ftp_download.html"},
+        ],
+    },
+    {
+        "name": "Botanipedia",
+        "description": "Encyclopédie des plantes (fiches par nom latin, API MediaWiki).",
+        "links": [
+            {"label": "Botanipedia.org", "url": "https://www.botanipedia.org/"},
+        ],
+    },
+    {
+        "name": "PFAF (Plants For A Future)",
+        "description": "Plantes comestibles et utiles (~7400). Base payante : Standard Home 50 USD, Commercial 150 USD, Student 30 USD. Import manuel via admin avec un fichier acquis légalement.",
+        "links": [
+            {"label": "Recherche PFAF", "url": "https://www.pfaf.org/user/PlantSearch.aspx"},
+            {"label": "Achat / téléchargement base PFAF", "url": "https://pfaf.org/user/cmspage.aspx?pageid=126"},
+        ],
+    },
+]
+
+
+def _append_log(request, command_label: str, output: str, success: bool):
+    """Conserve les N derniers résultats dans la session."""
+    log = request.session.get(SESSION_LOG_KEY, [])
+    log.append({
+        "command": command_label,
+        "output": output or "(aucune sortie)",
+        "success": success,
+        "time": datetime.now().isoformat(),
+    })
+    request.session[SESSION_LOG_KEY] = log[-SESSION_LOG_MAX:]
+
+
+@staff_member_required
+def gestion_donnees_view(request):
+    """
+    Page de gestion des données (espèces, imports, commandes).
+    Upload fichier VASCAN, boutons pour lancer les commandes d'import/merge/peupler/wipe,
+    et journal des sorties (type terminal).
+    """
+    from .api_views import ALLOWED_ADMIN_COMMANDS, _build_command_kwargs
+
+    if request.method == "POST":
+        # --- Upload fichier VASCAN ---
+        if request.POST.get("action") == "upload_vascan":
+            uploaded = request.FILES.get("file")
+            if uploaded:
+                suffix = ".txt"
+                if uploaded.name and "." in uploaded.name:
+                    suffix = "." + uploaded.name.rsplit(".", 1)[-1]
+                with tempfile.NamedTemporaryFile(mode="wb", suffix=suffix, delete=False) as f:
+                    for chunk in uploaded.chunks():
+                        f.write(chunk)
+                    path = f.name
+                _eb = BaseEnrichmentStats.objects.first()
+                run = DataImportRun.objects.create(
+                    source="import_vascan",
+                    status="running",
+                    trigger="gestion_donnees",
+                    user=request.user,
+                    stats={"global_score_before": _eb.global_score_pct if _eb else None},
+                )
+                try:
+                    out, err = StringIO(), StringIO()
+                    try:
+                        call_command("import_vascan", file=path, stdout=out, stderr=err)
+                        output = (out.getvalue() + "\n" + err.getvalue()).strip()
+                        _append_log(request, "Import VASCAN (fichier)", output, True)
+                        run.status = "success"
+                        run.finished_at = timezone.now()
+                        run.output_snippet = (output or "")[:2000]
+                        _ea = BaseEnrichmentStats.objects.first()
+                        run.stats["global_score_after"] = _ea.global_score_pct if _ea else None
+                        run.save()
+                        messages.success(request, "Import VASCAN terminé.")
+                    except Exception as e:
+                        output = (out.getvalue() + "\n" + err.getvalue()).strip() or str(e)
+                        _append_log(request, "Import VASCAN (fichier)", output, False)
+                        run.status = "failure"
+                        run.finished_at = timezone.now()
+                        run.output_snippet = output[:2000] if output else str(e)[:2000]
+                        run.save()
+                        messages.error(request, f"Erreur : {e}")
+                finally:
+                    try:
+                        os.unlink(path)
+                    except OSError:
+                        pass
+            else:
+                messages.warning(request, "Aucun fichier sélectionné.")
+            return redirect("gestion_donnees")
+
+        # --- Téléchargement complet Hydro-Québec (API → fichier local) ---
+        if request.POST.get("action") == "download_hydroquebec_full":
+            base_dir = getattr(settings, "IMPORT_HYDROQUEBEC_DIR", Path(settings.BASE_DIR) / "data" / "hydroquebec")
+            base_dir = Path(base_dir)
+            try:
+                base_dir.mkdir(parents=True, exist_ok=True)
+            except OSError as e:
+                messages.error(request, f"Impossible de créer le répertoire : {e}")
+                return redirect("gestion_donnees")
+            output_path = base_dir / "arbres_hq.json"
+            use_curl = request.POST.get("use_curl") in ("1", "on", "true", "yes")
+            run = DataImportRun.objects.create(
+                source="import_hydroquebec",
+                status="running",
+                trigger="gestion_donnees",
+                user=request.user,
+                stats={"action": "download"},
+            )
+            out, err = StringIO(), StringIO()
+            try:
+                call_command(
+                    "import_hydroquebec",
+                    limit=0,
+                    output=str(output_path),
+                    stdout=out,
+                    stderr=err,
+                    curl=use_curl,
+                )
+                output = (out.getvalue() + "\n" + err.getvalue()).strip()
+                _append_log(request, "Téléchargement complet Hydro-Québec (→ arbres_hq.json)", output, True)
+                run.status = "success"
+                run.finished_at = timezone.now()
+                run.output_snippet = (output or "")[:2000]
+                if output_path.exists():
+                    run.stats["file_size_kb"] = output_path.stat().st_size // 1024
+                run.save()
+                messages.success(
+                    request,
+                    f"Téléchargement terminé : {output_path.name} ({output_path.stat().st_size // 1024} Ko). "
+                    "Utilisez le menu ci-dessous pour lancer l'importation locale.",
+                )
+            except Exception as e:
+                output = (out.getvalue() + "\n" + err.getvalue()).strip() or str(e)
+                _append_log(request, "Téléchargement complet Hydro-Québec", output, False)
+                run.status = "failure"
+                run.finished_at = timezone.now()
+                run.output_snippet = (output or str(e))[:2000]
+                run.save()
+                messages.error(
+                    request,
+                    f"Erreur : {e}. En cas d'erreur SSL, cochez « Utiliser curl » et réessayez.",
+                )
+            return redirect("gestion_donnees")
+
+        # --- Import Hydro-Québec depuis fichier local (serveur) ---
+        if request.POST.get("action") == "import_hydroquebec_local":
+            local_file = (request.POST.get("local_file") or "").strip()
+            if local_file and not Path(local_file).is_absolute() and ".." not in local_file:
+                base_dir = getattr(settings, "IMPORT_HYDROQUEBEC_DIR", Path(settings.BASE_DIR) / "data" / "hydroquebec")
+                base_dir = Path(base_dir)
+                full_path = (base_dir / local_file).resolve()
+                base_resolved = base_dir.resolve()
+                if full_path.is_file() and str(full_path).startswith(str(base_resolved)):
+                    _eb = BaseEnrichmentStats.objects.first()
+                    run = DataImportRun.objects.create(
+                        source="import_hydroquebec",
+                        status="running",
+                        trigger="gestion_donnees",
+                        user=request.user,
+                        stats={"action": "import_local", "file": local_file, "global_score_before": _eb.global_score_pct if _eb else None},
+                    )
+                    out, err = StringIO(), StringIO()
+                    try:
+                        call_command(
+                            "import_hydroquebec",
+                            file=str(full_path),
+                            limit=0,
+                            stdout=out,
+                            stderr=err,
+                        )
+                        output = (out.getvalue() + "\n" + err.getvalue()).strip()
+                        _append_log(request, f"Import Hydro-Québec (fichier local: {local_file})", output, True)
+                        run.status = "success"
+                        run.finished_at = timezone.now()
+                        run.output_snippet = (output or "")[:2000]
+                        _ea = BaseEnrichmentStats.objects.first()
+                        run.stats["global_score_after"] = _ea.global_score_pct if _ea else None
+                        run.save()
+                        messages.success(request, f"Import terminé : {local_file}")
+                    except Exception as e:
+                        output = (out.getvalue() + "\n" + err.getvalue()).strip() or str(e)
+                        _append_log(request, f"Import Hydro-Québec (fichier local: {local_file})", output, False)
+                        run.status = "failure"
+                        run.finished_at = timezone.now()
+                        run.output_snippet = (output or str(e))[:2000]
+                        run.save()
+                        messages.error(request, f"Erreur : {e}")
+                else:
+                    messages.error(request, "Fichier invalide ou hors du répertoire autorisé.")
+            else:
+                messages.warning(request, "Aucun fichier sélectionné.")
+            return redirect("gestion_donnees")
+
+        # --- Commande admin ---
+        command = (request.POST.get("command") or "").strip()
+        if command and command in ALLOWED_ADMIN_COMMANDS:
+            options = {}
+            for key in ALLOWED_ADMIN_COMMANDS[command]:
+                val = request.POST.get(f"opt_{key}")
+                if val is None:
+                    continue
+                if key in ("enrich", "curl", "insecure", "verbose", "dry_run", "no_input"):
+                    options[key] = val in ("1", "on", "true", "yes")
+                elif key == "limit":
+                    try:
+                        options[key] = int(val) if val != "" else 0
+                    except ValueError:
+                        pass
+                elif key == "delay":
+                    try:
+                        options[key] = float(val) if val != "" else 0.5
+                    except ValueError:
+                        pass
+            cmd_kwargs = _build_command_kwargs(command, options)
+            if command in ("merge_organism_duplicates", "wipe_db_and_media", "wipe_species"):
+                cmd_kwargs.setdefault("no_input", True)
+
+            # Score global avant (pour alerte si baisse après import)
+            _enrichment_before = BaseEnrichmentStats.objects.first()
+            _global_before = _enrichment_before.global_score_pct if _enrichment_before else None
+            _options_with_score = dict(options)
+            _options_with_score["global_score_before"] = _global_before
+
+            run = DataImportRun.objects.create(
+                source=command,
+                status="running",
+                trigger="gestion_donnees",
+                user=request.user,
+                stats=_options_with_score,
+            )
+            out, err = StringIO(), StringIO()
+            try:
+                call_command(command, stdout=out, stderr=err, **cmd_kwargs)
+                output = (out.getvalue() + "\n" + err.getvalue()).strip()
+                _append_log(request, command, output, True)
+                run.status = "success"
+                run.finished_at = timezone.now()
+                run.output_snippet = (output or "")[:2000]
+                _enrichment_after = BaseEnrichmentStats.objects.first()
+                run.stats["global_score_after"] = _enrichment_after.global_score_pct if _enrichment_after else None
+                run.save()
+                messages.success(request, f"Commande « {command} » exécutée.")
+            except Exception as e:
+                output = (out.getvalue() + "\n" + err.getvalue()).strip() or str(e)
+                _append_log(request, command, output, False)
+                run.status = "failure"
+                run.finished_at = timezone.now()
+                run.output_snippet = (output or str(e))[:2000]
+                run.save()
+                messages.error(request, f"Erreur : {e}")
+            return redirect("gestion_donnees")
+
+        messages.warning(request, "Action non reconnue.")
+        return redirect("gestion_donnees")
+
+    # GET: afficher la page avec stats, couverture, dernieres executions et journal
+    source_filter = request.GET.get("source_filter", "").strip() or None
+    base_queryset = Organism.objects.all()
+    if source_filter:
+        base_queryset = base_queryset.filter(data_sources__has_key=source_filter)
+    stats = {
+        "organism_count": Organism.objects.count(),
+        "specimen_count": Specimen.objects.count(),
+    }
+    # Couverture par source (nombre d'organismes ayant cette clé dans data_sources)
+    data_source_keys = ["hydroquebec", "pfaf", "vascan", "usda", "botanipedia"]
+    coverage_by_source = {}
+    for key in data_source_keys:
+        try:
+            coverage_by_source[key] = Organism.objects.filter(data_sources__has_key=key).count()
+        except Exception:
+            coverage_by_source[key] = 0
+
+    # Dernière exécution par source (pour le bloc "Last runs")
+    sources_for_last_run = [
+        "pfaf", "seeds", "import_vascan", "import_usda", "import_hydroquebec",
+        "import_botanipedia", "merge_organism_duplicates", "populate_proprietes_usage_calendrier",
+    ]
+    last_runs_by_source = {}
+    for src in sources_for_last_run:
+        run = DataImportRun.objects.filter(source=src).order_by("-started_at").first()
+        if run:
+            last_runs_by_source[src] = run
+
+    # Historique des imports (50 derniers)
+    import_history = list(DataImportRun.objects.all()[:50])
+
+    log = request.session.get(SESSION_LOG_KEY, [])
+
+    # Fichiers JSON Hydro-Québec disponibles localement (répertoire configuré)
+    hydroquebec_local_files = []
+    try:
+        base_dir = getattr(settings, "IMPORT_HYDROQUEBEC_DIR", Path(settings.BASE_DIR) / "data" / "hydroquebec")
+        base_dir = Path(base_dir)
+        base_dir.mkdir(parents=True, exist_ok=True)
+        for f in sorted(base_dir.iterdir()):
+            if f.is_file() and f.suffix.lower() == ".json":
+                hydroquebec_local_files.append(f.name)
+    except OSError:
+        pass
+
+    command_help = {
+        "import_vascan": "Enrichit les organismes existants (vascan_id) ou crée depuis un fichier.",
+        "import_usda": "Enrichit avec le TSN ITIS/USDA.",
+        "import_hydroquebec": "Arbres et arbustes HQ (API ou fichier local).",
+        "import_botanipedia": "Enrichit description / usages depuis Botanipedia.",
+        "merge_organism_duplicates": "Fusionne les doublons (même vascan_id, tsn ou nom latin).",
+        "populate_proprietes_usage_calendrier": "Remplit Propriétés, Usages, Calendrier depuis data_sources.",
+        "wipe_species": "Vide les données espèces (attention).",
+        "wipe_db_and_media": "Vide la base et les médias (attention).",
+    }
+    commands_with_opts = [
+        {
+            "name": cmd,
+            "options": [(k, getattr(t, "__name__", str(t))) for k, t in opts.items()],
+            "help_text": command_help.get(cmd, ""),
+        }
+        for cmd, opts in ALLOWED_ADMIN_COMMANDS.items()
+    ]
+    # Note d'enrichissement globale (singleton BaseEnrichmentStats)
+    enrichment_stats = BaseEnrichmentStats.objects.first()
+    global_enrichment_score_pct = enrichment_stats.global_score_pct if enrichment_stats else None
+
+    # Analyse par champ (couverture) pour « manque le plus » / « mieux documenté »
+    total_org = base_queryset.count()
+    try:
+        field_checks = [
+            ("Famille", base_queryset.exclude(Q(famille="") | Q(famille__isnull=True)).count()),
+            ("Genre (genus)", base_queryset.exclude(Q(genus="") | Q(genus__isnull=True)).count()),
+            ("Description", base_queryset.exclude(Q(description="") | Q(description__isnull=True)).count()),
+            ("Zone rusticité", base_queryset.filter(zone_rusticite__isnull=False).exclude(zone_rusticite=[]).count()),
+            ("Besoin eau", base_queryset.exclude(Q(besoin_eau="") | Q(besoin_eau__isnull=True)).count()),
+            ("Besoin soleil", base_queryset.exclude(Q(besoin_soleil="") | Q(besoin_soleil__isnull=True)).count()),
+            ("Sol drainage", base_queryset.exclude(Q(sol_drainage="") | Q(sol_drainage__isnull=True)).count()),
+            ("Hauteur max", base_queryset.filter(hauteur_max__isnull=False).count()),
+            ("Largeur max", base_queryset.filter(largeur_max__isnull=False).count()),
+            ("Parties comestibles", base_queryset.exclude(Q(parties_comestibles="") | Q(parties_comestibles__isnull=True)).count()),
+            ("Usages autres", base_queryset.exclude(Q(usages_autres="") | Q(usages_autres__isnull=True)).count()),
+            ("Indigène", base_queryset.filter(indigene=True).count()),
+            ("Au moins 1 propriété (sol)", base_queryset.annotate(n=Count("proprietes")).filter(n__gt=0).count()),
+            ("Au moins 1 usage", base_queryset.annotate(n=Count("usages")).filter(n__gt=0).count()),
+            ("Au moins 1 calendrier", base_queryset.annotate(n=Count("calendrier")).filter(n__gt=0).count()),
+            ("Photo principale ou galerie", base_queryset.annotate(n_photos=Count("photos")).filter(
+                Q(photo_principale_id__isnull=False) | Q(n_photos__gt=0)
+            ).count()),
+        ]
+    except Exception:
+        field_checks = [
+            ("Famille", base_queryset.exclude(Q(famille="") | Q(famille__isnull=True)).count()),
+            ("Genre (genus)", base_queryset.exclude(Q(genus="") | Q(genus__isnull=True)).count()),
+            ("Description", base_queryset.exclude(Q(description="") | Q(description__isnull=True)).count()),
+            ("Zone rusticité", base_queryset.filter(zone_rusticite__isnull=False).exclude(zone_rusticite=[]).count()),
+        ]
+    if total_org > 0:
+        field_coverage = [
+            {"label": label, "count": c, "pct": round(100 * c / total_org)}
+            for label, c in field_checks
+        ]
+        field_coverage_sorted_asc = sorted(field_coverage, key=lambda x: x["pct"])
+        field_coverage_sorted_desc = sorted(field_coverage, key=lambda x: -x["pct"])
+    else:
+        field_coverage_sorted_asc = []
+        field_coverage_sorted_desc = []
+
+    # Genus et cultivars (top 25 genus par nombre d'espèces), sur le base_queryset
+    genus_stats = (
+        base_queryset.filter(genus__isnull=False)
+        .exclude(genus="")
+        .values("genus")
+        .annotate(organism_count=Count("id"), cultivar_count=Count("cultivars"))
+        .order_by("-organism_count")[:25]
+    )
+    genus_stats = list(genus_stats)
+    distinct_genus_count = base_queryset.filter(genus__isnull=False).exclude(genus="").values("genus").distinct().count()
+
+    total_cultivar_count = Cultivar.objects.count()
+    enrichment_computed_at = enrichment_stats.computed_at if enrichment_stats else None
+
+    context = {
+        "stats": stats,
+        "coverage_by_source": coverage_by_source,
+        "global_enrichment_score_pct": global_enrichment_score_pct,
+        "enrichment_computed_at": enrichment_computed_at,
+        "total_cultivar_count": total_cultivar_count,
+        "field_coverage_asc": field_coverage_sorted_asc,
+        "field_coverage_desc": field_coverage_sorted_desc,
+        "genus_stats": genus_stats,
+        "distinct_genus_count": distinct_genus_count,
+        "source_filter": source_filter,
+        "data_source_keys": data_source_keys,
+        "last_runs_by_source": last_runs_by_source,
+        "import_history": import_history,
+        "log": reversed(list(log)),  # plus récent en premier à l'affichage
+        "commands_with_opts": commands_with_opts,
+        "data_source_links": DATA_SOURCE_LINKS,
+        "hydroquebec_local_files": hydroquebec_local_files,
+    }
+    return render(request, "species/gestion_donnees.html", context)

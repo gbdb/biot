@@ -1355,6 +1355,35 @@ export default function SpecimenDetailScreen() {
     [specimen?.id, pendingPhotoForEvent]
   );
 
+  const getSpecimenPhotoUri = useCallback((p: Photo): string | null => {
+    if (p.image_url?.startsWith('http')) return p.image_url;
+    if (p.image) return `${API_BASE_URL}${p.image}`;
+    return null;
+  }, []);
+
+  const specimenCarouselItems = useMemo((): PhotoCarouselItem[] => {
+    if (!specimen) return [];
+    return specimenPhotos
+      .map((p) => {
+        const uri = getSpecimenPhotoUri(p);
+        if (!uri) return null;
+        return {
+          id: p.id,
+          image_url: uri,
+          event: p.event ?? undefined,
+          meta: { photoId: p.id, specimenId: specimen.id },
+        };
+      })
+      .filter(Boolean) as PhotoCarouselItem[];
+  }, [specimenPhotos, specimen?.id, getSpecimenPhotoUri]);
+
+  const eventsWithFirstPhoto = useMemo(() => {
+    return events
+      .slice(0, 10)
+      .map((ev) => ({ ev, firstPhoto: specimenPhotos.find((p) => p.event_id === ev.id) }))
+      .filter((x): x is { ev: Event; firstPhoto: Photo } => x.firstPhoto != null);
+  }, [events, specimenPhotos]);
+
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -1437,35 +1466,6 @@ export default function SpecimenDetailScreen() {
     ]);
   };
 
-  const getSpecimenPhotoUri = (p: Photo): string | null => {
-    if (p.image_url?.startsWith('http')) return p.image_url;
-    if (p.image) return `${API_BASE_URL}${p.image}`;
-    return null;
-  };
-
-  const specimenCarouselItems = useMemo((): PhotoCarouselItem[] => {
-    if (!specimen) return [];
-    return specimenPhotos
-      .map((p) => {
-        const uri = getSpecimenPhotoUri(p);
-        if (!uri) return null;
-        return {
-          id: p.id,
-          image_url: uri,
-          event: p.event ?? undefined,
-          meta: { photoId: p.id, specimenId: specimen.id },
-        };
-      })
-      .filter(Boolean) as PhotoCarouselItem[];
-  }, [specimenPhotos, specimen?.id]);
-
-  const eventsWithFirstPhoto = useMemo(() => {
-    return events
-      .slice(0, 10)
-      .map((ev) => ({ ev, firstPhoto: specimenPhotos.find((p) => p.event_id === ev.id) }))
-      .filter((x): x is { ev: Event; firstPhoto: Photo } => x.firstPhoto != null);
-  }, [events, specimenPhotos]);
-
   const handleToggleFavori = async () => {
     if (!specimen || favoriToggling) return;
     setFavoriToggling(true);
@@ -1540,6 +1540,33 @@ export default function SpecimenDetailScreen() {
         </Text>
         {specimen.notes && <Text style={styles.notes}>{specimen.notes}</Text>}
       </View>
+      {specimen.pollination_associations && specimen.pollination_associations.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Associé à (pollinisation)</Text>
+          {specimen.pollination_associations.map((assoc) => (
+            <View key={assoc.group_id} style={styles.pollinationGroup}>
+              <Text style={styles.pollinationGroupType}>
+                {assoc.type_groupe === 'male_female' ? 'Mâle / femelle' : 'Pollinisation croisée'}
+                {assoc.role ? ` — Rôle : ${assoc.role}` : ''}
+              </Text>
+              {assoc.other_members.map((m) => (
+                <TouchableOpacity
+                  key={m.specimen_id}
+                  style={[styles.pollinationMemberRow, m.alerte_distance && styles.pollinationMemberRowAlert]}
+                  onPress={() => router.push(`/specimen/${m.specimen_id}`)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.pollinationMemberNom}>{m.nom}</Text>
+                  {m.organisme_nom && <Text style={styles.pollinationMemberOrg}>{m.organisme_nom}</Text>}
+                  {m.distance_metres != null && <Text style={styles.pollinationMemberDist}>{m.distance_metres} m</Text>}
+                  {m.alerte_distance && <Text style={styles.pollinationAlert}>Zone trop loin</Text>}
+                  <Ionicons name="chevron-forward" size={18} color="#888" />
+                </TouchableOpacity>
+              ))}
+            </View>
+          ))}
+        </View>
+      )}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Photos</Text>
         {loadingPhotos ? (
@@ -1990,6 +2017,54 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1a3c27',
     marginBottom: 12,
+  },
+  pollinationGroup: {
+    marginBottom: 16,
+  },
+  pollinationGroupType: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  pollinationMemberRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    backgroundColor: '#f0f7f0',
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#e0ebe0',
+  },
+  pollinationMemberRowAlert: {
+    backgroundColor: '#fdf2f2',
+    borderColor: '#f0d8d8',
+  },
+  pollinationMemberNom: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1a3c27',
+    width: '100%',
+  },
+  pollinationMemberOrg: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
+    width: '100%',
+  },
+  pollinationMemberDist: {
+    fontSize: 12,
+    color: '#4a6741',
+    marginTop: 4,
+  },
+  pollinationAlert: {
+    fontSize: 12,
+    color: '#8b3a3a',
+    fontWeight: '600',
+    marginLeft: 8,
+    marginTop: 4,
   },
   eventsSectionHeader: {
     flexDirection: 'row',
