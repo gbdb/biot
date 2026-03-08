@@ -22,12 +22,11 @@ import {
   getSpecimenEvents,
   getSpecimenReminders,
   getSpecimenPhotos,
+  getSpecimenCompanions,
   uploadSpecimenPhoto,
   deleteSpecimenPhoto,
   setSpecimenDefaultPhoto,
   duplicateSpecimen,
-  createSpecimenEvent,
-  createSpecimenReminder,
   updateSpecimenEvent,
   deleteSpecimenEvent,
   deleteSpecimenReminder,
@@ -37,22 +36,17 @@ import {
   applyEventToZone,
   addSpecimenFavorite,
   removeSpecimenFavorite,
-  updateSpecimen,
 } from '@/api/client';
 import { API_BASE_URL } from '@/constants/config';
 import { takeNfcPreloadedSpecimenIfMatch } from '@/lib/nfcPreload';
-import type { SpecimenDetail, Event, EventType, Photo, Reminder, ReminderType, ReminderAlerteType, ReminderRecurrenceRule } from '@/types/api';
-import { SPECIMEN_STATUT_LABELS, EVENT_TYPE_LABELS, REMINDER_TYPE_LABELS, REMINDER_ALERTE_LABELS, REMINDER_RECURRENCE_LABELS } from '@/types/api';
+import type { SpecimenDetail, Event, EventType, Photo, Reminder, SpecimenCompanions } from '@/types/api';
+import { SPECIMEN_STATUT_LABELS, EVENT_TYPE_LABELS, REMINDER_TYPE_LABELS, REMINDER_ALERTE_LABELS } from '@/types/api';
 import type { ReminderUpcoming } from '@/api/client';
 import { ReminderActionModal } from '@/components/ReminderActionModal';
 import { FAB } from '@/components/FAB';
 import { PhotoCarousel, type PhotoCarouselItem } from '@/components/PhotoCarousel';
-
-const PHOTO_TYPE_LABELS: Record<string, string> = {
-  avant: '📷 Avant',
-  apres: '📷 Après',
-  autre: '📷 Autre',
-};
+import { AddEventModal } from '@/components/AddEventModal';
+import { AddEventPhotoModal, getPhotoThumbUri, PHOTO_TYPE_LABELS, type PhotoOrPending } from '@/components/AddEventPhotoModal';
 
 const EVENT_TYPES: EventType[] = [
   'observation',
@@ -71,476 +65,6 @@ const EVENT_TYPES: EventType[] = [
   'protection',
   'autre',
 ];
-
-const REMINDER_TYPES: ReminderType[] = [
-  'arrosage',
-  'suivi_maladie',
-  'taille',
-  'suivi_general',
-  'cueillette',
-];
-
-const REMINDER_ALERTE_TYPES: ReminderAlerteType[] = ['email', 'popup', 'son'];
-
-function formatDateForInput(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
-
-function AddEventModal({
-  visible,
-  specimenId,
-  onClose,
-  onSuccess,
-  onReminderSuccess,
-  submitting,
-  setSubmitting,
-}: {
-  visible: boolean;
-  specimenId: number;
-  onClose: () => void;
-  onSuccess: (event: Event) => void;
-  onReminderSuccess?: (reminder: Reminder) => void;
-  submitting: boolean;
-  setSubmitting: (v: boolean) => void;
-}) {
-  const [mode, setMode] = useState<'event' | 'reminder'>('event');
-  const [typeEvent, setTypeEvent] = useState<EventType>('observation');
-  const [typeRappel, setTypeRappel] = useState<ReminderType>('arrosage');
-  const [dateRappel, setDateRappel] = useState(() => formatDateForInput(new Date()));
-  const [typeAlerte, setTypeAlerte] = useState<ReminderAlerteType>('popup');
-  const [recurrenceRule, setRecurrenceRule] = useState<ReminderRecurrenceRule>('none');
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [titre, setTitre] = useState('');
-  const [description, setDescription] = useState('');
-  const [createdEvent, setCreatedEvent] = useState<Event | null>(null);
-  const [createdPhotos, setCreatedPhotos] = useState<PhotoOrPending[]>([]);
-  const [addPhotoModalVisible, setAddPhotoModalVisible] = useState(false);
-  const [mortEnlevementStep, setMortEnlevementStep] = useState<null | 'form_mort' | 'form_enlever'>(null);
-
-  const resetAndClose = () => {
-    setCreatedEvent(null);
-    setCreatedPhotos([]);
-    setTitre('');
-    setDescription('');
-    setTypeEvent('observation');
-    setTypeRappel('arrosage');
-    setDateRappel(formatDateForInput(new Date()));
-    setTypeAlerte('popup');
-    setRecurrenceRule('none');
-    setShowDatePicker(false);
-    setMode('event');
-    setMortEnlevementStep(null);
-    onClose();
-  };
-
-  const handleSubmitEvent = async () => {
-    setSubmitting(true);
-    try {
-      const newEvent = await createSpecimenEvent(specimenId, {
-        type_event: typeEvent,
-        titre: titre.trim() || undefined,
-        description: description.trim() || undefined,
-      });
-      if (mortEnlevementStep === 'form_mort') {
-        await updateSpecimen(specimenId, { statut: 'mort' });
-        onSuccess(newEvent);
-        setSubmitting(false);
-        Alert.alert(
-          'Avez-vous enlevé le spécimen ?',
-          undefined,
-          [
-            {
-              text: 'Non',
-              onPress: () => {
-                Alert.alert(
-                  'Rappel',
-                  'Souhaitez-vous créer un rappel pour enlever le spécimen plus tard ?',
-                  [
-                    { text: 'Non', onPress: () => resetAndClose() },
-                    {
-                      text: 'Oui',
-                      onPress: () => {
-                        setMode('reminder');
-                        setTitre('Enlever le spécimen');
-                        setTypeRappel('suivi_general');
-                        setMortEnlevementStep(null);
-                      },
-                    },
-                  ]
-                );
-              },
-            },
-            {
-              text: 'Oui',
-              onPress: () => {
-                setTypeEvent('enlever');
-                setTitre('');
-                setDescription('');
-                setMortEnlevementStep('form_enlever');
-              },
-            },
-          ]
-        );
-        return;
-      }
-      if (mortEnlevementStep === 'form_enlever') {
-        onSuccess(newEvent);
-        resetAndClose();
-        return;
-      }
-      setCreatedEvent(newEvent);
-    } catch {
-      /* ignore */
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleSubmitReminder = async () => {
-    setSubmitting(true);
-    try {
-      const newReminder = await createSpecimenReminder(specimenId, {
-        type_rappel: typeRappel,
-        date_rappel: dateRappel,
-        type_alerte: typeAlerte,
-        titre: titre.trim() || undefined,
-        description: description.trim() || undefined,
-        recurrence_rule: recurrenceRule,
-      });
-      onReminderSuccess?.(newReminder);
-      resetAndClose();
-    } catch {
-      /* ignore */
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleDone = () => {
-    if (createdEvent) {
-      onSuccess(createdEvent);
-    }
-    resetAndClose();
-  };
-
-  if (!visible) return null;
-
-  return (
-    <Modal visible={visible} animationType="slide" onRequestClose={createdEvent ? handleDone : onClose}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={fullScreenModalStyles.container}
-      >
-        <View style={fullScreenModalStyles.header}>
-          <TouchableOpacity
-            onPress={createdEvent ? handleDone : onClose}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          >
-            <Text style={fullScreenModalStyles.closeBtn}>✕</Text>
-          </TouchableOpacity>
-          <Text style={fullScreenModalStyles.headerTitle}>
-            {createdEvent ? 'Ajouter des photos' : mode === 'reminder' ? 'Ajouter un rappel' : 'Ajouter un événement'}
-          </Text>
-          <View style={{ width: 28 }} />
-        </View>
-        <ScrollView
-          style={fullScreenModalStyles.scroll}
-          contentContainerStyle={fullScreenModalStyles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          {!createdEvent ? (
-            <>
-              <View style={modalStyles.modeRow}>
-                <TouchableOpacity
-                  style={[modalStyles.modeButton, mode === 'event' && modalStyles.modeButtonSelected]}
-                  onPress={() => setMode('event')}
-                >
-                  <Text style={[modalStyles.modeButtonText, mode === 'event' && modalStyles.modeButtonTextSelected]}>
-                    Événement
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[modalStyles.modeButton, mode === 'reminder' && modalStyles.modeButtonSelected]}
-                  onPress={() => setMode('reminder')}
-                >
-                  <Text style={[modalStyles.modeButtonText, mode === 'reminder' && modalStyles.modeButtonTextSelected]}>
-                    Rappel
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              {mode === 'event' ? (
-                <>
-                  {mortEnlevementStep === null ? (
-                    <View style={modalStyles.typeGrid}>
-                      {EVENT_TYPES.map((t) => (
-                        <TouchableOpacity
-                          key={t}
-                          style={[
-                            modalStyles.typeButton,
-                            typeEvent === t && modalStyles.typeButtonSelected,
-                          ]}
-                          onPress={() => setTypeEvent(t)}
-                        >
-                          <Text
-                            style={[
-                              modalStyles.typeButtonText,
-                              typeEvent === t && modalStyles.typeButtonTextSelected,
-                            ]}
-                          >
-                            {EVENT_TYPE_LABELS[t]}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  ) : (
-                    <Text style={[modalStyles.label, { marginBottom: 8 }]}>
-                      Type : {EVENT_TYPE_LABELS[typeEvent]}
-                    </Text>
-                  )}
-                  {mortEnlevementStep === null && (
-                    <TouchableOpacity
-                      style={[modalStyles.typeButton, { marginTop: 12, backgroundColor: '#4a3728', borderColor: '#4a3728' }]}
-                      onPress={() => {
-                        Alert.alert(
-                          'Mort et enlèvement',
-                          'Nous sommes désolés pour la perte de ce spécimen. Souhaitez-vous enregistrer sa mort et, si besoin, son enlèvement ?',
-                          [
-                            { text: 'Annuler', style: 'cancel' },
-                            {
-                              text: 'Confirmer',
-                              onPress: () => {
-                                setTypeEvent('mort');
-                                setTitre('');
-                                setDescription('');
-                                setMortEnlevementStep('form_mort');
-                              },
-                            },
-                          ]
-                        );
-                      }}
-                    >
-                      <Text style={[modalStyles.typeButtonText, { color: '#fff' }]}>
-                        💀 Mort et enlèvement
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-                </>
-              ) : (
-                <>
-                  <Text style={modalStyles.label}>Type de rappel</Text>
-                  <View style={modalStyles.typeGrid}>
-                    {REMINDER_TYPES.map((t) => (
-                      <TouchableOpacity
-                        key={t}
-                        style={[
-                          modalStyles.typeButton,
-                          typeRappel === t && modalStyles.typeButtonSelected,
-                        ]}
-                        onPress={() => setTypeRappel(t)}
-                      >
-                        <Text
-                          style={[
-                            modalStyles.typeButtonText,
-                            typeRappel === t && modalStyles.typeButtonTextSelected,
-                          ]}
-                        >
-                          {REMINDER_TYPE_LABELS[t]}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                  <Text style={modalStyles.label}>Date de rappel</Text>
-                  <TouchableOpacity
-                    style={[modalStyles.input, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
-                    onPress={() => setShowDatePicker(true)}
-                  >
-                    <Text style={modalStyles.dateDisplay}>{dateRappel}</Text>
-                    <Ionicons name="calendar-outline" size={20} color="#666" />
-                  </TouchableOpacity>
-                  {showDatePicker && (
-                    <DateTimePicker
-                      value={new Date(dateRappel || formatDateForInput(new Date()))}
-                      mode="date"
-                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                      onChange={(_, date) => {
-                        if (Platform.OS !== 'ios') setShowDatePicker(false);
-                        if (date) setDateRappel(formatDateForInput(date));
-                      }}
-                      minimumDate={new Date()}
-                    />
-                  )}
-                  {Platform.OS === 'ios' && showDatePicker && (
-                    <TouchableOpacity onPress={() => setShowDatePicker(false)} style={modalStyles.datePickerDone}>
-                      <Text style={modalStyles.datePickerDoneText}>OK</Text>
-                    </TouchableOpacity>
-                  )}
-                  <Text style={modalStyles.label}>Récurrence</Text>
-                  <View style={modalStyles.tagRow}>
-                    {(['none', 'biweekly', 'annual', 'biannual'] as const).map((rule) => (
-                      <TouchableOpacity
-                        key={rule}
-                        style={[
-                          modalStyles.typeButton,
-                          recurrenceRule === rule && modalStyles.typeButtonSelected,
-                        ]}
-                        onPress={() => setRecurrenceRule(rule)}
-                      >
-                        <Text
-                          style={[
-                            modalStyles.typeButtonText,
-                            recurrenceRule === rule && modalStyles.typeButtonTextSelected,
-                          ]}
-                        >
-                          {REMINDER_RECURRENCE_LABELS[rule]}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                  <Text style={modalStyles.label}>Type d'alerte</Text>
-                  <View style={modalStyles.tagRow}>
-                    {REMINDER_ALERTE_TYPES.map((t) => (
-                      <TouchableOpacity
-                        key={t}
-                        style={[
-                          modalStyles.typeButton,
-                          typeAlerte === t && modalStyles.typeButtonSelected,
-                        ]}
-                        onPress={() => setTypeAlerte(t)}
-                      >
-                        <Text
-                          style={[
-                            modalStyles.typeButtonText,
-                            typeAlerte === t && modalStyles.typeButtonTextSelected,
-                          ]}
-                        >
-                          {REMINDER_ALERTE_LABELS[t]}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </>
-              )}
-
-              <TextInput
-                style={modalStyles.input}
-                placeholder="Titre (optionnel)"
-                value={titre}
-                onChangeText={setTitre}
-                placeholderTextColor="#888"
-              />
-              <TextInput
-                style={[modalStyles.input, modalStyles.textArea]}
-                placeholder="Description (optionnel)"
-                value={description}
-                onChangeText={setDescription}
-                multiline
-                numberOfLines={2}
-                placeholderTextColor="#888"
-              />
-              <FAB
-                label={submitting ? 'Enregistrement...' : 'Enregistrer'}
-                variant="primary"
-                size="large"
-                onPress={mode === 'reminder' ? handleSubmitReminder : handleSubmitEvent}
-                disabled={submitting}
-                style={{ marginTop: 24 }}
-              />
-            </>
-          ) : (
-            <>
-              <Text style={eventDetailStyles.photoTitle}>Photos ({createdPhotos.length})</Text>
-              <View style={eventDetailStyles.photoList}>
-                {createdPhotos.map((p) => {
-                  const thumbUri = getPhotoThumbUri(p);
-                  return (
-                    <View key={p.id} style={eventDetailStyles.photoItem}>
-                      {thumbUri ? (
-                        <Image source={{ uri: thumbUri }} style={eventDetailStyles.photoThumb} />
-                      ) : (
-                        <View style={[eventDetailStyles.photoThumb, { justifyContent: 'center', alignItems: 'center' }]}>
-                          <ActivityIndicator size="small" color="#1a3c27" />
-                        </View>
-                      )}
-                      <Text style={eventDetailStyles.photoTag}>
-                        {p.type_photo ? (PHOTO_TYPE_LABELS[p.type_photo] || p.type_photo) : 'Photo'}
-                      </Text>
-                    </View>
-                  );
-                })}
-                <TouchableOpacity
-                  style={eventDetailStyles.addPhotoBtn}
-                  onPress={() => setAddPhotoModalVisible(true)}
-                >
-                  <Text style={eventDetailStyles.addPhotoText}>+ Photo</Text>
-                </TouchableOpacity>
-              </View>
-              <FAB
-                label="Terminé"
-                variant="primary"
-                size="large"
-                onPress={handleDone}
-                style={{ marginTop: 24 }}
-              />
-            </>
-          )}
-        </ScrollView>
-      </KeyboardAvoidingView>
-
-      {createdEvent && (
-        <AddEventPhotoModal
-          visible={addPhotoModalVisible}
-          specimenId={specimenId}
-          eventId={createdEvent.id}
-          onClose={() => setAddPhotoModalVisible(false)}
-          onPendingPick={(localUri, typePhoto) => {
-            const id = `pending-${Date.now()}`;
-            setCreatedPhotos((prev) => [{ id, localUri, type_photo: typePhoto }, ...prev]);
-            return id;
-          }}
-          onSuccess={(photo, pendingId) => {
-            setCreatedPhotos((prev) => {
-              const without = pendingId ? prev.filter((x) => x.id !== pendingId) : prev;
-              return [photo, ...without];
-            });
-            setAddPhotoModalVisible(false);
-          }}
-          onUploadFailed={(pendingId) => {
-            setCreatedPhotos((prev) => prev.filter((x) => x.id !== pendingId));
-          }}
-        />
-      )}
-    </Modal>
-  );
-}
-
-const fullScreenModalStyles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    paddingTop: 48,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    backgroundColor: '#f5f5f0',
-  },
-  closeBtn: { fontSize: 24, color: '#1a3c27', fontWeight: '300' },
-  headerTitle: { fontSize: 18, fontWeight: '600', color: '#1a3c27' },
-  scroll: { flex: 1 },
-  scrollContent: { padding: 20, paddingBottom: 40 },
-  submitButton: {
-    marginTop: 24,
-    padding: 16,
-    backgroundColor: '#1a3c27',
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  submitButtonText: { fontSize: 18, fontWeight: '600', color: '#fff' },
-});
 
 const modalStyles = StyleSheet.create({
   overlay: {
@@ -887,7 +411,7 @@ function EventDetailModal({
               ) : (
                 <View style={eventDetailStyles.photoList}>
                   {photos.map((p) => {
-                    const thumbUri = getPhotoThumbUri(p);
+                    const thumbUri = getPhotoThumbUri(p, API_BASE_URL);
                     return (
                       <TouchableOpacity
                         key={p.id}
@@ -936,7 +460,7 @@ function EventDetailModal({
                     <PhotoCarousel
                       items={photos
                         .map((p) => {
-                          const uri = getPhotoThumbUri(p);
+                          const uri = getPhotoThumbUri(p, API_BASE_URL);
                           if (!uri) return null;
                           return {
                             id: p.id,
@@ -1032,154 +556,31 @@ function EventDetailModal({
   );
 }
 
-type PhotoOrPending = Photo | { id: string; localUri: string; type_photo: string; titre?: string };
-
-function getPhotoThumbUri(p: PhotoOrPending): string | null {
-  if ('localUri' in p) return p.localUri;
-  if (p.image_url?.startsWith('http')) return p.image_url;
-  if (p.image) return `${API_BASE_URL}${p.image}`;
-  return null;
-}
-
-async function pickAndUpload(
-  source: 'camera' | 'library',
-  specimenId: number,
-  eventId: number,
-  typePhoto: string,
-  setUploading: (v: boolean) => void,
-  onPendingPick?: (localUri: string, typePhoto: string) => string
-): Promise<{ photo: Photo; pendingId: string | null } | null> {
-  if (source === 'camera') {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') return null;
-  } else {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') return null;
-  }
-  const launcher = source === 'camera' ? ImagePicker.launchCameraAsync : ImagePicker.launchImageLibraryAsync;
-  const result = await launcher({
-    mediaTypes: ['images'],
-    allowsEditing: true,
-    aspect: [4, 3],
-    quality: 0.8,
-  });
-  if (result.canceled || !result.assets?.[0]) return null;
-  const asset = result.assets[0];
-  const pendingId = onPendingPick?.(asset.uri, typePhoto) ?? null;
-  setUploading(true);
-  try {
-    const photo = await uploadEventPhoto(specimenId, eventId, {
-      image: {
-        uri: asset.uri,
-        type: asset.mimeType || 'image/jpeg',
-        name: 'photo.jpg',
-      },
-      type_photo: typePhoto,
-      titre: PHOTO_TYPE_LABELS[typePhoto] || typePhoto,
-    });
-    return { photo, pendingId };
-  } catch {
-    return { photo: null, pendingId };
-  } finally {
-    setUploading(false);
-  }
-}
-
-function AddEventPhotoModal({
-  visible,
-  specimenId,
-  eventId,
-  onClose,
-  onSuccess,
-  onPendingPick,
-  onUploadFailed,
-}: {
-  visible: boolean;
-  specimenId: number;
-  eventId: number;
-  onClose: () => void;
-  onSuccess: (photo: Photo, pendingId?: string) => void;
-  onPendingPick?: (localUri: string, typePhoto: string) => string;
-  onUploadFailed?: (pendingId: string) => void;
-}) {
-  const [typePhoto, setTypePhoto] = useState<string>('avant');
-  const [uploading, setUploading] = useState(false);
-  const [uploadSuccess, setUploadSuccess] = useState(false);
-
-  const handlePick = async (source: 'camera' | 'library') => {
-    const result = await pickAndUpload(source, specimenId, eventId, typePhoto, setUploading, onPendingPick);
-    if (result?.photo) {
-      setUploadSuccess(true);
-      setTimeout(() => {
-        onSuccess(result.photo!, result.pendingId ?? undefined);
-        onClose();
-      }, 1200);
-    } else if (result?.pendingId) {
-      onUploadFailed?.(result.pendingId);
-      Alert.alert('Erreur', 'Impossible d\'envoyer la photo. Vérifiez votre connexion.');
-    }
-  };
-
-  if (!visible) return null;
-
-  return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={modalStyles.overlay}>
-        <TouchableOpacity style={modalStyles.backdrop} activeOpacity={1} onPress={onClose} />
-        <View style={modalStyles.content} onStartShouldSetResponder={() => true}>
-          <Text style={modalStyles.title}>Ajouter une photo</Text>
-          <Text style={eventDetailStyles.tagLabel}>Tag (avant/après)</Text>
-          <View style={eventDetailStyles.tagRow}>
-            {['avant', 'apres', 'autre'].map((t) => (
-              <TouchableOpacity
-                key={t}
-                style={[
-                  modalStyles.typeButton,
-                  typePhoto === t && modalStyles.typeButtonSelected,
-                ]}
-                onPress={() => setTypePhoto(t)}
-              >
-                <Text
-                  style={[
-                    modalStyles.typeButtonText,
-                    typePhoto === t && modalStyles.typeButtonTextSelected,
-                  ]}
-                >
-                  {PHOTO_TYPE_LABELS[t] || t}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          <View style={eventDetailStyles.photoSourceRow}>
-            <TouchableOpacity
-              style={eventDetailStyles.photoSourceBtn}
-              onPress={() => handlePick('camera')}
-              disabled={uploading}
-            >
-              <Ionicons name="camera" size={36} color="#1a3c27" />
-              <Text style={eventDetailStyles.photoSourceLabel}>Prendre une photo</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={eventDetailStyles.photoSourceBtn}
-              onPress={() => handlePick('library')}
-              disabled={uploading}
-            >
-              <Ionicons name="images" size={36} color="#1a3c27" />
-              <Text style={eventDetailStyles.photoSourceLabel}>Galerie</Text>
-            </TouchableOpacity>
-          </View>
-          {uploadSuccess && (
-            <Text style={eventDetailStyles.successText}>✓ Photo enregistrée !</Text>
-          )}
-          {uploading && <ActivityIndicator size="small" color="#1a3c27" style={{ marginTop: 12 }} />}
-          <TouchableOpacity style={[modalStyles.button, modalStyles.cancelButton]} onPress={onClose}>
-            <Text style={modalStyles.cancelButtonText}>Fermer</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  );
-}
+const fullScreenModalStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingTop: 48,
+    backgroundColor: '#000',
+  },
+  closeBtn: {
+    fontSize: 24,
+    color: '#fff',
+    padding: 4,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#fff',
+  },
+});
 
 const eventDetailStyles = StyleSheet.create({
   date: { fontSize: 14, color: '#666', marginBottom: 12 },
@@ -1263,6 +664,8 @@ export default function SpecimenDetailScreen() {
   const [settingDefaultPhoto, setSettingDefaultPhoto] = useState(false);
   const [defaultPhotoId, setDefaultPhotoId] = useState<number | null>(null);
   const [pendingPhotoForEvent, setPendingPhotoForEvent] = useState<{ uri: string; type?: string; name?: string } | null>(null);
+  const [companions, setCompanions] = useState<SpecimenCompanions | null>(null);
+  const [loadingCompanions, setLoadingCompanions] = useState(false);
   const [eventsViewMode, setEventsViewMode] = useState<'list' | 'images'>('list');
   const [eventsCarouselModalVisible, setEventsCarouselModalVisible] = useState(false);
   const [eventsCarouselInitialIndex, setEventsCarouselInitialIndex] = useState(0);
@@ -1335,6 +738,18 @@ export default function SpecimenDetailScreen() {
         .finally(() => setLoadingPhotos(false));
     }, [id])
   );
+
+  useEffect(() => {
+    if (!specimen?.id) {
+      setCompanions(null);
+      return;
+    }
+    setLoadingCompanions(true);
+    getSpecimenCompanions(specimen.id)
+      .then(setCompanions)
+      .catch(() => setCompanions(null))
+      .finally(() => setLoadingCompanions(false));
+  }, [specimen?.id]);
 
   const handleEventCreatedWithPendingPhoto = useCallback(
     async (event: Event) => {
@@ -1540,6 +955,44 @@ export default function SpecimenDetailScreen() {
         </Text>
         {specimen.notes && <Text style={styles.notes}>{specimen.notes}</Text>}
       </View>
+      {(specimen.organism_calendrier?.length ?? 0) > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Stade phénologique</Text>
+          <Text style={styles.label}>Calendrier de référence</Text>
+          {(specimen.organism_calendrier ?? []).map((cal) => (
+            <View key={cal.id} style={styles.phenoRow}>
+              <Text style={styles.phenoIcon}>
+                {cal.type_periode === 'floraison' ? '🌸' : cal.type_periode === 'fructification' ? '🍎' : cal.type_periode === 'recolte' ? '🧺' : '📅'}
+              </Text>
+              <Text style={styles.phenoLabel}>
+                {cal.type_periode_display ?? cal.type_periode} — {cal.mois_debut != null && cal.mois_fin != null ? `Mois ${cal.mois_debut}–${cal.mois_fin}` : '—'}
+              </Text>
+            </View>
+          ))}
+          <Text style={[styles.label, { marginTop: 12 }]}>Observations confirmées (cette année)</Text>
+          {(['floraison', 'fructification', 'recolte'] as const).map((typeEv) => {
+            const currentYear = new Date().getFullYear();
+            const ev = events.find(
+              (e) => e.type_event === typeEv && e.date.startsWith(String(currentYear))
+            );
+            return (
+              <View key={typeEv} style={styles.phenoRow}>
+                <Text style={styles.phenoLabel}>
+                  {EVENT_TYPE_LABELS[typeEv]} : {ev ? ev.date : 'Pas encore enregistré'}
+                </Text>
+              </View>
+            );
+          })}
+          <TouchableOpacity
+            style={styles.addEventButton}
+            onPress={() => {
+              setEventModalVisible(true);
+            }}
+          >
+            <Text style={styles.addEventText}>Confirmer un stade (floraison, fructification, récolte)</Text>
+          </TouchableOpacity>
+        </View>
+      )}
       {specimen.pollination_associations && specimen.pollination_associations.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Associé à (pollinisation)</Text>
@@ -1567,6 +1020,74 @@ export default function SpecimenDetailScreen() {
           ))}
         </View>
       )}
+      {(() => {
+        const hasBenefices = (companions?.benefices_de.actifs.length ?? 0) + (companions?.benefices_de.manquants.length ?? 0) > 0;
+        const hasAide = (companions?.aide_a.actifs.length ?? 0) + (companions?.aide_a.manquants.length ?? 0) > 0;
+        if (loadingCompanions || (!hasBenefices && !hasAide)) return null;
+        const comp = companions!;
+        return (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Compagnonnage</Text>
+            {specimen?.latitude == null && specimen?.longitude == null && (
+              <Text style={styles.companionGpsNote}>Ajoutez les coordonnées GPS pour calculer les distances.</Text>
+            )}
+            {hasBenefices && (
+              <>
+                <Text style={styles.companionSubtitle}>Ce spécimen bénéficie de</Text>
+                {comp.benefices_de.actifs.map((e, i) => (
+                  <View key={`b-a-${i}`} style={styles.companionRow}>
+                    <Text style={styles.companionText}>
+                      {e.specimen_nom ?? e.organisme_nom} {e.distance_metres != null ? `à ${e.distance_metres} m` : ''} — {e.type_relation_display} ({e.force})
+                    </Text>
+                    {e.specimen_id != null && (
+                      <TouchableOpacity onPress={() => router.push(`/specimen/${e.specimen_id}`)}>
+                        <Ionicons name="chevron-forward" size={18} color="#4a6741" />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ))}
+                {comp.benefices_de.manquants.map((e, i) => (
+                  <View key={`b-m-${i}`} style={styles.companionRow}>
+                    <Text style={styles.companionText}>
+                      Aucun {e.organisme_nom} {e.distance_optimale != null ? `dans un rayon de ${e.distance_optimale} m` : 'dans le jardin'}
+                    </Text>
+                    <TouchableOpacity onPress={() => router.push('/species/library')}>
+                      <Text style={styles.companionLink}>Voir les espèces compatibles →</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </>
+            )}
+            {hasAide && (
+              <>
+                <Text style={[styles.companionSubtitle, hasBenefices && { marginTop: 16 }]}>Ce spécimen aide</Text>
+                {comp.aide_a.actifs.map((e, i) => (
+                  <View key={`a-a-${i}`} style={styles.companionRow}>
+                    <Text style={styles.companionText}>
+                      {e.specimen_nom ?? e.organisme_nom} {e.distance_metres != null ? `à ${e.distance_metres} m` : ''} — {e.type_relation_display} ({e.force})
+                    </Text>
+                    {e.specimen_id != null && (
+                      <TouchableOpacity onPress={() => router.push(`/specimen/${e.specimen_id}`)}>
+                        <Ionicons name="chevron-forward" size={18} color="#4a6741" />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ))}
+                {comp.aide_a.manquants.map((e, i) => (
+                  <View key={`a-m-${i}`} style={styles.companionRow}>
+                    <Text style={styles.companionText}>
+                      Aucun {e.organisme_nom} {e.distance_optimale != null ? `dans un rayon de ${e.distance_optimale} m` : 'dans le jardin'}
+                    </Text>
+                    <TouchableOpacity onPress={() => router.push('/species/library')}>
+                      <Text style={styles.companionLink}>Voir les espèces compatibles →</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </>
+            )}
+          </View>
+        );
+      })()}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Photos</Text>
         {loadingPhotos ? (
@@ -2018,6 +1539,24 @@ const styles = StyleSheet.create({
     color: '#1a3c27',
     marginBottom: 12,
   },
+  label: {
+    fontSize: 14,
+    color: '#333',
+    marginBottom: 6,
+  },
+  phenoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  phenoIcon: { fontSize: 18 },
+  phenoLabel: { fontSize: 15, color: '#1a3c27', flex: 1 },
+  companionGpsNote: { fontSize: 13, color: '#666', marginBottom: 10, fontStyle: 'italic' },
+  companionSubtitle: { fontSize: 15, fontWeight: '600', color: '#333', marginBottom: 8 },
+  companionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
+  companionText: { fontSize: 14, color: '#1a3c27', flex: 1 },
+  companionLink: { fontSize: 14, color: '#4a6741', fontWeight: '500' },
   pollinationGroup: {
     marginBottom: 16,
   },

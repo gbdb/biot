@@ -21,9 +21,13 @@ import type {
   OrganismUpdate,
   GardenMinimal,
   GardenCreate,
+  GardenGCP,
   CultivarListEntry,
+  CultivarDetail,
   TokenPair,
   ApiError,
+  GardenWarningsResponse,
+  SpecimenCompanions,
 } from '@/types/api';
 
 const STORAGE_KEYS = {
@@ -49,7 +53,8 @@ async function fetchWithTimeout(
   }
 }
 
-async function getAccessToken(): Promise<string | null> {
+/** Token JWT actuel (pour WebView Cesium par ex.). Préférer ensureValidToken() avant usage. */
+export async function getAccessToken(): Promise<string | null> {
   return SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
 }
 
@@ -253,6 +258,8 @@ export async function getSpecimens(params?: {
   sante?: number;
   /** Inclure les spécimens au statut « Enlevé » (par défaut ils sont exclus). */
   include_enleve?: boolean;
+  /** Nombre par page (max 100 côté API). Utile pour la vue terrain 3D. */
+  page_size?: number;
 }): Promise<SpecimenList[]> {
   const searchParams = new URLSearchParams();
   if (params?.garden) searchParams.set('garden', String(params.garden));
@@ -263,6 +270,7 @@ export async function getSpecimens(params?: {
   if (params?.favoris) searchParams.set('favoris', '1');
   if (params?.sante != null) searchParams.set('sante', String(params.sante));
   if (params?.include_enleve === true) searchParams.set('include_enleve', 'true');
+  if (params?.page_size != null) searchParams.set('page_size', String(params.page_size));
   const qs = searchParams.toString();
   const url = `${API_BASE_URL}${ENDPOINTS.specimens}${qs ? `?${qs}` : ''}`;
   const res = await fetchWithAuth(url);
@@ -378,6 +386,11 @@ export async function duplicateSpecimen(id: number): Promise<SpecimenDetail> {
     body: JSON.stringify({}),
   });
   return handleResponse<SpecimenDetail>(res);
+}
+
+export async function getSpecimenCompanions(specimenId: number): Promise<SpecimenCompanions> {
+  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.specimens}${specimenId}/companions/`);
+  return handleResponse<SpecimenCompanions>(res);
 }
 
 // --- Specimen events ---
@@ -677,6 +690,7 @@ export async function getOrganismsPaginated(params?: {
   zone_usda?: number;
   fruits?: boolean;
   noix?: boolean;
+  vigueur?: string;
   has_specimen?: boolean;
   garden?: number;
 }): Promise<{ results: OrganismMinimal[]; hasMore: boolean; count: number }> {
@@ -689,6 +703,7 @@ export async function getOrganismsPaginated(params?: {
   if (params?.zone_usda) searchParams.set('zone_usda', String(params.zone_usda));
   if (params?.fruits) searchParams.set('fruits', '1');
   if (params?.noix) searchParams.set('noix', '1');
+  if (params?.vigueur) searchParams.set('vigueur', params.vigueur);
   if (params?.has_specimen) searchParams.set('has_specimen', '1');
   if (params?.garden != null) searchParams.set('garden', String(params.garden));
   const qs = searchParams.toString();
@@ -729,6 +744,12 @@ export async function getCultivarsPaginated(params?: {
   return { results, hasMore, count };
 }
 
+/** Détail d'un cultivar (avec porte-greffes, pollinisateurs). */
+export async function getCultivar(id: number): Promise<CultivarDetail> {
+  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.cultivars}${id}/`);
+  return handleResponse<CultivarDetail>(res);
+}
+
 /** Nombre total d'espèces (sans filtres). Pour afficher "X / total". */
 export async function getOrganismsCount(params?: {
   search?: string;
@@ -738,6 +759,7 @@ export async function getOrganismsCount(params?: {
   zone_usda?: number;
   fruits?: boolean;
   noix?: boolean;
+  vigueur?: string;
   has_specimen?: boolean;
   garden?: number;
 }): Promise<number> {
@@ -749,6 +771,7 @@ export async function getOrganismsCount(params?: {
   if (params?.zone_usda) searchParams.set('zone_usda', String(params.zone_usda));
   if (params?.fruits) searchParams.set('fruits', '1');
   if (params?.noix) searchParams.set('noix', '1');
+  if (params?.vigueur) searchParams.set('vigueur', params.vigueur);
   if (params?.has_specimen) searchParams.set('has_specimen', '1');
   if (params?.garden != null) searchParams.set('garden', String(params.garden));
   const qs = searchParams.toString();
@@ -868,6 +891,11 @@ export async function getGarden(id: number): Promise<GardenMinimal> {
   return handleResponse<GardenMinimal>(res);
 }
 
+export async function getGardenWarnings(gardenId: number): Promise<GardenWarningsResponse> {
+  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.gardens}${gardenId}/warnings/`);
+  return handleResponse<GardenWarningsResponse>(res);
+}
+
 export async function createGarden(data: GardenCreate): Promise<GardenMinimal> {
   const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.gardens}`, {
     method: 'POST',
@@ -879,6 +907,61 @@ export async function createGarden(data: GardenCreate): Promise<GardenMinimal> {
     }),
   });
   return handleResponse<GardenMinimal>(res);
+}
+
+// --- Garden GCP (points de contrôle terrain) ---
+export async function getGardenGCPs(gardenId: number): Promise<GardenGCP[]> {
+  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.gardens}${gardenId}/gcps/`);
+  const data = await handleResponse<unknown>(res);
+  return Array.isArray(data) ? data as GardenGCP[] : (data as { results?: GardenGCP[] }).results ?? [];
+}
+
+export interface GardenGCPCreate {
+  label: string;
+  latitude: number;
+  longitude: number;
+  photo?: { uri: string; type?: string; name?: string };
+  date_capture?: string | null;
+  notes?: string;
+}
+
+export async function createGardenGCP(gardenId: number, data: GardenGCPCreate): Promise<GardenGCP> {
+  const formData = new FormData();
+  formData.append('label', data.label);
+  formData.append('latitude', String(data.latitude));
+  formData.append('longitude', String(data.longitude));
+  if (data.date_capture != null) formData.append('date_capture', data.date_capture);
+  if (data.notes != null) formData.append('notes', data.notes);
+  if (data.photo?.uri) {
+    formData.append('photo', {
+      uri: data.photo.uri,
+      type: data.photo.type ?? 'image/jpeg',
+      name: data.photo.name ?? 'photo.jpg',
+    } as unknown as Blob & { uri: string; type: string; name: string });
+  }
+  const token = await getAccessToken();
+  const res = await fetch(`${API_BASE_URL}${ENDPOINTS.gardens}${gardenId}/gcps/`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    let err: ApiError;
+    try {
+      err = text ? (JSON.parse(text) as ApiError) : {};
+    } catch {
+      throw new Error(`Erreur ${res.status}: ${text || res.statusText}`);
+    }
+    throw new Error(String(err.detail ?? err.message ?? `Erreur ${res.status}`));
+  }
+  return res.json() as Promise<GardenGCP>;
+}
+
+export async function getGardenGCPsExportUrl(gardenId: number): Promise<string> {
+  const token = await getAccessToken();
+  const base = `${API_BASE_URL}${ENDPOINTS.gardens}${gardenId}/gcps/export/`;
+  return token ? `${base}?access_token=${encodeURIComponent(token)}` : base;
 }
 
 // --- Reminders upcoming (page d'accueil) ---

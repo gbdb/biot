@@ -1,6 +1,6 @@
 # Sources de données (espèces)
 
-Ce document liste les sources de données utilisées pour alimenter la base espèces (Plan 1 – données taxonomie). Pour les **images**, voir Plan 2 et `docs/sources-images.md` (à créer).
+Ce document liste les **sources** utilisées pour alimenter la base espèces (tableaux, liens, licences) et rappelle les **commandes d’import** et l’ordre recommandé. Pour le pipeline complet (purification, fusion multi-sources, choix techniques, référence des champs), voir [Import des espèces : purification, spécialisation et enrichissement](import-especes-et-fusion-sources.md).
 
 | Source | Contenu principal | Conditions / Licence | Lien |
 |--------|-------------------|----------------------|------|

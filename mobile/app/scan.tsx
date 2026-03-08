@@ -13,8 +13,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter, Link, useFocusEffect } from 'expo-router';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { getSpecimenByNfcOrNull, getSpecimens, updateSpecimen } from '@/api/client';
-import type { SpecimenList } from '@/types/api';
+import type { SpecimenList, SpecimenDetail } from '@/types/api';
 import { setNfcPreloadedSpecimen } from '@/lib/nfcPreload';
+import { AddEventModal } from '@/components/AddEventModal';
 
 const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
@@ -133,14 +134,21 @@ const assignModalStyles = StyleSheet.create({
 
 const canAutoScan = Platform.OS !== 'web' && !isExpoGo;
 
+type ScanMode = 'fiche' | 'event' | null;
+
 export default function ScanScreen() {
   const router = useRouter();
+  const [scanMode, setScanMode] = useState<ScanMode>(null);
   const [status, setStatus] = useState<'idle' | 'scanning' | 'error' | 'new_tag'>('idle');
   const [message, setMessage] = useState<string | null>(null);
   const [scannedUid, setScannedUid] = useState<string | null>(null);
   const [assignModalVisible, setAssignModalVisible] = useState(false);
+  const [eventSpecimen, setEventSpecimen] = useState<SpecimenDetail | null>(null);
+  const [eventModalVisible, setEventModalVisible] = useState(false);
+  const [eventSubmitting, setEventSubmitting] = useState(false);
 
-  const handleScan = useCallback(async () => {
+  const handleScan = useCallback(async (overrideMode?: ScanMode) => {
+    const mode = overrideMode ?? scanMode;
     try {
       if (Platform.OS === 'web') {
         setStatus('error');
@@ -189,8 +197,15 @@ export default function ScanScreen() {
 
       const specimen = await getSpecimenByNfcOrNull(uid);
       if (specimen) {
-        setNfcPreloadedSpecimen(specimen);
-        router.push(`/specimen/${specimen.id}`);
+        if (mode === 'event') {
+          setEventSpecimen(specimen);
+          setEventModalVisible(true);
+          setStatus('idle');
+          setMessage(null);
+        } else {
+          setNfcPreloadedSpecimen(specimen);
+          router.push(`/specimen/${specimen.id}`);
+        }
       } else {
         setStatus('new_tag');
         setScannedUid(uid);
@@ -206,12 +221,15 @@ export default function ScanScreen() {
       setStatus('error');
       setMessage(err instanceof Error ? err.message : 'Erreur de scan.');
     }
-  }, [router]);
+  }, [router, scanMode]);
+  const startScan = useCallback(() => {
+    handleScan(scanMode ?? undefined);
+  }, [handleScan, scanMode]);
 
   useFocusEffect(
     useCallback(() => {
-      if (status === 'idle') {
-        handleScan();
+      if (status === 'idle' && scanMode !== null) {
+        startScan();
       }
       return () => {
         if (canAutoScan) {
@@ -220,7 +238,7 @@ export default function ScanScreen() {
             .catch(() => {});
         }
       };
-    }, [canAutoScan, status, handleScan])
+    }, [canAutoScan, status, scanMode, startScan])
   );
 
   const handleCreateWithTag = () => {
@@ -249,12 +267,62 @@ export default function ScanScreen() {
     setScannedUid(null);
   };
 
+  if (scanMode === null) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.title}>Scan NFC</Text>
+        <Text style={styles.instruction}>
+          Choisissez une action avant de scanner le tag.
+        </Text>
+        <TouchableOpacity
+          style={[styles.button, styles.modeButton]}
+          onPress={() => {
+            setScanMode('fiche');
+            setStatus('idle');
+            handleScan('fiche');
+          }}
+        >
+          <Text style={styles.modeButtonIcon}>📋</Text>
+          <Text style={styles.buttonText}>Ouvrir la fiche</Text>
+          <Text style={styles.modeButtonSubtext}>Voir le spécimen et son historique</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.button, styles.modeButton, styles.modeButtonEvent]}
+          onPress={() => {
+            setScanMode('event');
+            setStatus('idle');
+            handleScan('event');
+          }}
+        >
+          <Text style={styles.modeButtonIcon}>➕</Text>
+          <Text style={styles.buttonText}>Ajouter un événement</Text>
+          <Text style={styles.modeButtonSubtext}>Enregistrer plantation, taille, récolte…</Text>
+        </TouchableOpacity>
+        <Link href="/observation/quick" asChild>
+          <TouchableOpacity style={styles.quickObsLink}>
+            <Text style={styles.quickObsLinkText}>
+              Plante non identifiée ? Faire une observation rapide
+            </Text>
+          </TouchableOpacity>
+        </Link>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Scan NFC</Text>
       <Text style={styles.instruction}>
-        Scannez un tag NFC associé à un spécimen pour ouvrir sa fiche instantanément.
+        {scanMode === 'fiche'
+          ? 'Scannez un tag NFC pour ouvrir la fiche du spécimen.'
+          : 'Scannez un tag NFC pour ajouter un événement à ce spécimen.'}
       </Text>
+      <TouchableOpacity
+        onPress={() => setScanMode(null)}
+        style={styles.changeModeLink}
+      >
+        <Text style={styles.quickObsLinkText}>Changer de mode</Text>
+      </TouchableOpacity>
       <Link href="/observation/quick" asChild>
         <TouchableOpacity style={styles.quickObsLink}>
           <Text style={styles.quickObsLinkText}>
@@ -275,6 +343,11 @@ export default function ScanScreen() {
       )}
       {message && status !== 'scanning' && (
         <Text style={[styles.message, status === 'error' && styles.messageError]}>{message}</Text>
+      )}
+      {status === 'idle' && scanMode !== null && !eventModalVisible && (
+        <TouchableOpacity style={styles.scanAnotherLink} onPress={() => startScan()}>
+          <Text style={styles.quickObsLinkText}>Scanner un autre tag</Text>
+        </TouchableOpacity>
       )}
       {status === 'new_tag' && scannedUid && (
         <View style={styles.newTagActions}>
@@ -298,7 +371,7 @@ export default function ScanScreen() {
                 setStatus('idle');
                 setMessage(null);
                 setScannedUid(null);
-                handleScan();
+                startScan();
               }}
             >
               <Text style={styles.quickObsLinkText}>Scanner un autre tag</Text>
@@ -312,6 +385,23 @@ export default function ScanScreen() {
         onClose={handleAssignModalClose}
         onAssigned={handleAssigned}
       />
+      {eventSpecimen && (
+        <AddEventModal
+          visible={eventModalVisible}
+          specimenId={eventSpecimen.id}
+          onClose={() => {
+            setEventModalVisible(false);
+            setEventSpecimen(null);
+          }}
+          onSuccess={() => {
+            setEventModalVisible(false);
+            setEventSpecimen(null);
+          }}
+          submitting={eventSubmitting}
+          setSubmitting={setEventSubmitting}
+          eventOnly
+        />
+      )}
     </View>
   );
 }
@@ -398,5 +488,24 @@ const styles = StyleSheet.create({
   assignButton: {
     backgroundColor: '#4a6741',
     marginBottom: 0,
+  },
+  modeButton: {
+    marginBottom: 16,
+  },
+  modeButtonEvent: {
+    backgroundColor: '#4a6741',
+  },
+  modeButtonIcon: {
+    fontSize: 32,
+    marginBottom: 8,
+  },
+  modeButtonSubtext: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.9)',
+    marginTop: 4,
+  },
+  changeModeLink: {
+    marginBottom: 16,
+    paddingVertical: 8,
   },
 });

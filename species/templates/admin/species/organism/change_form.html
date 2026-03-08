@@ -5,7 +5,7 @@
   {{ block.super }}
   {% if original.pk and original.nom_latin %}
   <li>
-    <a href="{% url 'admin:species_organism_enrich' original.pk %}" class="button" style="margin-left:0.5rem;">
+    <a href="{% url 'admin:catalog_organism_enrich' original.pk %}" class="button" style="margin-left:0.5rem;">
       Enrichir cette espèce (VASCAN, USDA, Botanipedia)
     </a>
   </li>

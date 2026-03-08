@@ -1,0 +1,22 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.111/Build/Cesium/Cesium.js"></script>
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.111/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+  <link href="{% static 'cesium/terrain_view.css' %}" rel="stylesheet">
+</head>
+<body>
+<div id="cesiumContainer"></div>
+<script>
+  Cesium.Ion.defaultAccessToken = '{{ cesium_token|escapejs }}';
+  window.LIDAR_ASSET_ID = {{ cesium_lidar_asset_id|default:"null" }};
+  window.GARDEN_DATA = {{ garden_json|safe }};
+</script>
+<script src="{% static 'cesium/terrain_bridge.js' %}"></script>
+<script src="{% static 'cesium/terrain_cesium.js' %}"></script>
+<script src="{% static 'cesium/terrain_ui.js' %}"></script>
+</body>
+</html>

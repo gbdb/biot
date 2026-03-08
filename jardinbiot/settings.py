@@ -55,8 +55,18 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
+    'catalog.apps.CatalogConfig',
+    'gardens.apps.GardensConfig',
     'species.apps.SpeciesConfig',
 ]
+DEBUG_TOOLBAR_AVAILABLE = False
+if DEBUG:
+    try:
+        import debug_toolbar  # noqa: F401
+        DEBUG_TOOLBAR_AVAILABLE = True
+        INSTALLED_APPS += ['debug_toolbar']
+    except ImportError:
+        pass
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -68,6 +78,8 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+if DEBUG and DEBUG_TOOLBAR_AVAILABLE:
+    MIDDLEWARE.insert(0, 'debug_toolbar.middleware.DebugToolbarMiddleware')
 
 ROOT_URLCONF = 'jardinbiot.urls'
 
@@ -104,6 +116,16 @@ else:
         }
     }
 
+# django.contrib.postgres (SearchVectorField, GinIndex) uniquement avec PostgreSQL
+if DATABASES["default"]["ENGINE"] == "django.db.backends.postgresql":
+    INSTALLED_APPS.insert(INSTALLED_APPS.index("django.contrib.staticfiles") + 1, "django.contrib.postgres")
+
+# Cache (warnings par jardin, TTL 1 h)
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+    }
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
@@ -178,14 +200,23 @@ CORS_ALLOW_ALL_ORIGINS = env('CORS_ALLOW_ALL_ORIGINS')
 # Référence : fiches techniques fruitiers (ex. 30-50 m pour pommiers). Fallback global.
 POLLINATION_DISTANCE_MAX_DEFAULT_M = float(env("POLLINATION_DISTANCE_MAX_DEFAULT_M", default=50))
 
-# Admin - regroupement et ordre du menu
+# Cesium Ion (vue terrain 3D) — token depuis ion.cesium.com ; asset_id optionnel (LiDAR Québec)
+CESIUM_ION_ACCESS_TOKEN = env("CESIUM_ION_ACCESS_TOKEN", default="")
+CESIUM_LIDAR_ASSET_ID = env("CESIUM_LIDAR_ASSET_ID", default=None)
+
+# Admin - regroupement et ordre du menu (catalog, gardens, species)
 ADMIN_REORDER = [
     # Mon BIOT
-    {'app': 'species', 'label': 'Mon BIOT', 'models': ('Garden', 'Organism', 'Specimen', 'SemisBatch', 'Photo')},
+    {'app': 'gardens', 'label': 'Mon BIOT', 'models': ('Garden',)},
+    {'app': 'catalog', 'label': 'Mon BIOT', 'models': ('Organism', 'Cultivar', 'SemisBatch')},
+    {'app': 'species', 'label': 'Mon BIOT', 'models': ('Specimen', 'Photo')},
     # Contrôles
-    {'app': 'species', 'label': 'Contrôles', 'models': ('Event', 'WeatherRecord', 'SprinklerZone')},
+    {'app': 'species', 'label': 'Contrôles', 'models': ('Event',)},
+    {'app': 'gardens', 'label': 'Contrôles', 'models': ('WeatherRecord', 'SprinklerZone')},
     # Configurations et importation de données
-    {'app': 'species', 'label': 'Configurations et importation de données', 'models': ('UserTag', 'CompanionRelation', 'OrganismAmendment', 'SeedSupplier', 'SeedCollection', 'Amendment')},
+    {'app': 'catalog', 'label': 'Configurations et importation de données', 'models': ('UserTag', 'CompanionRelation', 'OrganismAmendment', 'SeedSupplier', 'SeedCollection', 'Amendment')},
+    {'app': 'species', 'label': 'Configurations et importation de données', 'models': ('DataImportRun',)},
+    {'app': 'gardens', 'label': 'Configurations et importation de données', 'models': ('UserPreference',)},
     # Apps Django par défaut
     {'app': 'auth', 'label': 'Authentification'},
 ]

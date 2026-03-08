@@ -3,6 +3,7 @@ Serializers pour l'API REST (app mobile Jardin Biot).
 """
 from rest_framework import serializers
 
+from gardens.models import GardenGCP
 from .models import (
     Organism,
     OrganismPropriete,
@@ -11,6 +12,7 @@ from .models import (
     CompanionRelation,
     Cultivar,
     CultivarPollinator,
+    CultivarPorteGreffe,
     Garden,
     Specimen,
     SpecimenFavorite,
@@ -35,6 +37,7 @@ class OrganismMinimalSerializer(serializers.ModelSerializer):
     """Minimal pour listes et choix."""
     is_favori = serializers.SerializerMethodField()
     photo_principale_url = serializers.SerializerMethodField()
+    has_availability = serializers.SerializerMethodField()
 
     def get_is_favori(self, obj):
         request = self.context.get('request')
@@ -47,9 +50,12 @@ class OrganismMinimalSerializer(serializers.ModelSerializer):
         photo = getattr(obj, 'photo_principale', None) or obj.photos.first()
         return _get_photo_url(request, photo) if photo else None
 
+    def get_has_availability(self, obj):
+        return getattr(obj, 'has_availability', False)
+
     class Meta:
         model = Organism
-        fields = ['id', 'nom_commun', 'nom_latin', 'slug_latin', 'type_organisme', 'genus', 'is_favori', 'photo_principale_url']
+        fields = ['id', 'nom_commun', 'nom_latin', 'slug_latin', 'type_organisme', 'genus', 'is_favori', 'photo_principale_url', 'has_availability']
 
 
 # --- Nested data for organism detail (proprietes, usages, calendrier, companions) ---
@@ -102,17 +108,30 @@ class CultivarPollinatorCompanionSerializer(serializers.Serializer):
         return {'id': o.id, 'nom_commun': o.nom_commun, 'nom_latin': o.nom_latin or ''}
 
 
+class CultivarPorteGreffeSerializer(serializers.ModelSerializer):
+    """Porte-greffe d'un cultivar (lecture seule)."""
+    vigueur_display = serializers.CharField(source='get_vigueur_display', read_only=True)
+
+    class Meta:
+        model = CultivarPorteGreffe
+        fields = [
+            'id', 'nom_porte_greffe', 'vigueur', 'vigueur_display',
+            'hauteur_max_m', 'disponible_chez', 'notes',
+        ]
+
+
 class CultivarSerializer(serializers.ModelSerializer):
-    """Cultivar / variété d'une espèce (liste pour détail organisme) avec pollinisateurs recommandés."""
+    """Cultivar / variété d'une espèce (liste pour détail organisme) avec pollinisateurs et porte-greffes."""
 
     pollinateurs_recommandes = serializers.SerializerMethodField()
+    porte_greffes = serializers.SerializerMethodField()
 
     class Meta:
         model = Cultivar
         fields = [
             'id', 'slug_cultivar', 'nom', 'description',
             'couleur_fruit', 'gout', 'resistance_maladies', 'notes',
-            'pollinateurs_recommandes',
+            'pollinateurs_recommandes', 'porte_greffes',
         ]
 
     def get_pollinateurs_recommandes(self, obj):
@@ -120,6 +139,12 @@ class CultivarSerializer(serializers.ModelSerializer):
         if companions is None:
             companions = obj.pollinator_companions.all()
         return CultivarPollinatorCompanionSerializer(companions, many=True).data
+
+    def get_porte_greffes(self, obj):
+        porte_greffes = getattr(obj, 'porte_greffes', None)
+        if porte_greffes is None:
+            porte_greffes = obj.porte_greffes.all()
+        return CultivarPorteGreffeSerializer(porte_greffes, many=True).data
 
 
 class CultivarListSerializer(serializers.ModelSerializer):
@@ -360,6 +385,28 @@ class GardenCreateSerializer(serializers.ModelSerializer):
         fields = ['nom', 'ville', 'adresse']
 
 
+class GardenGCPSerializer(serializers.ModelSerializer):
+    """Point de contrôle (GCP) pour calibration drone / OpenDroneMap."""
+    photo_url = serializers.SerializerMethodField()
+
+    def get_photo_url(self, obj):
+        if not obj.photo:
+            return None
+        request = self.context.get('request')
+        if not request:
+            return None
+        return request.build_absolute_uri(obj.photo.url)
+
+    class Meta:
+        model = GardenGCP
+        fields = [
+            'id', 'label', 'latitude', 'longitude',
+            'photo_url', 'photo', 'date_capture', 'notes',
+        ]
+        read_only_fields = ['id', 'photo_url']
+        extra_kwargs = {'photo': {'write_only': True}}
+
+
 def _get_photo_url(request, photo):
     """Retourne l'URL absolue d'une photo ou None."""
     if not photo or not photo.image or not request:
@@ -376,6 +423,7 @@ class SpecimenListSerializer(serializers.ModelSerializer):
     garden_nom = serializers.SerializerMethodField()
     is_favori = serializers.SerializerMethodField()
     photo_principale_url = serializers.SerializerMethodField()
+    rayon_adulte_m = serializers.SerializerMethodField()
 
     def get_garden_nom(self, obj):
         return obj.garden.nom if obj.garden else None
@@ -394,24 +442,45 @@ class SpecimenListSerializer(serializers.ModelSerializer):
         first = obj.photos.first()
         return _get_photo_url(request, first) if first else None
 
+    def get_rayon_adulte_m(self, obj):
+        """Rayon adulte estimé en mètres pour le cercle d'emprise sur la carte (≈ 60 % hauteur max)."""
+        if not getattr(obj, 'cultivar_id', None) or not obj.cultivar_id:
+            return None
+        pg = (
+            obj.cultivar.porte_greffes.filter(hauteur_max_m__isnull=False)
+            .order_by('-hauteur_max_m')
+            .first()
+        )
+        if pg and pg.hauteur_max_m:
+            return round(pg.hauteur_max_m * 0.60, 1)
+        return None
+
     class Meta:
         model = Specimen
         fields = [
             'id', 'nom', 'code_identification', 'nfc_tag_uid', 'organisme', 'organisme_nom',
             'organisme_nom_latin', 'garden', 'garden_nom', 'zone_jardin', 'statut', 'sante',
             'date_plantation', 'latitude', 'longitude', 'is_favori', 'photo_principale_url',
+            'rayon_adulte_m',
         ]
 
 
 class SpecimenDetailSerializer(serializers.ModelSerializer):
-    """Détail complet d'un spécimen (inclut groupes de pollinisation et distance/alerte)."""
+    """Détail complet d'un spécimen (inclut groupes de pollinisation, calendrier espèce, distance/alerte)."""
 
     organisme = OrganismMinimalSerializer(read_only=True)
+    organism_calendrier = serializers.SerializerMethodField()
     cultivar = serializers.SerializerMethodField()
     garden = GardenMinimalSerializer(read_only=True, allow_null=True)
     is_favori = serializers.SerializerMethodField()
     photo_principale_url = serializers.SerializerMethodField()
     pollination_associations = serializers.SerializerMethodField()
+    rayon_adulte_m = serializers.SerializerMethodField()
+
+    def get_organism_calendrier(self, obj):
+        if not getattr(obj, 'organisme_id', None) or not obj.organisme_id:
+            return []
+        return OrganismCalendrierSerializer(obj.organisme.calendrier.all(), many=True).data
 
     def get_cultivar(self, obj):
         if not getattr(obj, 'cultivar_id', None) or not obj.cultivar_id:
@@ -431,6 +500,19 @@ class SpecimenDetailSerializer(serializers.ModelSerializer):
             return _get_photo_url(request, obj.photo_principale)
         first = obj.photos.first()
         return _get_photo_url(request, first) if first else None
+
+    def get_rayon_adulte_m(self, obj):
+        """Rayon adulte estimé en mètres pour le cercle d'emprise sur la carte (≈ 60 % hauteur max)."""
+        if not getattr(obj, 'cultivar_id', None) or not obj.cultivar_id:
+            return None
+        pg = (
+            obj.cultivar.porte_greffes.filter(hauteur_max_m__isnull=False)
+            .order_by('-hauteur_max_m')
+            .first()
+        )
+        if pg and pg.hauteur_max_m:
+            return round(pg.hauteur_max_m * 0.60, 1)
+        return None
 
     def get_pollination_associations(self, obj):
         request = self.context.get('request')
@@ -468,12 +550,12 @@ class SpecimenDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Specimen
         fields = [
-            'id', 'nom', 'code_identification', 'nfc_tag_uid', 'organisme', 'cultivar', 'garden',
+            'id', 'nom', 'code_identification', 'nfc_tag_uid', 'organisme', 'organism_calendrier', 'cultivar', 'garden',
             'zone_jardin', 'latitude', 'longitude', 'date_plantation', 'age_plantation',
             'source', 'pepiniere_fournisseur', 'statut', 'sante', 'hauteur_actuelle',
             'premiere_fructification', 'notes', 'date_ajout', 'date_modification', 'is_favori',
             'photo_principale_url', 'photo_principale',
-            'pollination_associations',
+            'pollination_associations', 'rayon_adulte_m',
         ]
 
 

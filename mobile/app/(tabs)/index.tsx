@@ -12,10 +12,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import * as Location from 'expo-location';
-import { getSpecimens, getSpecimensNearby, getRemindersUpcoming, getWeatherAlerts, getRecentEvents, ensureValidToken } from '@/api/client';
+import { getSpecimens, getSpecimensNearby, getRemindersUpcoming, getWeatherAlerts, getRecentEvents, getUserPreferences, ensureValidToken } from '@/api/client';
 import { ActionToolbar } from '@/components/ActionToolbar';
 import { ReminderActionModal } from '@/components/ReminderActionModal';
-import type { SpecimenList } from '@/types/api';
+import { WarningsBlock } from '@/components/WarningsBlock';
+import { AddEventModal } from '@/components/AddEventModal';
+import type { SpecimenList, Event } from '@/types/api';
 import type { RecentEvent } from '@/types/api';
 import type { ReminderUpcoming, WeatherAlert } from '@/api/client';
 import { EVENT_TYPE_LABELS } from '@/types/api';
@@ -47,6 +49,10 @@ export default function HomeScreen() {
   const [recentEvents, setRecentEvents] = useState<RecentEvent[]>([]);
   const [loadingRecentEvents, setLoadingRecentEvents] = useState(true);
   const [recentEventsError, setRecentEventsError] = useState<string | null>(null);
+  const [defaultGardenId, setDefaultGardenId] = useState<number | null>(null);
+  const [phenologyModal, setPhenologyModal] = useState<{ specimenId: number; type: 'floraison' | 'fructification' | 'recolte' } | null>(null);
+  const [eventSubmitting, setEventSubmitting] = useState(false);
+  const [warningsRefreshTrigger, setWarningsRefreshTrigger] = useState(0);
 
   const fetchNearby = useCallback(async () => {
     setLoadingNearby(true);
@@ -138,6 +144,9 @@ export default function HomeScreen() {
       let cancelled = false;
       ensureValidToken().then((ok) => {
         if (cancelled || !ok) return;
+        getUserPreferences().then((prefs) => {
+          if (!cancelled) setDefaultGardenId(prefs.default_garden_id);
+        });
         fetchFavoris();
         fetchNearby();
         fetchReminders();
@@ -157,6 +166,16 @@ export default function HomeScreen() {
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
       <Text style={styles.title}>🌳 Jardin Biot</Text>
+
+      {/* Warnings (rappels en retard, pollinisateurs manquants, phénologie) */}
+      <WarningsBlock
+        defaultGardenId={defaultGardenId}
+        refreshTrigger={warningsRefreshTrigger}
+        onConfirmPhenology={(specimenId, typePeriode) =>
+          setPhenologyModal({ specimenId, type: typePeriode })
+        }
+        onWarningsChange={() => setWarningsRefreshTrigger((t) => t + 1)}
+      />
 
       {/* Alertes météo (avant les rappels) */}
       {loadingAlerts ? (
@@ -405,6 +424,23 @@ export default function HomeScreen() {
           { icon: 'eye-outline', href: '/observation/quick', variant: 'secondary' },
         ]}
       />
+
+      {phenologyModal && (
+        <AddEventModal
+          visible
+          specimenId={phenologyModal.specimenId}
+          onClose={() => setPhenologyModal(null)}
+          onSuccess={(_event: Event) => {
+            setPhenologyModal(null);
+            setWarningsRefreshTrigger((t) => t + 1);
+          }}
+          submitting={eventSubmitting}
+          setSubmitting={setEventSubmitting}
+          initialTypeEvent={phenologyModal.type}
+          initialDate={new Date().toISOString().slice(0, 10)}
+          eventOnly
+        />
+      )}
     </ScrollView>
   );
 }

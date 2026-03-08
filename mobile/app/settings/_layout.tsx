@@ -11,7 +11,7 @@ export default function SettingsLayout() {
       <Stack.Screen name="index" options={{ title: 'Paramètres' }} />
       <Stack.Screen name="profile" options={{ title: 'Modifier mon profil' }} />
       <Stack.Screen name="password" options={{ title: 'Changer le mot de passe' }} />
-      <Stack.Screen name="users" options={{ title: 'Gérer les utilisateurs' }} />
+      <Stack.Screen name="users" options={{ title: 'Utilisateurs — mettre admin' }} />
     </Stack>
   );
 }

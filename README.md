@@ -559,7 +559,10 @@ Accédez à l'application : `http://localhost` (ou votre domaine configuré)
 
 *(En construction - contributions bienvenues!)*
 
+- [x] [Import des espèces : purification, fusion, enrichissement](docs/import-especes-et-fusion-sources.md) - Pipeline espèces, choix techniques, référence des champs, gestion des données
+- [x] [Sources de données (espèces)](docs/sources-donnees.md) - Hydro-Québec, PFAF, VASCAN, USDA, commandes d'import
 - [x] [Guide de mapping semenciers](docs/seed-supplier-mapping.md) - Préparer vos catalogues CSV/JSON pour l'import
+- [x] [Pollinisation, cultivars et groupes de spécimens](docs/pollinisation-cultivars-groupes-specimens.md)
 - [x] [Guide de déploiement](DEPLOYMENT.md) - Proxmox, Gunicorn, Nginx, PostgreSQL
 - [ ] Guide d'utilisation
 - [ ] Guide de contribution

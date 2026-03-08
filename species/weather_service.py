@@ -7,7 +7,7 @@ from datetime import date, timedelta
 
 import requests
 
-from .models import Garden, WeatherRecord
+from gardens.models import Garden, WeatherRecord
 
 logger = logging.getLogger(__name__)
 

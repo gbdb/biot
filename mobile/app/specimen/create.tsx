@@ -23,6 +23,7 @@ import {
   getGardens,
   getOrganism,
   getCultivarsPaginated,
+  getCultivar,
   getUserPreferences,
 } from '@/api/client';
 import type {
@@ -31,8 +32,10 @@ import type {
   SpecimenCreateUpdate,
   SpecimenStatut,
   CultivarListEntry,
+  CultivarPorteGreffeEntry,
 } from '@/types/api';
 import { SPECIMEN_STATUT_LABELS } from '@/types/api';
+import { AddEventModal } from '@/components/AddEventModal';
 
 const DEFAULT_STATUT: SpecimenStatut = 'planifie';
 
@@ -227,6 +230,7 @@ const modalStyles = StyleSheet.create({
   },
   itemTitle: { fontSize: 16, fontWeight: '600', color: '#1a3c27' },
   itemSubtitle: { fontSize: 14, color: '#666', marginTop: 4 },
+  itemText: { fontSize: 16, color: '#1a3c27' },
   itemCreate: { borderStyle: 'dashed', borderColor: '#1a3c27' },
   itemTitleCreate: { fontSize: 16, fontWeight: '600', color: '#1a3c27' },
   emptyText: { fontSize: 14, color: '#888', textAlign: 'center', marginTop: 24 },
@@ -235,9 +239,18 @@ const modalStyles = StyleSheet.create({
 
 export default function SpecimenCreateScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ nfc_tag_uid?: string; organisme?: string; garden?: string }>();
+  const params = useLocalSearchParams<{
+    nfc_tag_uid?: string;
+    organisme?: string;
+    garden?: string;
+    cultivar?: string;
+    latitude?: string;
+    longitude?: string;
+  }>();
   const [organisme, setOrganisme] = useState<OrganismMinimal | null>(null);
   const [cultivar, setCultivar] = useState<CultivarListEntry | null>(null);
+  const [cultivarDetail, setCultivarDetail] = useState<{ porte_greffes?: CultivarPorteGreffeEntry[] } | null>(null);
+  const [selectedPorteGreffe, setSelectedPorteGreffe] = useState<CultivarPorteGreffeEntry | null | 'unknown'>(null);
   const [cultivarsForOrganism, setCultivarsForOrganism] = useState<CultivarListEntry[]>([]);
   const [cultivarModalVisible, setCultivarModalVisible] = useState(false);
   const [nom, setNom] = useState('');
@@ -255,6 +268,10 @@ export default function SpecimenCreateScreen() {
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [capturingLocation, setCapturingLocation] = useState(false);
+  const [createdIdForPlantation, setCreatedIdForPlantation] = useState<number | null>(null);
+  const [plantationModalVisible, setPlantationModalVisible] = useState(false);
+  const [eventModalVisible, setEventModalVisible] = useState(false);
+  const [eventSubmitting, setEventSubmitting] = useState(false);
 
   const refreshGardens = useCallback(() => {
     getGardens()
@@ -307,6 +324,27 @@ export default function SpecimenCreateScreen() {
     }
   }, [params.garden]);
 
+  useEffect(() => {
+    if (!cultivar) {
+      setCultivarDetail(null);
+      setSelectedPorteGreffe(null);
+      return;
+    }
+    getCultivar(cultivar.id)
+      .then((detail) => {
+        setCultivarDetail(detail);
+        if (detail.porte_greffes && detail.porte_greffes.length > 0) {
+          setSelectedPorteGreffe('unknown');
+        } else {
+          setSelectedPorteGreffe(null);
+        }
+      })
+      .catch(() => {
+        setCultivarDetail(null);
+        setSelectedPorteGreffe(null);
+      });
+  }, [cultivar?.id]);
+
   // Présélectionner le jardin par défaut quand aucun jardin n'est passé en paramètre
   useEffect(() => {
     const raw = params.garden;
@@ -321,6 +359,28 @@ export default function SpecimenCreateScreen() {
       })
       .catch(() => {});
   }, [params.garden]);
+
+  useEffect(() => {
+    const latRaw = params.latitude == null ? undefined : Array.isArray(params.latitude) ? params.latitude[0] : params.latitude;
+    const lngRaw = params.longitude == null ? undefined : Array.isArray(params.longitude) ? params.longitude[0] : params.longitude;
+    const lat = latRaw != null ? Number(latRaw) : NaN;
+    const lng = lngRaw != null ? Number(lngRaw) : NaN;
+    if (!isNaN(lat) && !isNaN(lng)) setLocation({ lat, lng });
+  }, [params.latitude, params.longitude]);
+
+  useEffect(() => {
+    const raw = params.cultivar;
+    const cultivarParam = raw == null ? undefined : Array.isArray(raw) ? raw[0] : raw;
+    const cultivarId = cultivarParam ? Number(cultivarParam) : NaN;
+    if (!isNaN(cultivarId) && cultivarId > 0 && organisme) {
+      getCultivarsPaginated({ organism: organisme.id, page: 1 })
+        .then(({ results }) => {
+          const c = results.find((x) => x.id === cultivarId);
+          if (c) setCultivar(c);
+        })
+        .catch(() => {});
+    }
+  }, [params.cultivar, organisme?.id]);
 
   const validate = (): boolean => {
     const err: { organisme?: string; nom?: string } = {};
@@ -345,7 +405,16 @@ export default function SpecimenCreateScreen() {
       };
       if (cultivar?.id) data.cultivar = cultivar.id;
       if (zoneJardin.trim()) data.zone_jardin = zoneJardin.trim();
-      if (notes.trim()) data.notes = notes.trim();
+      let notesFinal = notes.trim();
+      if (
+        selectedPorteGreffe !== null &&
+        selectedPorteGreffe !== 'unknown' &&
+        typeof selectedPorteGreffe === 'object' &&
+        selectedPorteGreffe.nom_porte_greffe
+      ) {
+        notesFinal = (notesFinal ? `Porte-greffe: ${selectedPorteGreffe.nom_porte_greffe}\n${notesFinal}` : `Porte-greffe: ${selectedPorteGreffe.nom_porte_greffe}`).trim();
+      }
+      if (notesFinal) data.notes = notesFinal;
       if (nfcTagUid.trim()) data.nfc_tag_uid = nfcTagUid.trim();
       if (location) {
         data.latitude = location.lat;
@@ -355,7 +424,12 @@ export default function SpecimenCreateScreen() {
       const created = await createSpecimen(data);
       const createdId = created?.id;
       if (typeof createdId === 'number' && Number.isInteger(createdId)) {
-        router.replace(`/specimen/${createdId}`);
+        if (statut === 'planifie') {
+          router.replace(`/specimen/${createdId}`);
+        } else {
+          setCreatedIdForPlantation(createdId);
+          setPlantationModalVisible(true);
+        }
       } else {
         router.replace('/(tabs)/specimens');
         Alert.alert('Spécimen créé', 'Le spécimen a été créé. Retour à la liste.');
@@ -415,6 +489,55 @@ export default function SpecimenCreateScreen() {
                 )}
                 <Ionicons name="chevron-forward" size={20} color="#666" />
               </TouchableOpacity>
+              {cultivarDetail?.porte_greffes && cultivarDetail.porte_greffes.length > 0 && (
+                <>
+                  <Text style={styles.label}>Porte-greffe (optionnel)</Text>
+                  <View style={styles.porteGreffeRow}>
+                    <TouchableOpacity
+                      style={[
+                        styles.porteGreffeChip,
+                        selectedPorteGreffe === 'unknown' && styles.porteGreffeChipSelected,
+                      ]}
+                      onPress={() => setSelectedPorteGreffe('unknown')}
+                    >
+                      <Text
+                        style={[
+                          styles.porteGreffeChipText,
+                          selectedPorteGreffe === 'unknown' && styles.porteGreffeChipTextSelected,
+                        ]}
+                      >
+                        Je ne sais pas / sans porte-greffe
+                      </Text>
+                    </TouchableOpacity>
+                    {cultivarDetail.porte_greffes.map((pg) => (
+                      <TouchableOpacity
+                        key={pg.id}
+                        style={[
+                          styles.porteGreffeChip,
+                          selectedPorteGreffe !== null &&
+                            selectedPorteGreffe !== 'unknown' &&
+                            selectedPorteGreffe.id === pg.id &&
+                            styles.porteGreffeChipSelected,
+                        ]}
+                        onPress={() => setSelectedPorteGreffe(pg)}
+                      >
+                        <Text
+                          style={[
+                            styles.porteGreffeChipText,
+                            selectedPorteGreffe !== null &&
+                              selectedPorteGreffe !== 'unknown' &&
+                              selectedPorteGreffe.id === pg.id &&
+                              styles.porteGreffeChipTextSelected,
+                          ]}
+                        >
+                          {pg.nom_porte_greffe}
+                          {pg.vigueur_display ? ` (${pg.vigueur_display})` : ''}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </>
+              )}
             </>
           )}
 
@@ -641,6 +764,63 @@ export default function SpecimenCreateScreen() {
         onSuccess={(uid) => setNfcTagUid(uid)}
         onClose={() => setNfcScanModalVisible(false)}
       />
+      <Modal
+        visible={plantationModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setPlantationModalVisible(false);
+          if (createdIdForPlantation != null) router.replace(`/specimen/${createdIdForPlantation}`);
+          setCreatedIdForPlantation(null);
+        }}
+      >
+        <View style={plantationModalStyles.overlay}>
+          <View style={plantationModalStyles.box}>
+            <Text style={plantationModalStyles.title}>Enregistrer la plantation maintenant ?</Text>
+            <View style={plantationModalStyles.buttons}>
+              <TouchableOpacity
+                style={plantationModalStyles.buttonPrimary}
+                onPress={() => {
+                  setPlantationModalVisible(false);
+                  setEventModalVisible(true);
+                }}
+              >
+                <Text style={plantationModalStyles.buttonPrimaryText}>Oui, enregistrer</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={plantationModalStyles.buttonSecondary}
+                onPress={() => {
+                  setPlantationModalVisible(false);
+                  if (createdIdForPlantation != null) router.replace(`/specimen/${createdIdForPlantation}`);
+                  setCreatedIdForPlantation(null);
+                }}
+              >
+                <Text style={plantationModalStyles.buttonSecondaryText}>Plus tard</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      {createdIdForPlantation != null && (
+        <AddEventModal
+          visible={eventModalVisible}
+          specimenId={createdIdForPlantation}
+          onClose={() => {
+            setEventModalVisible(false);
+            router.replace(`/specimen/${createdIdForPlantation}`);
+            setCreatedIdForPlantation(null);
+          }}
+          onSuccess={() => {
+            setEventModalVisible(false);
+            router.replace(`/specimen/${createdIdForPlantation}`);
+            setCreatedIdForPlantation(null);
+          }}
+          submitting={eventSubmitting}
+          setSubmitting={setEventSubmitting}
+          initialTypeEvent="plantation"
+          initialDate={new Date().toISOString().slice(0, 10)}
+        />
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -748,4 +928,63 @@ const styles = StyleSheet.create({
   },
   submitButtonDisabled: { opacity: 0.7 },
   submitButtonText: { fontSize: 18, fontWeight: '600', color: '#fff' },
+  porteGreffeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+  },
+  porteGreffeChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: '#f0f0eb',
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  porteGreffeChipSelected: {
+    backgroundColor: '#1a3c27',
+    borderColor: '#1a3c27',
+  },
+  porteGreffeChipText: { fontSize: 14, color: '#333' },
+  porteGreffeChipTextSelected: { fontSize: 14, color: '#fff', fontWeight: '600' },
+});
+
+const plantationModalStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  box: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 340,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1a3c27',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  buttons: { gap: 12 },
+  buttonPrimary: {
+    backgroundColor: '#1a3c27',
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  buttonPrimaryText: { fontSize: 16, fontWeight: '600', color: '#fff' },
+  buttonSecondary: {
+    backgroundColor: '#f0f0eb',
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  buttonSecondaryText: { fontSize: 16, color: '#333' },
 });

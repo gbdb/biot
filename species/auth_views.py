@@ -48,11 +48,16 @@ class RegisterView(APIView):
             )
 
         try:
-            User.objects.create_user(
+            user = User.objects.create_user(
                 username=username,
                 password=password,
                 email=email or '',
             )
+            # Premier utilisateur : pas d'admin existant → on en fait un superuser (évite le blocage après drop DB).
+            if not User.objects.filter(is_superuser=True).exists():
+                user.is_staff = True
+                user.is_superuser = True
+                user.save(update_fields=['is_staff', 'is_superuser'])
         except Exception as e:
             msg = str(e)
             return Response(

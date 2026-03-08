@@ -238,7 +238,7 @@ export default function SettingsScreen() {
 
       <Text style={styles.sectionTitle}>Utilisateur</Text>
       <Text style={styles.hint}>
-        Gérer votre compte et créer un autre utilisateur.
+        Gérer votre compte, créer un autre utilisateur ou attribuer le statut administrateur (superutilisateur uniquement).
       </Text>
       <View style={styles.list}>
         {me && (
@@ -277,7 +277,7 @@ export default function SettingsScreen() {
             onPress={() => router.push('/settings/users')}
           >
             <Ionicons name="people-outline" size={22} color="#1a3c27" />
-            <Text style={styles.rowLabel}>Gérer les utilisateurs (administrateurs)</Text>
+            <Text style={styles.rowLabel}>Gérer les utilisateurs — mettre admin</Text>
             <Ionicons name="chevron-forward" size={20} color="#999" />
           </TouchableOpacity>
         )}

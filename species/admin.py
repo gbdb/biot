@@ -18,7 +18,7 @@ from .export_utils import (
 from .forms import ImportPFAFForm, ImportSeedsForm
 from .models import (
     Organism, OrganismPropriete, OrganismUsage, OrganismCalendrier,
-    Cultivar, CultivarPollinator,
+    Cultivar, CultivarPollinator, CultivarPorteGreffe,
     UserTag, CompanionRelation, Amendment, OrganismAmendment,
     Specimen, SpecimenGroup, SpecimenGroupMember,
     Event, Reminder, Photo,
@@ -164,7 +164,6 @@ class OrganismAdmin(admin.ModelAdmin):
         'fixateur_azote',
         'mellifere',
         'indigene',
-        'mes_tags',
     ]
     
     search_fields = [
@@ -200,9 +199,6 @@ class OrganismAdmin(admin.ModelAdmin):
             'fields': ('fixateur_azote', 'accumulateur_dynamique', 'mellifere', 'produit_juglone', 'indigene'),
             'classes': ('collapse',)
         }),
-        ('Ma Collection', {
-            'fields': ('mes_tags',)
-        }),
         ('Informations', {
             'fields': ('description', 'notes', 'usages_autres')
         }),
@@ -212,8 +208,6 @@ class OrganismAdmin(admin.ModelAdmin):
         }),
     )
     
-    filter_horizontal = ['mes_tags']
-
     def zones_display(self, obj):
         """Affiche toutes les zones de rusticité avec leurs sources."""
         if not obj.zone_rusticite or not isinstance(obj.zone_rusticite, list):
@@ -274,9 +268,10 @@ class OrganismAdmin(admin.ModelAdmin):
     def get_urls(self):
         """Ajoute les routes import PFAF et enrichissement d'une espèce."""
         urls = super().get_urls()
+        info = self.opts.app_label, self.opts.model_name
         custom_urls = [
-            path('import-pfaf/', self.admin_site.admin_view(self.import_pfaf_view), name='species_organism_import_pfaf'),
-            path('enrich/<int:pk>/', self.admin_site.admin_view(self.enrich_organism_view), name='species_organism_enrich'),
+            path('import-pfaf/', self.admin_site.admin_view(self.import_pfaf_view), name='%s_%s_import_pfaf' % info),
+            path('enrich/<int:pk>/', self.admin_site.admin_view(self.enrich_organism_view), name='%s_%s_enrich' % info),
         ]
         return custom_urls + urls
 
@@ -287,15 +282,15 @@ class OrganismAdmin(admin.ModelAdmin):
         organism = self.get_object(request, str(pk))
         if organism is None:
             messages.error(request, "Organisme introuvable.")
-            return HttpResponseRedirect(reverse("admin:species_organism_changelist"))
+            return HttpResponseRedirect(reverse("admin:catalog_organism_changelist"))
         if not self.has_change_permission(request, organism):
             messages.error(request, "Droits insuffisants.")
-            return HttpResponseRedirect(reverse("admin:species_organism_changelist"))
+            return HttpResponseRedirect(reverse("admin:catalog_organism_changelist"))
 
         nom = organism.nom_commun or organism.nom_latin or f"ID {pk}"
         if not (organism.nom_latin or "").strip():
             messages.warning(request, "Enrichissement impossible : le nom latin est vide. Complétez-le puis réessayez.")
-            return HttpResponseRedirect(reverse("admin:species_organism_change", args=[pk]))
+            return HttpResponseRedirect(reverse("admin:catalog_organism_change", args=[pk]))
 
         try:
             results = enrich_organism(organism, delay=0.6)
@@ -309,7 +304,7 @@ class OrganismAdmin(admin.ModelAdmin):
                 messages.success(request, f"Enrichissement terminé : {ok_count} source(s) mise(s) à jour pour « {nom} ».")
         except Exception as e:
             messages.error(request, f"Erreur lors de l'enrichissement : {e}")
-        return HttpResponseRedirect(reverse("admin:species_organism_change", args=[pk]))
+        return HttpResponseRedirect(reverse("admin:catalog_organism_change", args=[pk]))
 
     def import_pfaf_view(self, request):
         """Vue pour l'import PFAF depuis l'admin."""
@@ -334,7 +329,7 @@ class OrganismAdmin(admin.ModelAdmin):
                     
                     if not data:
                         messages.warning(request, 'Aucune donnée trouvée dans le fichier.')
-                        return HttpResponseRedirect(reverse('admin:species_organism_import_pfaf'))
+                        return HttpResponseRedirect(reverse('admin:catalog_organism_import_pfaf'))
                     
                     if limit > 0:
                         data = data[:limit]
@@ -573,7 +568,7 @@ class OrganismAdmin(admin.ModelAdmin):
                         run.save()
 
                     # Rediriger vers la liste des organismes
-                    return HttpResponseRedirect(reverse('admin:species_organism_changelist'))
+                    return HttpResponseRedirect(reverse('admin:catalog_organism_changelist'))
                 except Exception as e:
                     if run:
                         run.status = 'failure'
@@ -856,6 +851,15 @@ class CultivarPollinatorInline(admin.TabularInline):
     fields = ('companion_cultivar', 'companion_organism', 'notes', 'source')
 
 
+class CultivarPorteGreffeInline(admin.TabularInline):
+    model = CultivarPorteGreffe
+    extra = 0
+    fk_name = 'cultivar'
+    fields = ('nom_porte_greffe', 'vigueur', 'hauteur_max_m', 'disponible_chez', 'notes', 'source')
+    verbose_name = "Porte-greffe"
+    verbose_name_plural = "Porte-greffes"
+
+
 @admin.register(Cultivar)
 class CultivarAdmin(admin.ModelAdmin):
     list_display = ['slug_cultivar', 'nom', 'organism', 'couleur_fruit', 'date_ajout']
@@ -863,7 +867,7 @@ class CultivarAdmin(admin.ModelAdmin):
     search_fields = ['nom', 'slug_cultivar', 'organism__nom_latin', 'organism__nom_commun']
     autocomplete_fields = ['organism']
     readonly_fields = ['date_ajout', 'date_modification']
-    inlines = [CultivarPollinatorInline]
+    inlines = [CultivarPorteGreffeInline, CultivarPollinatorInline]
 
 
 @admin.register(CultivarPollinator)
@@ -1124,11 +1128,12 @@ class SeedCollectionAdmin(admin.ModelAdmin):
 
     def get_urls(self):
         urls = super().get_urls()
+        info = self.opts.app_label, self.opts.model_name
         custom_urls = [
             path(
                 'import-csv/',
                 self.admin_site.admin_view(self.import_seeds_view),
-                name='species_seedcollection_import_csv',
+                name='%s_%s_import_csv' % info,
             ),
         ]
         return custom_urls + urls
@@ -1157,7 +1162,7 @@ class SeedCollectionAdmin(admin.ModelAdmin):
                     data = load_seed_data(tmp_path)
                     if not data:
                         messages.warning(request, 'Aucune donnée trouvée dans le fichier.')
-                        return HttpResponseRedirect(reverse('admin:species_seedcollection_import_csv'))
+                        return HttpResponseRedirect(reverse('admin:catalog_seedcollection_import_csv'))
                     if limit > 0:
                         data = data[:limit]
 
@@ -1306,7 +1311,7 @@ class SeedCollectionAdmin(admin.ModelAdmin):
                     if errors:
                         msg += f', {errors} erreurs'
                     messages.success(request, msg)
-                    return HttpResponseRedirect(reverse('admin:species_seedcollection_changelist'))
+                    return HttpResponseRedirect(reverse('admin:catalog_seedcollection_changelist'))
 
                 except Exception as e:
                     if run:
@@ -1438,7 +1443,7 @@ class SpecimenAdmin(admin.ModelAdmin):
             path(
                 '<path:object_id>/duplicate/',
                 self.admin_site.admin_view(self.duplicate_specimen_view),
-                name='species_specimen_duplicate',
+                name='duplicate',
             ),
         ]
         return custom + urls

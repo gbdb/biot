@@ -60,15 +60,25 @@ const SOLEIL_OPTIONS: { value: string; label: string; icon: string }[] = [
 
 const USDA_ZONES = Array.from({ length: 13 }, (_, i) => i + 1);
 
+const VIGUEUR_OPTIONS: { value: string; label: string }[] = [
+  { value: 'nain', label: 'Nain' },
+  { value: 'semi_nain', label: 'Semi-nain' },
+  { value: 'semi_vigoureux', label: 'Semi-vigoureux' },
+  { value: 'vigoureux', label: 'Vigoureux' },
+  { value: 'standard', label: 'Standard' },
+];
+
 const LibraryOrganismRow = React.memo(function LibraryOrganismRow({
   item,
   onPress,
   onAdd,
+  onPlaceOnTerrain,
   onToggleFavori,
 }: {
   item: OrganismMinimal;
   onPress: (org: OrganismMinimal) => void;
   onAdd: (org: OrganismMinimal) => void;
+  onPlaceOnTerrain?: (org: OrganismMinimal) => void;
   onToggleFavori: (org: OrganismMinimal) => void;
 }) {
   return (
@@ -103,15 +113,31 @@ const LibraryOrganismRow = React.memo(function LibraryOrganismRow({
           <Text style={styles.cardType}>
             {TYPE_LABELS[item.type_organisme] ?? item.type_organisme}
           </Text>
+          {item.has_availability && (
+            <View style={styles.availabilityBadge}>
+              <Text style={styles.availabilityBadgeText}>Disponible en pépinière</Text>
+            </View>
+          )}
         </View>
       </TouchableOpacity>
-      <TouchableOpacity
-        style={styles.addButton}
-        onPress={() => onAdd(item)}
-        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-      >
-        <Ionicons name="add" size={24} color="#1a3c27" />
-      </TouchableOpacity>
+      <View style={styles.addButtonRow}>
+        {onPlaceOnTerrain && (
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => onPlaceOnTerrain(item)}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Ionicons name="layers-outline" size={22} color="#1a3c27" />
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={() => onAdd(item)}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          <Ionicons name="add" size={24} color="#1a3c27" />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 });
@@ -134,6 +160,8 @@ export default function SpeciesLibraryScreen() {
   const [favorisFilter, setFavorisFilter] = useState(false);
   const [fruitsFilter, setFruitsFilter] = useState(false);
   const [noixFilter, setNoixFilter] = useState(false);
+  const [vigueurFilter, setVigueurFilter] = useState<string | null>(null);
+  const [vigueurModalVisible, setVigueurModalVisible] = useState(false);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [filteredCount, setFilteredCount] = useState<number | null>(null);
   const [totalCount, setTotalCount] = useState<number | null>(null);
@@ -171,6 +199,7 @@ export default function SpeciesLibraryScreen() {
         zone_usda: zoneUsdaFilter ?? undefined,
         fruits: fruitsFilter || undefined,
         noix: noixFilter || undefined,
+        vigueur: vigueurFilter || undefined,
       };
       getOrganismsPaginated(params)
         .then(({ results, hasMore: more, count }) => {
@@ -198,6 +227,7 @@ export default function SpeciesLibraryScreen() {
       zoneUsdaFilter,
       fruitsFilter,
       noixFilter,
+      vigueurFilter,
     ]
   );
 
@@ -224,6 +254,7 @@ export default function SpeciesLibraryScreen() {
       zoneUsdaFilter,
       fruitsFilter,
       noixFilter,
+      vigueurFilter,
       fetchOrganisms,
     ])
   );
@@ -242,6 +273,17 @@ export default function SpeciesLibraryScreen() {
     const gardenParam = defaultGardenId != null ? `&garden=${defaultGardenId}` : '';
     router.push(`/specimen/create?organisme=${org.id}${gardenParam}`);
   }, [router, defaultGardenId]);
+
+  const handlePlaceOnTerrain = useCallback(
+    (org: OrganismMinimal) => {
+      if (defaultGardenId == null) {
+        router.push(`/specimen/create?organisme=${org.id}`);
+        return;
+      }
+      router.push(`/garden/${defaultGardenId}/terrain?placement=1&organism_id=${org.id}`);
+    },
+    [router, defaultGardenId]
+  );
 
   const handleToggleFavori = useCallback(async (org: OrganismMinimal) => {
     const wasFavori = org.is_favori ?? false;
@@ -283,7 +325,8 @@ export default function SpeciesLibraryScreen() {
     zoneUsdaFilter != null ||
     favorisFilter ||
     fruitsFilter ||
-    noixFilter;
+    noixFilter ||
+    vigueurFilter != null;
 
   const handleClearAllFilters = () => {
     setTypeFilter('');
@@ -292,6 +335,12 @@ export default function SpeciesLibraryScreen() {
     setFavorisFilter(false);
     setFruitsFilter(false);
     setNoixFilter(false);
+    setVigueurFilter(null);
+  };
+
+  const handleApplyVigueurFilter = (value: string | null) => {
+    setVigueurFilter(value);
+    setVigueurModalVisible(false);
   };
 
   if (loading && organisms.length === 0 && !hasLoadedOnce) {
@@ -439,6 +488,18 @@ export default function SpeciesLibraryScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
+          style={[styles.pill, vigueurFilter != null && styles.pillActive]}
+          onPress={() => setVigueurModalVisible(true)}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.pillText, vigueurFilter != null && styles.pillTextActive]}>
+            {vigueurFilter != null
+              ? VIGUEUR_OPTIONS.find((o) => o.value === vigueurFilter)?.label ?? 'Taille'
+              : 'Taille'}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
           style={[styles.pill, typeFilter && styles.pillActive]}
           onPress={() => setTypeModalVisible(true)}
           activeOpacity={0.7}
@@ -492,6 +553,7 @@ export default function SpeciesLibraryScreen() {
             item={item}
             onPress={handleOrganismPress}
             onAdd={handleAddToGarden}
+            onPlaceOnTerrain={handlePlaceOnTerrain}
             onToggleFavori={handleToggleFavori}
           />
         )}
@@ -661,6 +723,61 @@ export default function SpeciesLibraryScreen() {
                     ]}
                   >
                     Zone {z}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Vigueur / Taille filter modal */}
+      <Modal
+        visible={vigueurModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setVigueurModalVisible(false)}
+      >
+        <View style={modalStyles.overlay}>
+          <TouchableOpacity
+            style={modalStyles.backdrop}
+            activeOpacity={1}
+            onPress={() => setVigueurModalVisible(false)}
+          />
+          <View style={modalStyles.content}>
+            <View style={modalStyles.header}>
+              <Text style={modalStyles.title}>Taille (vigueur porte-greffe)</Text>
+              <TouchableOpacity onPress={() => setVigueurModalVisible(false)}>
+                <Ionicons name="close" size={28} color="#1a3c27" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={modalStyles.list} contentContainerStyle={modalStyles.listContent}>
+              <TouchableOpacity
+                style={[modalStyles.item, vigueurFilter == null && modalStyles.itemActive]}
+                onPress={() => handleApplyVigueurFilter(null)}
+              >
+                <Text
+                  style={[
+                    modalStyles.itemText,
+                    vigueurFilter == null && modalStyles.itemTextActive,
+                  ]}
+                >
+                  Toutes tailles
+                </Text>
+              </TouchableOpacity>
+              {VIGUEUR_OPTIONS.map((opt) => (
+                <TouchableOpacity
+                  key={opt.value}
+                  style={[modalStyles.item, vigueurFilter === opt.value && modalStyles.itemActive]}
+                  onPress={() => handleApplyVigueurFilter(opt.value)}
+                >
+                  <Text
+                    style={[
+                      modalStyles.itemText,
+                      vigueurFilter === opt.value && modalStyles.itemTextActive,
+                    ]}
+                  >
+                    {opt.label}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -846,7 +963,24 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 8,
   },
+  availabilityBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#e8f0e8',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginTop: 6,
+  },
+  availabilityBadgeText: {
+    fontSize: 11,
+    color: '#1a3c27',
+    fontWeight: '500',
+  },
   favoriBtn: { padding: 4 },
+  addButtonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   addButton: {
     padding: 8,
     marginLeft: 8,

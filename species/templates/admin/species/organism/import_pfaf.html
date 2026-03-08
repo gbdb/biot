@@ -7,7 +7,7 @@
 <div class="breadcrumbs">
 <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
 &rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
-&rsaquo; <a href="{% url 'admin:species_organism_changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+&rsaquo; <a href="{% url 'admin:catalog_organism_changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
 &rsaquo; {% trans 'Importer PFAF' %}
 </div>
 {% endblock %}
@@ -117,7 +117,7 @@
 
     <div class="submit-row">
         <input type="submit" value="Importer" class="default" />
-        <a href="{% url 'admin:species_organism_changelist' %}" class="button">Annuler</a>
+        <a href="{% url 'admin:catalog_organism_changelist' %}" class="button">Annuler</a>
     </div>
 </form>
 

@@ -6,4 +6,4 @@ class SpeciesConfig(AppConfig):
     name = 'species'
 
     def ready(self):
-        import species.signals  # noqa: F401
+        pass  # Signals moved to gardens.signals (Garden) and specimens if any

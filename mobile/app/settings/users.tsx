@@ -54,7 +54,7 @@ export default function AdminUsersScreen() {
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
       <Text style={styles.hint}>
-        Seul un superutilisateur peut attribuer ou retirer le statut administrateur. Les administrateurs peuvent lancer les imports (VASCAN, USDA, etc.) depuis Paramètres → Avancé.
+        Utilisez l’interrupteur « Administrateur » pour mettre ou retirer le statut admin d’un utilisateur. Seul un superutilisateur peut modifier. Les administrateurs peuvent lancer les imports (VASCAN, USDA, etc.) depuis Paramètres → Avancé.
       </Text>
       <View style={styles.list}>
         {users.map((user) => (
@@ -76,7 +76,7 @@ export default function AdminUsersScreen() {
                   <ActivityIndicator size="small" color="#1a3c27" />
                 ) : (
                   <>
-                    <Text style={styles.toggleLabel}>Admin</Text>
+                    <Text style={styles.toggleLabel}>Administrateur</Text>
                     <Switch
                       value={user.is_staff}
                       onValueChange={(v) => onToggleStaff(user, v)}

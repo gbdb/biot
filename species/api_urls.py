@@ -11,6 +11,8 @@ from .api_views import (
     OrganismViewSet,
     CultivarViewSet,
     GardenViewSet,
+    GardenGCPViewSet,
+    export_garden_gcps_csv,
     ExpectedEventsView,
     RemindersUpcomingView,
     WeatherAlertsView,
@@ -44,5 +46,9 @@ urlpatterns = [
     path('admin/run-command/', RunAdminCommandView.as_view(), name='admin-run-command'),
     path('admin/species-stats/', SpeciesStatsView.as_view(), name='admin-species-stats'),
     path('admin/import-vascan-file/', ImportVascanFileView.as_view(), name='admin-import-vascan-file'),
+    # GCP (points de contrôle) — avant le router pour prendre en charge gardens/<pk>/gcps/
+    path('gardens/<int:garden_pk>/gcps/', GardenGCPViewSet.as_view({'get': 'list', 'post': 'create'}), name='garden-gcps'),
+    path('gardens/<int:garden_pk>/gcps/export/', export_garden_gcps_csv, name='garden-gcps-export'),
+    path('gardens/<int:garden_pk>/gcps/<int:pk>/', GardenGCPViewSet.as_view({'get': 'retrieve', 'patch': 'partial_update', 'put': 'update', 'delete': 'destroy'}), name='garden-gcp-detail'),
     path('', include(router.urls)),
 ]

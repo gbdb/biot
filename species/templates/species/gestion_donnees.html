@@ -131,8 +131,18 @@
         <tr><td>VASCAN</td><td>{{ coverage_by_source.vascan|default:0 }}</td></tr>
         <tr><td>USDA</td><td>{{ coverage_by_source.usda|default:0 }}</td></tr>
         <tr><td>Botanipedia</td><td>{{ coverage_by_source.botanipedia|default:0 }}</td></tr>
+        <tr><td>Arbres en ligne</td><td>{{ coverage_by_source.arbres_en_ligne|default:0 }}</td></tr>
+        <tr><td>Pépinière ancestrale</td><td>{{ coverage_by_source.ancestrale|default:0 }}</td></tr>
       </tbody>
     </table>
+
+    <h3 style="margin-top:1.25rem; font-size:1em; color:#555;">Couverture cultivars</h3>
+    <p style="color:#666; font-size:0.9em;">Espèces avec au moins un cultivar, nombre total de cultivars, cultivars avec au moins un porte-greffe.</p>
+    <div class="stats-box" style="margin-top:0.5rem;">
+      <div class="stat-item">Espèces avec ≥1 cultivar : <strong>{{ species_with_cultivar_count|default:0 }}</strong></div>
+      <div class="stat-item">Cultivars total : <strong>{{ total_cultivar_count|default:0 }}</strong></div>
+      <div class="stat-item">Cultivars avec porte-greffe : <strong>{{ cultivars_with_porte_greffe_count|default:0 }}</strong></div>
+    </div>
 
     <h3 style="margin-top:1.25rem; font-size:1em; color:#555;">État des données par champ</h3>
     <p style="color:#666; font-size:0.9em;">Pourcentage d'organismes avec le champ rempli. Ce qui manque le plus / ce qui est le mieux documenté.</p>
@@ -158,7 +168,7 @@
             {% endfor %}
           </tbody>
         </table>
-        <p style="margin-top:0.35rem;"><a href="{% url 'admin:species_organism_changelist' %}">Voir les espèces en admin</a></p>
+        <p style="margin-top:0.35rem;"><a href="{% url 'admin:catalog_organism_changelist' %}">Voir les espèces en admin</a></p>
       </div>
       <div>
         <strong style="font-size:0.9em; color:#0a0;">Mieux documenté</strong>
@@ -213,7 +223,7 @@
   <div class="section">
     <h2>Recommandations (ordre des opérations)</h2>
     <ol class="workflow-list">
-      <li>Importer les sources (Hydro-Québec, PFAF, VASCAN, USDA) via les sections ci-dessous ou <a href="{% url 'admin:species_organism_import_pfaf' %}">Importer PFAF</a> / <a href="{% url 'admin:species_seedcollection_import_csv' %}">Importer semences</a>.</li>
+      <li>Importer les sources (Hydro-Québec, PFAF, VASCAN, USDA) via les sections ci-dessous ou <a href="{% url 'admin:catalog_organism_import_pfaf' %}">Importer PFAF</a> / <a href="{% url 'admin:catalog_seedcollection_import_csv' %}">Importer semences</a>.</li>
       <li>Fusionner les doublons : lancer la commande <strong>merge_organism_duplicates</strong> dans le bloc « Commandes d'import et maintenance ».</li>
       <li>Remplir les tables dérivées : lancer <strong>populate_proprietes_usage_calendrier</strong>.</li>
     </ol>
@@ -235,10 +245,10 @@
 
   <div class="section">
     <h2>Hydro-Québec — Téléchargement et import local</h2>
-    <p style="color:#666; font-size:0.9em;">Récupérer le jeu complet (~1700 espèces) depuis l'API puis l'importer depuis un fichier local.</p>
+    <p style="color:#666; font-size:0.9em;">Outil central pour compléter la base : récupérer le jeu complet (~1700 fiches) depuis l'API, puis l'importer. Chaque ligne = fiche (espèce ou cultivar) ; l'import fusionne les cultivars par espèce (organisme + cultivars).</p>
 
     <div style="margin-bottom:1.25rem;">
-      <strong>1. Télécharger le jeu complet</strong> (enregistre <code>arbres_hq.json</code> dans <code>data/hydroquebec/</code>) :
+      <strong>1. Télécharger le jeu complet</strong> (enregistre <code>arbres_hq_AAAA-MM-JJ.json</code> dans <code>data/hydroquebec/</code>) :
       <form method="post" action="{% url 'gestion_donnees' %}" style="display:inline-flex; align-items:center; gap:0.75rem; flex-wrap:wrap; margin-top:0.5rem;">
         {% csrf_token %}
         <input type="hidden" name="action" value="download_hydroquebec_full">
@@ -262,6 +272,8 @@
         </select>
         <button type="submit" class="button">Démarrer l'importation locale</button>
       </form>
+      <p id="hq-file-stats-msg" class="hq-file-stats" style="margin-top:0.5rem; font-size:0.95em; color:#2d5a27;"></p>
+      <p style="color:#888; font-size:0.8em; margin-top:0.35rem;">Jeu complet attendu : ~1700 entrées. Si le fichier en contient moins, retéléchargez le jeu complet (étape 1) puis réimportez.</p>
     </div>
     {% if not hydroquebec_local_files %}
     <p style="color:#888; font-size:0.85em; margin-top:0.75rem;">Aucun fichier .json pour l'instant. Cliquez sur « Télécharger le jeu complet » ci-dessus.</p>
@@ -297,6 +309,8 @@
               <label>{{ opt_name }}: <input type="number" name="opt_{{ opt_name }}" value="{% if opt_name == 'limit' %}0{% else %}1{% endif %}" min="0"></label><br>
               {% elif opt_type == "float" %}
               <label>{{ opt_name }}: <input type="number" name="opt_{{ opt_name }}" value="0.5" min="0" step="0.1"></label><br>
+              {% elif opt_type == "str" %}
+              <label>{{ opt_name }}: <input type="text" name="opt_{{ opt_name }}" placeholder="Chemin fichier (ex. data/arbresenligne/Arbres en ligne_2026 - csv.csv)" style="width:100%; max-width:280px;"></label><br>
               {% endif %}
             {% endfor %}
           </div>
@@ -348,4 +362,41 @@
     {% endif %}
   </div>
 </div>
+
+<script>
+(function() {
+  var select = document.getElementById('local_file');
+  var msgEl = document.getElementById('hq-file-stats-msg');
+  if (!select || !msgEl) return;
+  function updateStats() {
+    var file = select.value;
+    if (!file) {
+      msgEl.textContent = '';
+      return;
+    }
+    msgEl.textContent = 'Scan du fichier…';
+    msgEl.style.color = '#666';
+    var url = '{% url "hq_file_stats" %}?file=' + encodeURIComponent(file);
+    fetch(url)
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.error) {
+          msgEl.textContent = 'Erreur : ' + data.error;
+          msgEl.style.color = '#c00';
+        } else if (data.entries !== null) {
+          msgEl.textContent = 'Le fichier sélectionné contient ' + data.entries + ' entrée' + (data.entries !== 1 ? 's' : '') + '.';
+          msgEl.style.color = '#2d5a27';
+        } else {
+          msgEl.textContent = '';
+        }
+      })
+      .catch(function() {
+        msgEl.textContent = 'Impossible de lire le fichier.';
+        msgEl.style.color = '#c00';
+      });
+  }
+  select.addEventListener('change', updateStats);
+  if (select.value) updateStats();
+})();
+</script>
 {% endblock %}

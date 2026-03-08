@@ -26,6 +26,7 @@ import {
   setOrganismDefaultPhoto,
   getMe,
   enrichOrganism,
+  getUserPreferences,
 } from '@/api/client';
 import { PhotoCarousel, type PhotoCarouselItem } from '@/components/PhotoCarousel';
 import type {
@@ -71,6 +72,14 @@ const BESOIN_EAU_LABELS: Record<string, string> = {
   moyen: 'Moyen',
   eleve: 'Élevé',
   tres_eleve: 'Très élevé',
+};
+
+const VIGUEUR_PORTE_GREFFE_LABELS: Record<string, string> = {
+  nain: 'Nain (1.5–2.5 m)',
+  semi_nain: 'Semi-nain (2.5–3.5 m)',
+  semi_vigoureux: 'Semi-vigoureux (3.5–5 m)',
+  vigoureux: 'Vigoureux (4.5–6 m)',
+  standard: 'Standard (6–9 m)',
 };
 
 function Field({ label, value }: { label: string; value: string | null | undefined }) {
@@ -190,6 +199,20 @@ export default function SpeciesDetailScreen() {
     if (organism) {
       router.push(`/specimen/create?organisme=${organism.id}`);
     }
+  };
+
+  const handlePlaceOnTerrain = () => {
+    if (!organism) return;
+    getUserPreferences()
+      .then((prefs) => {
+        const gardenId = prefs.default_garden_id;
+        if (gardenId != null) {
+          router.push(`/garden/${gardenId}/terrain?placement=1&organism_id=${organism.id}`);
+        } else {
+          router.push(`/specimen/create?organisme=${organism.id}`);
+        }
+      })
+      .catch(() => router.push(`/specimen/create?organisme=${organism.id}`));
   };
 
   const handleEnrich = async () => {
@@ -318,6 +341,27 @@ export default function SpeciesDetailScreen() {
             {organism.enrichment_score_pct != null && (
               <Text style={styles.enrichmentScore}>Enrichissement : {organism.enrichment_score_pct} %</Text>
             )}
+            {(() => {
+              const sources = new Set<string>();
+              organism.cultivars?.forEach((c: { porte_greffes?: { disponible_chez?: { source?: string }[] }[] }) => {
+                c.porte_greffes?.forEach((pg) => {
+                  pg.disponible_chez?.forEach((d) => {
+                    if (d?.source) sources.add(d.source);
+                  });
+                });
+              });
+              if (sources.size === 0) return null;
+              const labels: Record<string, string> = { ancestrale: 'Ancestrale', arbres_en_ligne: 'Arbres en Ligne' };
+              return (
+                <View style={styles.availabilityBadgesRow}>
+                  {[...sources].map((src) => (
+                    <View key={src} style={styles.availabilityBadge}>
+                      <Text style={styles.availabilityBadgeText}>Disponible chez {labels[src] ?? src}</Text>
+                    </View>
+                  ))}
+                </View>
+              );
+            })()}
           </View>
           <TouchableOpacity
             onPress={handleToggleFavori}
@@ -504,7 +548,15 @@ export default function SpeciesDetailScreen() {
         {organism.cultivars && organism.cultivars.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Variétés / cultivars</Text>
-            {organism.cultivars.map((c: { id: number; nom: string; couleur_fruit?: string; gout?: string; resistance_maladies?: string; pollinateurs_recommandes?: { companion_cultivar: { nom: string } | null; companion_organism: { nom_commun: string } | null }[] }) => (
+            {organism.cultivars.map((c: {
+              id: number;
+              nom: string;
+              couleur_fruit?: string;
+              gout?: string;
+              resistance_maladies?: string;
+              pollinateurs_recommandes?: { companion_cultivar: { nom: string } | null; companion_organism: { nom_commun: string } | null }[];
+              porte_greffes?: { id: number; nom_porte_greffe: string; vigueur: string; vigueur_display?: string; hauteur_max_m: number | null; disponible_chez: { source?: string }[]; notes: string }[];
+            }) => (
               <View key={c.id} style={styles.cultivarBlock}>
                 <Text style={styles.cultivarNom}>{c.nom}</Text>
                 {c.couleur_fruit?.trim() ? <Text style={styles.cultivarDetail}>Couleur : {c.couleur_fruit}</Text> : null}
@@ -515,6 +567,27 @@ export default function SpeciesDetailScreen() {
                     Pollinisateurs recommandés : {c.pollinateurs_recommandes.map((p) => p.companion_cultivar?.nom ?? p.companion_organism?.nom_commun ?? '—').join(', ')}
                   </Text>
                 ) : null}
+                {c.porte_greffes && c.porte_greffes.length > 0 && (
+                  <View style={styles.porteGreffesWrap}>
+                    <Text style={styles.porteGreffesSubtitle}>Porte-greffes disponibles</Text>
+                    {c.porte_greffes.map((pg) => {
+                      const vigueurLabel = pg.vigueur_display?.trim() || VIGUEUR_PORTE_GREFFE_LABELS[pg.vigueur] || pg.vigueur || '—';
+                      const hasAncestrale = Array.isArray(pg.disponible_chez) && pg.disponible_chez.some((d) => d?.source === 'ancestrale');
+                      const hasArbresEnLigne = Array.isArray(pg.disponible_chez) && pg.disponible_chez.some((d) => d?.source === 'arbres_en_ligne');
+                      return (
+                        <View key={pg.id} style={styles.porteGreffeRow}>
+                          <Text style={styles.porteGreffeNom}>{pg.nom_porte_greffe}</Text>
+                          <Text style={styles.porteGreffeMeta}>{vigueurLabel}</Text>
+                          {pg.hauteur_max_m != null && <Text style={styles.porteGreffeMeta}>Hauteur max : {pg.hauteur_max_m} m</Text>}
+                          <View style={styles.porteGreffeBadges}>
+                            {hasAncestrale && <View style={styles.porteGreffeBadge}><Text style={styles.porteGreffeBadgeText}>Disponible chez Ancestrale</Text></View>}
+                            {hasArbresEnLigne && <View style={styles.porteGreffeBadge}><Text style={styles.porteGreffeBadgeText}>Disponible chez Arbres en Ligne</Text></View>}
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </View>
+                )}
               </View>
             ))}
           </View>
@@ -689,7 +762,16 @@ export default function SpeciesDetailScreen() {
 
       <TouchableOpacity
         style={styles.editButton}
-        onPress={() => router.push(`/species/edit/${organism.id}`)}
+        onPress={handlePlaceOnTerrain}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="layers-outline" size={24} color="#1a3c27" />
+        <Text style={styles.editButtonText}>Placer sur le terrain</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.editButton}
+        onPress={() => organism && router.push(`/species/edit/${organism.id}`)}
         activeOpacity={0.7}
       >
         <Ionicons name="pencil" size={24} color="#1a3c27" />
@@ -1062,6 +1144,65 @@ const styles = StyleSheet.create({
     color: '#4a6741',
     marginTop: 6,
     fontStyle: 'italic',
+  },
+  porteGreffesWrap: {
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  porteGreffesSubtitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1a3c27',
+    marginBottom: 6,
+  },
+  porteGreffeRow: {
+    marginBottom: 8,
+    paddingVertical: 4,
+  },
+  porteGreffeNom: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+  },
+  porteGreffeMeta: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
+  },
+  porteGreffeBadges: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 4,
+  },
+  porteGreffeBadge: {
+    backgroundColor: '#e8f0e8',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  porteGreffeBadgeText: {
+    fontSize: 11,
+    color: '#1a3c27',
+  },
+  availabilityBadgesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  availabilityBadge: {
+    backgroundColor: '#e8f0e8',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  availabilityBadgeText: {
+    fontSize: 12,
+    color: '#1a3c27',
+    fontWeight: '500',
   },
   usagesDetails: {
     marginTop: 12,

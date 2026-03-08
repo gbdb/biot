@@ -12,13 +12,15 @@ from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.core.management import call_command
 from django.conf import settings
+from django.http import JsonResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from django.db.models import Count, Q
 from django.utils import timezone
 
-from .models import BaseEnrichmentStats, CompanionRelation, Cultivar, Garden, Organism, Specimen, SprinklerZone, DataImportRun
+from .models import BaseEnrichmentStats, CompanionRelation, Cultivar, CultivarPorteGreffe, Garden, Organism, OrganismNom, Specimen, SprinklerZone, DataImportRun
 from .weather_service import (
     fetch_forecast,
     fetch_weather_for_garden,
@@ -131,7 +133,7 @@ def geocode_garden_view(request, garden_id):
     """Remplit lat/long/timezone depuis l'adresse du jardin (géocodage Open-Meteo)."""
     garden = get_object_or_404(Garden, pk=garden_id)
     if request.method != "POST":
-        return redirect("admin:species_garden_change", garden_id)
+        return redirect("admin:gardens_garden_change", garden_id)
 
     result = geocode_address(garden)
     if result:
@@ -145,7 +147,7 @@ def geocode_garden_view(request, garden_id):
             request,
             "Impossible de géolocaliser. Vérifiez ville, code postal ou adresse (min. 3 caractères)."
         )
-    return redirect("admin:species_garden_change", garden_id)
+    return redirect("admin:gardens_garden_change", garden_id)
 
 
 @staff_member_required
@@ -157,7 +159,7 @@ def fetch_garden_weather_view(request, garden_id):
     else:
         n = fetch_weather_for_garden(garden, days_back=14)
         messages.success(request, f"Météo récupérée pour {garden.nom} : {n} jours.")
-    return redirect("admin:species_garden_change", garden_id)
+    return redirect("admin:gardens_garden_change", garden_id)
 
 
 @staff_member_required
@@ -247,6 +249,30 @@ def _append_log(request, command_label: str, output: str, success: bool):
 
 
 @staff_member_required
+def hq_file_stats_view(request):
+    """
+    Retourne le nombre d'entrées d'un fichier JSON Hydro-Québec (liste d'arbres).
+    GET ?file=arbres_hq_2026-03-06.json → {"entries": 1700}
+    """
+    filename = (request.GET.get("file") or "").strip()
+    if not filename or ".." in filename or filename.startswith("/") or not filename.endswith(".json"):
+        return JsonResponse({"entries": None, "error": "Fichier invalide"}, status=400)
+    base_dir = getattr(settings, "IMPORT_HYDROQUEBEC_DIR", Path(settings.BASE_DIR) / "data" / "hydroquebec")
+    base_dir = Path(base_dir)
+    full_path = (base_dir / filename).resolve()
+    base_resolved = base_dir.resolve()
+    if not full_path.is_file() or not str(full_path).startswith(str(base_resolved)):
+        return JsonResponse({"entries": None, "error": "Fichier introuvable"}, status=404)
+    try:
+        with open(full_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, OSError) as e:
+        return JsonResponse({"entries": None, "error": str(e)}, status=400)
+    n = len(data) if isinstance(data, list) else 0
+    return JsonResponse({"entries": n, "error": None})
+
+
+@staff_member_required
 def gestion_donnees_view(request):
     """
     Page de gestion des données (espèces, imports, commandes).
@@ -314,7 +340,9 @@ def gestion_donnees_view(request):
             except OSError as e:
                 messages.error(request, f"Impossible de créer le répertoire : {e}")
                 return redirect("gestion_donnees")
-            output_path = base_dir / "arbres_hq.json"
+            # Nom du fichier avec date pour traçabilité (ex. arbres_hq_2026-03-06.json)
+            date_suffix = timezone.now().strftime("%Y-%m-%d")
+            output_path = (base_dir / f"arbres_hq_{date_suffix}.json").resolve()
             use_curl = request.POST.get("use_curl") in ("1", "on", "true", "yes")
             run = DataImportRun.objects.create(
                 source="import_hydroquebec",
@@ -334,12 +362,13 @@ def gestion_donnees_view(request):
                     curl=use_curl,
                 )
                 output = (out.getvalue() + "\n" + err.getvalue()).strip()
-                _append_log(request, "Téléchargement complet Hydro-Québec (→ arbres_hq.json)", output, True)
+                _append_log(request, f"Téléchargement complet Hydro-Québec (→ {output_path.name})", output, True)
                 run.status = "success"
                 run.finished_at = timezone.now()
                 run.output_snippet = (output or "")[:2000]
                 if output_path.exists():
                     run.stats["file_size_kb"] = output_path.stat().st_size // 1024
+                    run.stats["file_name"] = output_path.name
                 run.save()
                 messages.success(
                     request,
@@ -392,8 +421,32 @@ def gestion_donnees_view(request):
                         run.output_snippet = (output or "")[:2000]
                         _ea = BaseEnrichmentStats.objects.first()
                         run.stats["global_score_after"] = _ea.global_score_pct if _ea else None
+                        # Parser la sortie pour résumé : Créés / Mis à jour / Ignorés
+                        import re
+                        created = updated = skipped = 0
+                        for pattern, var in [
+                            (r"Créés:\s*(\d+)", "created"),
+                            (r"Mis à jour:\s*(\d+)", "updated"),
+                            (r"Ignorés:\s*(\d+)", "skipped"),
+                        ]:
+                            m = re.search(pattern, output)
+                            if m:
+                                run.stats[var] = int(m.group(1))
+                                if var == "created": created = run.stats[var]
+                                elif var == "updated": updated = run.stats[var]
+                                else: skipped = run.stats[var]
+                        run.stats["lines_processed"] = created + updated + skipped
+                        run.stats["organisms_total"] = Organism.objects.count()
+                        run.stats["cultivars_total"] = Cultivar.objects.count()
                         run.save()
-                        messages.success(request, f"Import terminé : {local_file}")
+                        lines = run.stats["lines_processed"]
+                        n_org = run.stats["organisms_total"]
+                        n_cult = run.stats["cultivars_total"]
+                        msg = (
+                            f"Import terminé : {lines} lignes traitées → "
+                            f"{n_org} espèces → {n_cult} cultivars."
+                        )
+                        messages.success(request, msg)
                     except Exception as e:
                         output = (out.getvalue() + "\n" + err.getvalue()).strip() or str(e)
                         _append_log(request, f"Import Hydro-Québec (fichier local: {local_file})", output, False)
@@ -428,6 +481,8 @@ def gestion_donnees_view(request):
                         options[key] = float(val) if val != "" else 0.5
                     except ValueError:
                         pass
+                elif key == "file" and val:
+                    options[key] = val.strip()
             cmd_kwargs = _build_command_kwargs(command, options)
             if command in ("merge_organism_duplicates", "wipe_db_and_media", "wipe_species"):
                 cmd_kwargs.setdefault("no_input", True)
@@ -479,19 +534,27 @@ def gestion_donnees_view(request):
         "organism_count": Organism.objects.count(),
         "specimen_count": Specimen.objects.count(),
     }
-    # Couverture par source (nombre d'organismes ayant cette clé dans data_sources)
-    data_source_keys = ["hydroquebec", "pfaf", "vascan", "usda", "botanipedia"]
+    # Couverture par source (data_sources + OrganismNom + ancestrale via CultivarPorteGreffe)
+    data_source_keys = ["hydroquebec", "pfaf", "vascan", "usda", "botanipedia", "arbres_en_ligne", "ancestrale"]
     coverage_by_source = {}
     for key in data_source_keys:
         try:
-            coverage_by_source[key] = Organism.objects.filter(data_sources__has_key=key).count()
+            if key == "arbres_en_ligne":
+                coverage_by_source[key] = Organism.objects.filter(noms__source="arbres_en_ligne").distinct().count()
+            elif key == "ancestrale":
+                coverage_by_source[key] = Organism.objects.filter(
+                    cultivars__porte_greffes__disponible_chez__contains=[{"source": "ancestrale"}]
+                ).distinct().count()
+            else:
+                coverage_by_source[key] = Organism.objects.filter(data_sources__has_key=key).count()
         except Exception:
             coverage_by_source[key] = 0
 
     # Dernière exécution par source (pour le bloc "Last runs")
     sources_for_last_run = [
         "pfaf", "seeds", "import_vascan", "import_usda", "import_hydroquebec",
-        "import_botanipedia", "merge_organism_duplicates", "populate_proprietes_usage_calendrier",
+        "import_botanipedia", "import_arbres_en_ligne", "import_ancestrale",
+        "merge_organism_duplicates", "populate_proprietes_usage_calendrier",
     ]
     last_runs_by_source = {}
     for src in sources_for_last_run:
@@ -510,7 +573,7 @@ def gestion_donnees_view(request):
         base_dir = getattr(settings, "IMPORT_HYDROQUEBEC_DIR", Path(settings.BASE_DIR) / "data" / "hydroquebec")
         base_dir = Path(base_dir)
         base_dir.mkdir(parents=True, exist_ok=True)
-        for f in sorted(base_dir.iterdir()):
+        for f in sorted(base_dir.iterdir(), key=lambda x: x.name, reverse=True):
             if f.is_file() and f.suffix.lower() == ".json":
                 hydroquebec_local_files.append(f.name)
     except OSError:
@@ -521,6 +584,8 @@ def gestion_donnees_view(request):
         "import_usda": "Enrichit avec le TSN ITIS/USDA.",
         "import_hydroquebec": "Arbres et arbustes HQ (API ou fichier local).",
         "import_botanipedia": "Enrichit description / usages depuis Botanipedia.",
+        "import_arbres_en_ligne": "CSV 3 colonnes (nom_fr, nom_latin, nom_en). Crée organismes si absents + OrganismNom FR/EN.",
+        "import_ancestrale": "CSV 1 colonne TypePlante Cultivar [PorteGreffe] [Age]. Cultivars et porte-greffes uniquement.",
         "merge_organism_duplicates": "Fusionne les doublons (même vascan_id, tsn ou nom latin).",
         "populate_proprietes_usage_calendrier": "Remplit Propriétés, Usages, Calendrier depuis data_sources.",
         "wipe_species": "Vide les données espèces (attention).",
@@ -591,6 +656,8 @@ def gestion_donnees_view(request):
     distinct_genus_count = base_queryset.filter(genus__isnull=False).exclude(genus="").values("genus").distinct().count()
 
     total_cultivar_count = Cultivar.objects.count()
+    species_with_cultivar_count = Organism.objects.annotate(nb=Count("cultivars")).filter(nb__gt=0).count()
+    cultivars_with_porte_greffe_count = Cultivar.objects.annotate(nb=Count("porte_greffes")).filter(nb__gt=0).count()
     enrichment_computed_at = enrichment_stats.computed_at if enrichment_stats else None
 
     context = {
@@ -599,6 +666,8 @@ def gestion_donnees_view(request):
         "global_enrichment_score_pct": global_enrichment_score_pct,
         "enrichment_computed_at": enrichment_computed_at,
         "total_cultivar_count": total_cultivar_count,
+        "species_with_cultivar_count": species_with_cultivar_count,
+        "cultivars_with_porte_greffe_count": cultivars_with_porte_greffe_count,
         "field_coverage_asc": field_coverage_sorted_asc,
         "field_coverage_desc": field_coverage_sorted_desc,
         "genus_stats": genus_stats,
@@ -613,3 +682,56 @@ def gestion_donnees_view(request):
         "hydroquebec_local_files": hydroquebec_local_files,
     }
     return render(request, "species/gestion_donnees.html", context)
+
+
+def cesium_terrain_view(request):
+    """
+    Page HTML Cesium 3D pour la vue terrain (app mobile WebView).
+    Authentification : session (navigateur) ou JWT via ?access_token= (WebView mobile).
+    Requiert ?garden_id=<id> pour charger les données du jardin (boundary, contours, terrain_stats).
+    """
+    access_token = request.GET.get("access_token")
+    if access_token:
+        request.META["HTTP_AUTHORIZATION"] = f"Bearer {access_token}"
+        auth = JWTAuthentication()
+        try:
+            result = auth.authenticate(request)
+            if result:
+                request.user = result[0]
+        except Exception:
+            pass
+    if not getattr(request, "user", None) or not request.user.is_authenticated:
+        return HttpResponseForbidden("Authentification requise.")
+
+    garden_id = request.GET.get("garden_id")
+    if not garden_id:
+        return HttpResponseForbidden("Paramètre garden_id requis.")
+    try:
+        garden = get_object_or_404(Garden, pk=int(garden_id))
+    except (ValueError, TypeError):
+        return HttpResponseForbidden("garden_id invalide.")
+
+    garden_data = {
+        "id": garden.id,
+        "nom": garden.nom,
+        "adresse": garden.adresse or "",
+        "zone_rusticite": garden.zone_rusticite or "",
+        "boundary": garden.boundary,
+        "contours_geojson": garden.contours_geojson,
+        "terrain_stats": garden.terrain_stats,
+    }
+    garden_json = json.dumps(garden_data)
+
+    cesium_token = getattr(settings, "CESIUM_ION_ACCESS_TOKEN", "") or ""
+    lidar_asset_id = getattr(settings, "CESIUM_LIDAR_ASSET_ID", None)
+    if lidar_asset_id is None or lidar_asset_id == "":
+        lidar_asset_id = "null"
+    return render(
+        request,
+        "cesium/terrain_view.html",
+        {
+            "cesium_token": cesium_token,
+            "cesium_lidar_asset_id": lidar_asset_id,
+            "garden_json": garden_json,
+        },
+    )

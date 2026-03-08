@@ -6,9 +6,14 @@ import re
 from datetime import date, timedelta
 from math import radians, sin, cos, sqrt, atan2
 
+import csv
+import io
+
 import requests
 from django.core.files.base import ContentFile
-from django.db.models import Q
+from django.db import connection
+from django.db.models import Exists, F, OuterRef, Q
+from django.http import HttpResponse
 from rest_framework import status, viewsets, mixins
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.decorators import action
@@ -16,8 +21,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
 
+from gardens.models import GardenGCP
 from .models import (
     Cultivar,
+    CultivarPorteGreffe,
     Organism,
     OrganismCalendrier,
     Garden,
@@ -35,12 +42,14 @@ from django.db.models import Prefetch
 
 from .serializers import (
     CultivarListSerializer,
+    CultivarSerializer,
     OrganismMinimalSerializer,
     OrganismDetailSerializer,
     OrganismCreateSerializer,
     OrganismUpdateSerializer,
     GardenMinimalSerializer,
     GardenCreateSerializer,
+    GardenGCPSerializer,
     SpecimenListSerializer,
     SpecimenDetailSerializer,
     SpecimenCreateUpdateSerializer,
@@ -57,6 +66,14 @@ from .serializers import (
     PhotoSerializer,
     PhotoCreateSerializer,
 )
+
+
+def _invalidate_warnings_cache_for_garden(garden_id):
+    """Invalide le cache des warnings d'un jardin (après création/suppression spécimen, rappel, etc.)."""
+    if garden_id is None:
+        return
+    from django.core.cache import cache
+    cache.delete(f'warnings_{garden_id}')
 
 
 # --- NFC lookup (priorité : sans auth pour scan rapide en terrain ? Non, garder auth) ---
@@ -89,7 +106,7 @@ class SpecimenViewSet(viewsets.ModelViewSet):
 
     queryset = Specimen.objects.select_related(
         'organisme', 'cultivar', 'garden', 'photo_principale'
-    ).prefetch_related('photos').order_by('-date_plantation', 'nom')
+    ).prefetch_related('photos', 'cultivar__porte_greffes').order_by('-date_plantation', 'nom')
 
     def get_serializer_class(self):
         if self.action in ('list',):
@@ -137,6 +154,7 @@ class SpecimenViewSet(viewsets.ModelViewSet):
                 qs = qs.exclude(statut='enleve')
         if self.action == 'retrieve':
             qs = qs.prefetch_related(
+                'organisme__calendrier',
                 Prefetch(
                     'pollination_groups',
                     queryset=SpecimenGroupMember.objects.select_related('group').prefetch_related(
@@ -147,6 +165,23 @@ class SpecimenViewSet(viewsets.ModelViewSet):
                 ),
             )
         return qs
+
+    def perform_create(self, serializer):
+        serializer.save()
+        _invalidate_warnings_cache_for_garden(serializer.instance.garden_id)
+
+    def perform_destroy(self, instance):
+        garden_id = instance.garden_id
+        super().perform_destroy(instance)
+        _invalidate_warnings_cache_for_garden(garden_id)
+
+    def perform_update(self, serializer):
+        old_garden_id = serializer.instance.garden_id if serializer.instance.pk else None
+        super().perform_update(serializer)
+        new_garden_id = serializer.instance.garden_id
+        if old_garden_id != new_garden_id:
+            _invalidate_warnings_cache_for_garden(old_garden_id)
+            _invalidate_warnings_cache_for_garden(new_garden_id)
 
     @action(detail=False, methods=['get'], url_path='recent_events')
     def recent_events(self, request):
@@ -271,6 +306,14 @@ class SpecimenViewSet(viewsets.ModelViewSet):
         SpecimenFavorite.objects.filter(user=request.user, specimen=specimen).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+    @action(detail=True, methods=['get'], url_path='companions')
+    def companions(self, request, pk=None):
+        """GET /api/specimens/<id>/companions/ — Compagnonnage (bénéficie de / aide à)."""
+        specimen = self.get_object()
+        from .companion import compute_specimen_companions
+        data = compute_specimen_companions(specimen.id)
+        return Response(data)
+
     @action(detail=True, methods=['get', 'post'])
     def reminders(self, request, pk=None):
         """GET/POST rappels du spécimen."""
@@ -285,6 +328,7 @@ class SpecimenViewSet(viewsets.ModelViewSet):
         )
         serializer.is_valid(raise_exception=True)
         reminder = serializer.save(specimen=specimen)
+        _invalidate_warnings_cache_for_garden(specimen.garden_id)
         return Response(ReminderSerializer(reminder).data, status=status.HTTP_201_CREATED)
 
     # Mapping type_rappel -> type_event pour "marquer comme complété"
@@ -359,6 +403,7 @@ class SpecimenViewSet(viewsets.ModelViewSet):
                     recurrence_rule=reminder.recurrence_rule or 'none',
                 )
         reminder.delete()
+        _invalidate_warnings_cache_for_garden(specimen.garden_id)
         return Response({'detail': 'Rappel complété, événement créé.'}, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['get', 'post'])
@@ -553,12 +598,22 @@ class OrganismViewSet(
         return context
 
     def get_queryset(self):
-        qs = super().get_queryset().prefetch_related('photos')
+        qs = super().get_queryset().prefetch_related('photos', 'noms')
         search = self.request.query_params.get('search')
+        use_search_rank = False
         if search:
-            qs = qs.filter(
-                Q(nom_commun__icontains=search) | Q(nom_latin__icontains=search)
-            )
+            search = search.strip()
+        if search:
+            if connection.vendor == 'postgresql' and hasattr(Organism, 'search_vector'):
+                from django.contrib.postgres.search import SearchQuery, SearchRank
+                sq = SearchQuery(search, config='simple')
+                qs = qs.filter(search_vector__isnull=False).filter(search_vector=sq)
+                qs = qs.annotate(rank=SearchRank(F('search_vector'), sq))
+                use_search_rank = True
+            else:
+                qs = qs.filter(
+                    Q(nom_commun__icontains=search) | Q(nom_latin__icontains=search)
+                )
         type_org = self.request.query_params.get('type')
         if type_org:
             qs = qs.filter(type_organisme=type_org)
@@ -589,6 +644,9 @@ class OrganismViewSet(
         noix = self.request.query_params.get('noix')
         if noix:
             qs = qs.filter(type_organisme='arbre_noix')
+        vigueur = self.request.query_params.get('vigueur')
+        if vigueur and vigueur in ('nain', 'semi_nain', 'semi_vigoureux', 'vigoureux', 'standard'):
+            qs = qs.filter(cultivars__porte_greffes__vigueur=vigueur).distinct()
         has_specimen = self.request.query_params.get('has_specimen')
         garden_id = self.request.query_params.get('garden')
         if has_specimen:
@@ -602,16 +660,29 @@ class OrganismViewSet(
             qs = qs.filter(pk__in=org_ids)
         qs = qs.select_related('photo_principale')
         if self.action == 'list':
-            qs = qs.order_by('genus', 'nom_commun')
+            qs = qs.annotate(
+                has_availability=Exists(
+                    CultivarPorteGreffe.objects.filter(
+                        cultivar__organism=OuterRef('pk')
+                    ).exclude(disponible_chez=[])
+                )
+            )
+        if self.action == 'list':
+            if use_search_rank:
+                qs = qs.order_by('-rank', 'genus', 'nom_commun')
+            else:
+                qs = qs.order_by('genus', 'nom_commun')
         if self.action == 'retrieve':
             from .models import CompanionRelation, Cultivar, CultivarPollinator
             qs = qs.prefetch_related(
+                'noms',
                 'proprietes',
                 'usages',
                 'calendrier',
                 Prefetch(
                     'cultivars',
                     queryset=Cultivar.objects.prefetch_related(
+                        'porte_greffes',
                         Prefetch(
                             'pollinator_companions',
                             queryset=CultivarPollinator.objects.select_related(
@@ -803,9 +874,14 @@ class CultivarViewSet(
 ):
     """Liste et détail des cultivars (lecture seule). Filtre ?organism=<id> pour une espèce."""
 
-    queryset = Cultivar.objects.select_related('organism').order_by('organism__nom_latin', 'nom')
+    queryset = Cultivar.objects.select_related('organism').prefetch_related('porte_greffes').order_by('organism__nom_latin', 'nom')
     pagination_class = CultivarPagination
     serializer_class = CultivarListSerializer
+
+    def get_serializer_class(self):
+        if self.action == 'retrieve':
+            return CultivarSerializer
+        return CultivarListSerializer
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -882,9 +958,70 @@ class GardenViewSet(
 
     def get_permissions(self):
         from rest_framework.permissions import IsAuthenticated
-        if self.action == 'create':
+        if self.action in ('create', 'phenology_alerts', 'warnings'):
             return [IsAuthenticated()]
         return []
+
+    @action(detail=True, methods=['get'], url_path='phenology-alerts')
+    def phenology_alerts(self, request, pk=None):
+        """GET /api/gardens/<id>/phenology-alerts/ — Alertes phénologiques (stades à confirmer)."""
+        if not request.user.is_authenticated:
+            return Response({'detail': 'Authentification requise'}, status=status.HTTP_401_UNAUTHORIZED)
+        garden = self.get_object()
+        from .phenology import compute_phenology_alerts
+        alerts = compute_phenology_alerts(garden.id)
+        return Response(alerts)
+
+    @action(detail=True, methods=['get'], url_path='warnings')
+    def warnings(self, request, pk=None):
+        """GET /api/gardens/<id>/warnings/ — Rappels en retard, pollinisateurs manquants, alertes phénologiques (cache 1 h)."""
+        if not request.user.is_authenticated:
+            return Response({'detail': 'Authentification requise'}, status=status.HTTP_401_UNAUTHORIZED)
+        garden = self.get_object()
+        from django.core.cache import cache
+        from .warnings import compute_garden_warnings
+        cache_key = f'warnings_{garden.id}'
+        data = cache.get(cache_key)
+        if data is None:
+            data = compute_garden_warnings(garden.id)
+            cache.set(cache_key, data, timeout=3600)
+        return Response(data)
+
+
+# --- Garden GCP (points de contrôle terrain) ---
+class GardenGCPViewSet(viewsets.ModelViewSet):
+    """CRUD des points de contrôle (GCP) d'un jardin. GET/POST /api/gardens/<garden_pk>/gcps/ ; GET/PATCH/DELETE /api/gardens/<garden_pk>/gcps/<pk>/."""
+    serializer_class = GardenGCPSerializer
+    permission_classes = []  # checked in as_view with garden_pk
+
+    def get_queryset(self):
+        return GardenGCP.objects.filter(
+            garden_id=self.kwargs['garden_pk']
+        ).order_by('label')
+
+    def get_permissions(self):
+        from rest_framework.permissions import IsAuthenticated
+        return [IsAuthenticated()]
+
+    def perform_create(self, serializer):
+        serializer.save(garden_id=self.kwargs['garden_pk'])
+
+
+def export_garden_gcps_csv(request, garden_pk):
+    """GET /api/gardens/<garden_pk>/gcps/export/ — CSV pour OpenDroneMap (GCP_Label, Longitude, Latitude, Altitude, Image_Name)."""
+    if not getattr(request, 'user', None) or not request.user.is_authenticated:
+        return Response({'detail': 'Authentification requise'}, status=status.HTTP_401_UNAUTHORIZED)
+    garden = get_object_or_404(Garden, pk=garden_pk)
+    gcps = GardenGCP.objects.filter(garden=garden).order_by('label')
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(['GCP_Label', 'Longitude', 'Latitude', 'Altitude', 'Image_Name'])
+    for g in gcps:
+        image_name = g.photo.name if g.photo else ''
+        w.writerow([g.label, g.longitude, g.latitude, '', image_name])
+    response = HttpResponse(buf.getvalue(), content_type='text/csv; charset=utf-8')
+    response['Content-Disposition'] = f'attachment; filename="gcps_garden_{garden_pk}.csv"'
+    return response
 
 
 # --- Préférences utilisateur (jardin par défaut, distance pollinisation) ---
@@ -1282,6 +1419,8 @@ ALLOWED_ADMIN_COMMANDS = {
     'import_usda': {'enrich': bool, 'limit': int, 'delay': float},
     'import_hydroquebec': {'limit': int, 'curl': bool, 'insecure': bool},
     'import_botanipedia': {'enrich': bool, 'limit': int, 'delay': float, 'verbose': bool},
+    'import_arbres_en_ligne': {'file': str},
+    'import_ancestrale': {'file': str},
     'merge_organism_duplicates': {'dry_run': bool, 'no_input': bool},
     'populate_proprietes_usage_calendrier': {'limit': int},
     'wipe_db_and_media': {'no_input': bool},
@@ -1300,11 +1439,13 @@ def _build_command_kwargs(command_name: str, options: dict) -> dict:
         if val is None:
             continue
         if type_hint is bool:
-            kwargs[key] = bool(val)
+            kwargs[key] = val in ("1", "on", "true", "yes")
         elif type_hint is int:
             kwargs[key] = int(val) if val != '' else 0
         elif type_hint is float:
             kwargs[key] = float(val) if val != '' else 0.0
+        elif type_hint is str and val:
+            kwargs[key] = str(val).strip()
     return kwargs
 
 

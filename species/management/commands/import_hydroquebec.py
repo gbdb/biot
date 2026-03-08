@@ -190,8 +190,9 @@ class Command(BaseCommand):
         # Mode téléchargement seul : sauvegarder le JSON et quitter sans importer
         output_path = options.get('output')
         if output_path:
-            out = Path(output_path)
+            out = Path(output_path).resolve()
             try:
+                out.parent.mkdir(parents=True, exist_ok=True)
                 with open(out, 'w', encoding='utf-8') as f:
                     json.dump(arbres, f, ensure_ascii=False, indent=2)
                 self.stdout.write(self.style.SUCCESS(

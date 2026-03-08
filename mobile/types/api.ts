@@ -13,6 +13,8 @@ export interface OrganismMinimal {
   genus?: string | null;
   is_favori?: boolean;
   photo_principale_url?: string | null;
+  /** Au moins un cultivar a un porte-greffe avec disponibilité (pépinière). */
+  has_availability?: boolean;
 }
 
 export interface OrganismDetail extends OrganismMinimal {
@@ -70,6 +72,17 @@ export interface CultivarListEntry {
   organisme: OrganismMinimal;
 }
 
+/** Porte-greffe d'un cultivar (CultivarPorteGreffe). */
+export interface CultivarPorteGreffeEntry {
+  id: number;
+  nom_porte_greffe: string;
+  vigueur: string;
+  vigueur_display?: string;
+  hauteur_max_m: number | null;
+  disponible_chez: { source?: string; age?: string }[];
+  notes: string;
+}
+
 /** Cultivar / variété (détail pour fiche espèce). */
 export interface CultivarDetail {
   id: number;
@@ -81,6 +94,7 @@ export interface CultivarDetail {
   resistance_maladies: string;
   notes: string;
   pollinateurs_recommandes?: CultivarPollinatorCompanion[];
+  porte_greffes?: CultivarPorteGreffeEntry[];
 }
 
 /** Compagnon pollinisateur recommandé pour un cultivar. */
@@ -185,6 +199,26 @@ export interface GardenCreate {
   adresse?: string;
 }
 
+/** Statistiques terrain (optionnel sur Garden). */
+export interface TerrainStats {
+  altitude_min?: number | null;
+  altitude_max?: number | null;
+  pente_moyenne?: number | null;
+  surface_ha?: number | null;
+  nb_cours_eau?: number | null;
+}
+
+/** Point de contrôle (GCP) pour calibration drone / OpenDroneMap. */
+export interface GardenGCP {
+  id: number;
+  label: string;
+  latitude: number;
+  longitude: number;
+  photo_url?: string | null;
+  date_capture?: string | null;
+  notes?: string | null;
+}
+
 // --- Specimen ---
 export type SpecimenStatut =
   | 'planifie'
@@ -209,6 +243,19 @@ export const SPECIMEN_STATUT_LABELS: Record<SpecimenStatut, string> = {
   enleve: '🗑️ Enlevé',
 };
 
+/** Emoji par statut (pour pins carte 3D). */
+export const SPECIMEN_STATUT_EMOJI: Record<SpecimenStatut, string> = {
+  planifie: '📋',
+  commande: '🛒',
+  transplanter: '🌱',
+  jeune: '🌿',
+  etabli: '🌳',
+  mature: '🎯',
+  declin: '📉',
+  mort: '💀',
+  enleve: '🗑️',
+};
+
 export interface SpecimenList {
   id: number;
   nom: string;
@@ -227,8 +274,20 @@ export interface SpecimenList {
   longitude: number | null;
   is_favori?: boolean;
   photo_principale_url?: string | null;
+  /** Rayon adulte estimé (m) pour cercle d'emprise sur la carte 3D. */
+  rayon_adulte_m?: number | null;
   /** Présent uniquement pour l'endpoint nearby */
   distance_km?: number;
+}
+
+/** Entrée calendrier espèce (floraison, fructification, récolte, etc.). */
+export interface OrganismCalendrierEntry {
+  id: number;
+  type_periode: string;
+  type_periode_display?: string;
+  mois_debut: number | null;
+  mois_fin: number | null;
+  source?: string;
 }
 
 export interface SpecimenDetail {
@@ -237,6 +296,7 @@ export interface SpecimenDetail {
   code_identification: string | null;
   nfc_tag_uid: string | null;
   organisme: OrganismMinimal;
+  organism_calendrier?: OrganismCalendrierEntry[];
   cultivar?: { id: number; nom: string; slug_cultivar: string } | null;
   garden: GardenMinimal | null;
   zone_jardin: string | null;
@@ -258,6 +318,32 @@ export interface SpecimenDetail {
   photo_principale_url?: string | null;
   /** Groupes de pollinisation (mâle/femelle ou cultivars) avec distance et alerte. */
   pollination_associations?: PollinationAssociation[];
+  /** Rayon adulte estimé (m) pour cercle d'emprise sur la carte 3D. */
+  rayon_adulte_m?: number | null;
+}
+
+/** Types de messages WebView ↔ Cesium (terrain 3D). */
+export type CesiumMessageType =
+  | 'LOAD_SPECIMENS'
+  | 'LOAD_WARNINGS'
+  | 'LOAD_GCPs'
+  | 'FLY_TO_SPECIMEN'
+  | 'FLY_HOME'
+  | 'TOGGLE_CIRCLES'
+  | 'SET_VIEW_MODE'
+  | 'CESIUM_READY'
+  | 'SPECIMEN_TAPPED'
+  | 'SPECIMEN_OPEN_FICHE'
+  | 'SPECIMEN_SELECTED'
+  | 'OVERLAPS_DETECTED'
+  | 'OPEN_GCP_CREATE';
+
+/** Chevauchement détecté entre deux cercles d'emprise (vue terrain). */
+export interface CesiumOverlap {
+  a: number;
+  b: number;
+  distance_m: number;
+  min_recommended: number;
 }
 
 /** Une association de pollinisation (ce specimen dans un groupe). */
@@ -469,6 +555,57 @@ export interface PhotoCreate {
 export interface TokenPair {
   access: string;
   refresh: string;
+}
+
+// --- Warnings (accueil jardin) ---
+export interface OverdueReminderWarning {
+  reminder_id: number;
+  specimen_id: number;
+  specimen_nom: string;
+  type_rappel: string;
+  date_rappel: string;
+  jours_retard: number;
+}
+
+export interface MissingPollinatorWarning {
+  specimen_id: number;
+  specimen_nom: string;
+  cultivar_nom: string;
+  pollinisateurs_manquants: string[];
+}
+
+export interface PhenologyAlertWarning {
+  specimen_id: number;
+  specimen_nom: string;
+  organisme_nom: string;
+  type_periode: string;
+  mois_debut: number;
+  jours_restants: number;
+}
+
+export interface GardenWarningsResponse {
+  overdue_reminders: OverdueReminderWarning[];
+  missing_pollinators: MissingPollinatorWarning[];
+  phenology_alerts: PhenologyAlertWarning[];
+  total_count: number;
+}
+
+// --- Compagnonnage spécimen ---
+export interface CompanionEntry {
+  organisme_nom: string;
+  type_relation: string;
+  type_relation_display: string;
+  force: number;
+  distance_optimale: number | null;
+  status: 'ACTIF' | 'TROP_LOIN' | 'MANQUANT';
+  distance_metres: number | null;
+  specimen_id?: number;
+  specimen_nom?: string;
+}
+
+export interface SpecimenCompanions {
+  benefices_de: { actifs: CompanionEntry[]; manquants: CompanionEntry[] };
+  aide_a: { actifs: CompanionEntry[]; manquants: CompanionEntry[] };
 }
 
 // --- API responses ---
