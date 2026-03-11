@@ -4,10 +4,22 @@ import { useCallback, useState } from 'react';
 import * as Clipboard from 'expo-clipboard';
 import * as DocumentPicker from 'expo-document-picker';
 import { Ionicons } from '@expo/vector-icons';
+import { useApiConfig } from '@/contexts/ApiConfigContext';
 import { getGardens, getUserPreferences, updateUserPreferences, runAdminCommand, getMe, getSpeciesStats, uploadVascanFile } from '@/api/client';
+
+function normalizeApiUrl(input: string): string {
+  const trimmed = input.trim().replace(/\/+$/, '');
+  if (!trimmed) return trimmed;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `http://${trimmed}`;
+}
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const { apiBaseUrl, defaultApiBaseUrl, setApiBaseUrlOverride } = useApiConfig();
+  const [serverUrlInput, setServerUrlInput] = useState(apiBaseUrl);
+  const [savingServerUrl, setSavingServerUrl] = useState(false);
+  const [testingConnection, setTestingConnection] = useState(false);
   const [gardens, setGardens] = useState<{ id: number; nom: string }[]>([]);
   const [defaultGardenId, setDefaultGardenId] = useState<number | null>(null);
   const [pollinationDistanceM, setPollinationDistanceM] = useState<string>('');
@@ -60,8 +72,9 @@ export default function SettingsScreen() {
   }, []);
 
   useFocusEffect(useCallback(() => {
+    setServerUrlInput(apiBaseUrl);
     load();
-  }, [load]));
+  }, [load, apiBaseUrl]));
 
   const setDefault = async (gardenId: number | null) => {
     setSaving(true);
@@ -232,11 +245,108 @@ export default function SettingsScreen() {
     }
   };
 
+  const saveServerUrl = async () => {
+    const raw = serverUrlInput.trim();
+    if (!raw) {
+      setApiBaseUrlOverride(null);
+      setServerUrlInput(defaultApiBaseUrl);
+      Keyboard.dismiss();
+      return;
+    }
+    const url = normalizeApiUrl(raw);
+    setSavingServerUrl(true);
+    try {
+      await setApiBaseUrlOverride(url);
+      setServerUrlInput(url);
+      Keyboard.dismiss();
+      Alert.alert('Enregistré', 'L’adresse du serveur a été mise à jour. Les prochains appels utiliseront ce serveur.');
+    } catch {
+      Alert.alert('Erreur', 'Impossible d’enregistrer l’adresse.');
+    } finally {
+      setSavingServerUrl(false);
+    }
+  };
+
+  const resetServerUrl = async () => {
+    setSavingServerUrl(true);
+    try {
+      await setApiBaseUrlOverride(null);
+      setServerUrlInput(defaultApiBaseUrl);
+      Alert.alert('Rétabli', 'L’adresse par défaut est utilisée.');
+    } catch {
+      Alert.alert('Erreur', 'Impossible de rétablir l’adresse par défaut.');
+    } finally {
+      setSavingServerUrl(false);
+    }
+  };
+
+  const testConnection = async () => {
+    setTestingConnection(true);
+    try {
+      await getMe();
+      Alert.alert('Connexion réussie', 'Le serveur répond correctement.');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Le serveur ne répond pas. Vérifiez l’adresse et que le backend tourne.';
+      Alert.alert('Échec', msg);
+    } finally {
+      setTestingConnection(false);
+    }
+  };
+
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
       <Text style={styles.title}>Paramètres</Text>
 
-      <Text style={styles.sectionTitle}>Utilisateur</Text>
+      <Text style={styles.sectionTitle}>Serveur</Text>
+      <Text style={styles.hint}>
+        Adresse du backend (ex. http://192.168.0.140:8000). Utile si vous changez de réseau (autre maison, autre bureau). L’app utilisera cette adresse pour toutes les requêtes.
+      </Text>
+      <View style={styles.serverUrlRow}>
+        <TextInput
+          style={styles.serverUrlInput}
+          value={serverUrlInput}
+          onChangeText={setServerUrlInput}
+          placeholder={defaultApiBaseUrl}
+          placeholderTextColor="#888"
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="url"
+          editable={!savingServerUrl}
+        />
+      </View>
+      <View style={styles.serverButtonsRow}>
+        <TouchableOpacity
+          style={[styles.serverBtn, styles.serverBtnPrimary]}
+          onPress={saveServerUrl}
+          disabled={savingServerUrl}
+        >
+          {savingServerUrl ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.serverBtnPrimaryText}>Enregistrer</Text>
+          )}
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.serverBtn}
+          onPress={resetServerUrl}
+          disabled={savingServerUrl}
+        >
+          <Text style={styles.serverBtnText}>Rétablir par défaut</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.serverBtn}
+          onPress={testConnection}
+          disabled={testingConnection}
+        >
+          {testingConnection ? (
+            <ActivityIndicator size="small" color="#1a3c27" />
+          ) : (
+            <Text style={styles.serverBtnText}>Tester la connexion</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      <Text style={[styles.sectionTitle, styles.sectionTitleSpaced]}>Utilisateur</Text>
       <Text style={styles.hint}>
         Gérer votre compte, créer un autre utilisateur ou attribuer le statut administrateur (superutilisateur uniquement).
       </Text>
@@ -528,6 +638,38 @@ const styles = StyleSheet.create({
   },
   pollinationUnit: { fontSize: 16, color: '#666' },
   pollinationLoader: { marginLeft: 8 },
+  serverUrlRow: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e8e8e8',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 12,
+  },
+  serverUrlInput: {
+    fontSize: 16,
+    color: '#333',
+    paddingVertical: 4,
+  },
+  serverButtonsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 8 },
+  serverBtn: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e8e8e8',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  serverBtnPrimary: {
+    backgroundColor: '#1a3c27',
+    borderColor: '#1a3c27',
+  },
+  serverBtnText: { fontSize: 15, color: '#333', fontWeight: '500' },
+  serverBtnPrimaryText: { fontSize: 15, color: '#fff', fontWeight: '600' },
   advancedGrid: { gap: 10 },
   advancedBtn: {
     backgroundColor: '#fff',

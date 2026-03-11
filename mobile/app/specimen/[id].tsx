@@ -37,7 +37,7 @@ import {
   addSpecimenFavorite,
   removeSpecimenFavorite,
 } from '@/api/client';
-import { API_BASE_URL } from '@/constants/config';
+import { getApiBaseUrl } from '@/constants/config';
 import { takeNfcPreloadedSpecimenIfMatch } from '@/lib/nfcPreload';
 import type { SpecimenDetail, Event, EventType, Photo, Reminder, SpecimenCompanions } from '@/types/api';
 import { SPECIMEN_STATUT_LABELS, EVENT_TYPE_LABELS, REMINDER_TYPE_LABELS, REMINDER_ALERTE_LABELS } from '@/types/api';
@@ -411,7 +411,7 @@ function EventDetailModal({
               ) : (
                 <View style={eventDetailStyles.photoList}>
                   {photos.map((p) => {
-                    const thumbUri = getPhotoThumbUri(p, API_BASE_URL);
+                    const thumbUri = getPhotoThumbUri(p, getApiBaseUrl());
                     return (
                       <TouchableOpacity
                         key={p.id}
@@ -460,7 +460,7 @@ function EventDetailModal({
                     <PhotoCarousel
                       items={photos
                         .map((p) => {
-                          const uri = getPhotoThumbUri(p, API_BASE_URL);
+                          const uri = getPhotoThumbUri(p, getApiBaseUrl());
                           if (!uri) return null;
                           return {
                             id: p.id,
@@ -772,7 +772,7 @@ export default function SpecimenDetailScreen() {
 
   const getSpecimenPhotoUri = useCallback((p: Photo): string | null => {
     if (p.image_url?.startsWith('http')) return p.image_url;
-    if (p.image) return `${API_BASE_URL}${p.image}`;
+    if (p.image) return `${getApiBaseUrl()}${p.image}`;
     return null;
   }, []);
 

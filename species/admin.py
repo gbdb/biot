@@ -763,7 +763,7 @@ class SprinklerZoneInline(admin.TabularInline):
 class GardenAdmin(admin.ModelAdmin):
     change_list_template = "admin/species/garden/change_list.html"
     change_form_template = "admin/species/garden/change_form.html"
-    list_display = ['nom', 'ville', 'adresse_courte', 'pluie_semaine_display', 'a_coordonnees', 'nb_specimens']
+    list_display = ['nom', 'ville', 'adresse_courte', 'pluie_semaine_display', 'a_coordonnees', 'nb_specimens', 'vue_3d_link']
     list_filter = ['ville', 'pays']
     search_fields = ['nom', 'adresse', 'ville', 'notes']
     inlines = [SprinklerZoneInline]
@@ -808,6 +808,13 @@ class GardenAdmin(admin.ModelAdmin):
     def nb_specimens(self, obj):
         return obj.specimens.count()
     nb_specimens.short_description = "Spécimens"
+
+    def vue_3d_link(self, obj):
+        if not obj or not obj.pk:
+            return "—"
+        url = reverse('cesium-terrain') + f'?garden_id={obj.pk}'
+        return format_html('<a href="{}" target="_blank" rel="noopener">🗺️ Vue 3D</a>', url)
+    vue_3d_link.short_description = "3D"
 
     def pluie_semaine_display(self, obj):
         if not obj or not obj.pk:
@@ -1439,11 +1446,12 @@ class SpecimenAdmin(admin.ModelAdmin):
 
     def get_urls(self):
         urls = super().get_urls()
+        info = self.opts.app_label, self.opts.model_name
         custom = [
             path(
                 '<path:object_id>/duplicate/',
                 self.admin_site.admin_view(self.duplicate_specimen_view),
-                name='duplicate',
+                name='%s_%s_duplicate' % info,
             ),
         ]
         return custom + urls

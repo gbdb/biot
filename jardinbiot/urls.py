@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.urls import include, path
 from django.conf import settings
 from django.conf.urls.static import static
+from django.views.generic import RedirectView
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
@@ -21,6 +22,7 @@ from species.views import (
 )
 
 urlpatterns = [
+    path('favicon.ico', RedirectView.as_view(url=settings.STATIC_URL + 'favicon.png', permanent=False)),
     path('cesium-view/', cesium_terrain_view, name='cesium-terrain'),
     path('api/', include('species.api_urls')),
     path('api/auth/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),

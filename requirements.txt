@@ -26,3 +26,8 @@ django-cors-headers==4.4.0
 
 # Admin - menu personnalisé et regroupement (compatible Django 5)
 django-modeladmin-reorder-reborn==0.1.4
+
+# Serveur dev HTTPS (vue 3D Cesium avec imagerie Ion)
+django-extensions==3.2.3
+pyOpenSSL>=24.0.0
+Werkzeug>=3.0.0

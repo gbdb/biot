@@ -38,6 +38,11 @@ SECRET_KEY = env(
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env("DEBUG")
 
+# En dev (HTTP depuis une IP), le navigateur ignore COOP et affiche un avertissement.
+# Désactiver COOP en DEBUG pour éviter ce message ; en prod HTTPS, réactiver si besoin.
+if DEBUG:
+    SECURE_CROSS_ORIGIN_OPENER_POLICY = None
+
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1", "0.0.0.0"])
 if DEBUG and "0.0.0.0" not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append("0.0.0.0")
@@ -59,6 +64,11 @@ INSTALLED_APPS = [
     'gardens.apps.GardensConfig',
     'species.apps.SpeciesConfig',
 ]
+try:
+    import django_extensions  # noqa: F401
+    INSTALLED_APPS += ['django_extensions']
+except ImportError:
+    pass
 DEBUG_TOOLBAR_AVAILABLE = False
 if DEBUG:
     try:

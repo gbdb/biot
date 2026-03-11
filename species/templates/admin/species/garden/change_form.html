@@ -12,6 +12,11 @@
       </form>
     </li>
     {% endif %}
+    <li>
+      <a href="{% url 'cesium-terrain' %}?garden_id={{ original.pk }}" class="viewsitelink" target="_blank" rel="noopener">
+        🗺️ Vue 3D
+      </a>
+    </li>
     {% if original.a_coordonnees %}
     <li>
       <a href="{% url 'fetch_garden_weather' original.pk %}" class="viewsitelink">

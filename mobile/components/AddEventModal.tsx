@@ -18,7 +18,7 @@ import {
   createSpecimenReminder,
   updateSpecimen,
 } from '@/api/client';
-import { API_BASE_URL } from '@/constants/config';
+import { getApiBaseUrl } from '@/constants/config';
 import type { Event, EventType, Reminder, ReminderType, ReminderAlerteType, ReminderRecurrenceRule } from '@/types/api';
 import { EVENT_TYPE_LABELS, REMINDER_TYPE_LABELS, REMINDER_ALERTE_LABELS, REMINDER_RECURRENCE_LABELS } from '@/types/api';
 import { FAB } from '@/components/FAB';
@@ -471,7 +471,7 @@ export function AddEventModal({
               <Text style={eventDetailStyles.photoTitle}>Photos ({createdPhotos.length})</Text>
               <View style={eventDetailStyles.photoList}>
                 {createdPhotos.map((p) => {
-                  const thumbUri = getPhotoThumbUri(p, API_BASE_URL);
+                  const thumbUri = getPhotoThumbUri(p, getApiBaseUrl());
                   return (
                     <View key={p.id} style={eventDetailStyles.photoItem}>
                       {thumbUri ? (

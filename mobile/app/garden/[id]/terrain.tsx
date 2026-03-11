@@ -4,7 +4,7 @@ import { WebView } from 'react-native-webview';
 import { router, useGlobalSearchParams } from 'expo-router';
 import { Linking } from 'react-native';
 import { getSpecimens, getGardenWarnings, getGardenGCPs, getGarden, getGardenGCPsExportUrl, getAccessToken } from '@/api/client';
-import { API_BASE_URL } from '@/constants/config';
+import { getApiBaseUrl } from '@/constants/config';
 import { SPECIMEN_STATUT_EMOJI } from '@/types/api';
 import type { SpecimenList, SpecimenStatut, CesiumOverlap } from '@/types/api';
 import { OverlapWarning } from '@/components/terrain/OverlapWarning';
@@ -17,6 +17,7 @@ export default function TerrainScreen() {
     cultivar_id?: string;
   }>();
   const webViewRef = useRef<WebView | null>(null);
+  const readyFallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [cesiumReady, setCesiumReady] = useState(false);
   const [cesiumUri, setCesiumUri] = useState<string | null>(null);
   const [gardenName, setGardenName] = useState<string>('');
@@ -32,9 +33,10 @@ export default function TerrainScreen() {
     let cancelled = false;
     getAccessToken().then((token) => {
       if (cancelled) return;
+      const base = getApiBaseUrl();
       const uri = token
-        ? `${API_BASE_URL}/cesium-view/?garden_id=${gardenId}&access_token=${token}`
-        : `${API_BASE_URL}/cesium-view/?garden_id=${gardenId}`;
+        ? `${base}/cesium-view/?garden_id=${gardenId}&access_token=${token}`
+        : `${base}/cesium-view/?garden_id=${gardenId}`;
       setCesiumUri(uri);
     });
     getGarden(gid).then((g) => !cancelled && setGardenName(g.nom)).catch(() => {});
@@ -42,6 +44,12 @@ export default function TerrainScreen() {
       cancelled = true;
     };
   }, [gardenId]);
+
+  useEffect(() => {
+    return () => {
+      if (readyFallbackRef.current) clearTimeout(readyFallbackRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!gardenId) return;
@@ -107,7 +115,13 @@ export default function TerrainScreen() {
         const msg = JSON.parse(event.nativeEvent.data);
         const type = msg.type ?? msg.payload?.type;
         const payload = msg.payload ?? msg;
-        if (type === 'CESIUM_READY') setCesiumReady(true);
+        if (type === 'CESIUM_READY') {
+          if (readyFallbackRef.current) {
+            clearTimeout(readyFallbackRef.current);
+            readyFallbackRef.current = null;
+          }
+          setCesiumReady(true);
+        }
         if ((type === 'SPECIMEN_OPEN_FICHE' || type === 'SPECIMEN_TAPPED') && payload?.specimenId != null) {
           router.push(`/specimen/${payload.specimenId}`);
         }
@@ -154,6 +168,12 @@ export default function TerrainScreen() {
         ref={webViewRef}
         source={{ uri: cesiumUri }}
         onMessage={onMessage}
+        onLoadEnd={() => {
+          readyFallbackRef.current = setTimeout(() => {
+            setCesiumReady((prev) => prev || true);
+            readyFallbackRef.current = null;
+          }, 2000);
+        }}
         onError={() => setLoadError('Impossible de charger la carte')}
         allowsInlineMediaPlayback
         mediaPlaybackRequiresUserAction={false}

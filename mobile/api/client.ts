@@ -4,7 +4,7 @@
  */
 
 import * as SecureStore from 'expo-secure-store';
-import { API_BASE_URL, ENDPOINTS } from '@/constants/config';
+import { getApiBaseUrl, ENDPOINTS } from '@/constants/config';
 import type {
   SpecimenDetail,
   SpecimenList,
@@ -79,7 +79,7 @@ async function refreshAccessToken(): Promise<string | null> {
       if (!refresh) return null;
       let res: Response;
       try {
-        res = await fetchWithTimeout(`${API_BASE_URL}${ENDPOINTS.auth.refresh}`, {
+        res = await fetchWithTimeout(`${getApiBaseUrl()}${ENDPOINTS.auth.refresh}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ refresh }),
@@ -166,7 +166,7 @@ function unwrapPaginated<T>(data: unknown): T[] {
 
 // --- Auth ---
 export async function login(username: string, password: string): Promise<TokenPair> {
-  const res = await fetchWithTimeout(`${API_BASE_URL}${ENDPOINTS.auth.token}`, {
+  const res = await fetchWithTimeout(`${getApiBaseUrl()}${ENDPOINTS.auth.token}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password }),
@@ -185,7 +185,7 @@ export interface RegisterPayload {
 
 /** Crée un compte utilisateur. Ne connecte pas automatiquement. */
 export async function register(data: RegisterPayload): Promise<{ detail: string }> {
-  const res = await fetchWithTimeout(`${API_BASE_URL}${ENDPOINTS.auth.register}`, {
+  const res = await fetchWithTimeout(`${getApiBaseUrl()}${ENDPOINTS.auth.register}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -218,7 +218,7 @@ export async function isAuthenticated(): Promise<boolean> {
   }
   let res: Response;
   try {
-    res = await fetchWithTimeout(`${API_BASE_URL}${ENDPOINTS.auth.verify}`, {
+    res = await fetchWithTimeout(`${getApiBaseUrl()}${ENDPOINTS.auth.verify}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ token }),
@@ -236,13 +236,13 @@ export async function isAuthenticated(): Promise<boolean> {
 
 // --- NFC lookup ---
 export async function getSpecimenByNfc(uid: string): Promise<SpecimenDetail> {
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.specimenByNfc(uid)}`);
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.specimenByNfc(uid)}`);
   return handleResponse<SpecimenDetail>(res);
 }
 
 /** Returns specimen if found, null if tag is unknown (404). Throws on other errors. */
 export async function getSpecimenByNfcOrNull(uid: string): Promise<SpecimenDetail | null> {
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.specimenByNfc(uid)}`);
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.specimenByNfc(uid)}`);
   if (res.status === 404) return null;
   return handleResponse<SpecimenDetail>(res);
 }
@@ -272,7 +272,7 @@ export async function getSpecimens(params?: {
   if (params?.include_enleve === true) searchParams.set('include_enleve', 'true');
   if (params?.page_size != null) searchParams.set('page_size', String(params.page_size));
   const qs = searchParams.toString();
-  const url = `${API_BASE_URL}${ENDPOINTS.specimens}${qs ? `?${qs}` : ''}`;
+  const url = `${getApiBaseUrl()}${ENDPOINTS.specimens}${qs ? `?${qs}` : ''}`;
   const res = await fetchWithAuth(url);
   const data = await handleResponse<unknown>(res);
   return unwrapPaginated<SpecimenList>(data);
@@ -296,14 +296,14 @@ export async function getSpecimensCount(params?: {
   if (params?.include_enleve === true) searchParams.set('include_enleve', 'true');
   const qs = searchParams.toString();
   const res = await fetchWithAuth(
-    `${API_BASE_URL}${ENDPOINTS.specimens}count/${qs ? `?${qs}` : ''}`
+    `${getApiBaseUrl()}${ENDPOINTS.specimens}count/${qs ? `?${qs}` : ''}`
   );
   const data = await handleResponse<{ count: number }>(res);
   return data?.count ?? 0;
 }
 
 export async function getSpecimenZones(): Promise<string[]> {
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.specimens}zones/`);
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.specimens}zones/`);
   return handleResponse<string[]>(res);
 }
 
@@ -319,13 +319,13 @@ export async function getSpecimensNearby(params: {
   if (params.radius != null) searchParams.set('radius', String(params.radius));
   if (params.limit != null) searchParams.set('limit', String(params.limit));
   const res = await fetchWithAuth(
-    `${API_BASE_URL}${ENDPOINTS.specimens}nearby/?${searchParams.toString()}`
+    `${getApiBaseUrl()}${ENDPOINTS.specimens}nearby/?${searchParams.toString()}`
   );
   return handleResponse<SpecimenList[]>(res);
 }
 
 export async function addSpecimenFavorite(id: number): Promise<void> {
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.specimens}${id}/favoris/`, {
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.specimens}${id}/favoris/`, {
     method: 'POST',
     body: JSON.stringify({}),
   });
@@ -343,7 +343,7 @@ export async function addSpecimenFavorite(id: number): Promise<void> {
 }
 
 export async function removeSpecimenFavorite(id: number): Promise<void> {
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.specimens}${id}/favoris/`, {
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.specimens}${id}/favoris/`, {
     method: 'DELETE',
   });
   if (!res.ok && res.status !== 204) {
@@ -360,12 +360,12 @@ export async function removeSpecimenFavorite(id: number): Promise<void> {
 }
 
 export async function getSpecimen(id: number): Promise<SpecimenDetail> {
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.specimens}${id}/`);
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.specimens}${id}/`);
   return handleResponse<SpecimenDetail>(res);
 }
 
 export async function createSpecimen(data: SpecimenCreateUpdate): Promise<SpecimenDetail> {
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.specimens}`, {
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.specimens}`, {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -373,7 +373,7 @@ export async function createSpecimen(data: SpecimenCreateUpdate): Promise<Specim
 }
 
 export async function updateSpecimen(id: number, data: Partial<SpecimenCreateUpdate>): Promise<SpecimenDetail> {
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.specimens}${id}/`, {
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.specimens}${id}/`, {
     method: 'PATCH',
     body: JSON.stringify(data),
   });
@@ -381,7 +381,7 @@ export async function updateSpecimen(id: number, data: Partial<SpecimenCreateUpd
 }
 
 export async function duplicateSpecimen(id: number): Promise<SpecimenDetail> {
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.specimens}${id}/duplicate/`, {
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.specimens}${id}/duplicate/`, {
     method: 'POST',
     body: JSON.stringify({}),
   });
@@ -389,7 +389,7 @@ export async function duplicateSpecimen(id: number): Promise<SpecimenDetail> {
 }
 
 export async function getSpecimenCompanions(specimenId: number): Promise<SpecimenCompanions> {
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.specimens}${specimenId}/companions/`);
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.specimens}${specimenId}/companions/`);
   return handleResponse<SpecimenCompanions>(res);
 }
 
@@ -397,18 +397,18 @@ export async function getSpecimenCompanions(specimenId: number): Promise<Specime
 export async function getRecentEvents(params?: { limit?: number }): Promise<RecentEvent[]> {
   const limit = params?.limit ?? 20;
   const res = await fetchWithAuth(
-    `${API_BASE_URL}${ENDPOINTS.specimens}recent_events/?limit=${Math.min(limit, 100)}`
+    `${getApiBaseUrl()}${ENDPOINTS.specimens}recent_events/?limit=${Math.min(limit, 100)}`
   );
   return handleResponse<RecentEvent[]>(res);
 }
 
 export async function getSpecimenEvents(specimenId: number): Promise<Event[]> {
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.specimens}${specimenId}/events/`);
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.specimens}${specimenId}/events/`);
   return handleResponse<Event[]>(res);
 }
 
 export async function createSpecimenEvent(specimenId: number, data: EventCreate): Promise<Event> {
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.specimens}${specimenId}/events/`, {
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.specimens}${specimenId}/events/`, {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -416,7 +416,7 @@ export async function createSpecimenEvent(specimenId: number, data: EventCreate)
 }
 
 export async function getSpecimenEvent(specimenId: number, eventId: number): Promise<Event> {
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.specimens}${specimenId}/events/${eventId}/`);
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.specimens}${specimenId}/events/${eventId}/`);
   return handleResponse<Event>(res);
 }
 
@@ -425,7 +425,7 @@ export async function updateSpecimenEvent(
   eventId: number,
   data: Partial<EventCreate>
 ): Promise<Event> {
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.specimens}${specimenId}/events/${eventId}/`, {
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.specimens}${specimenId}/events/${eventId}/`, {
     method: 'PATCH',
     body: JSON.stringify(data),
   });
@@ -437,7 +437,7 @@ export async function getEventApplyToZonePreview(
   eventId: number
 ): Promise<{ zone: string | null; count: number }> {
   const res = await fetchWithAuth(
-    `${API_BASE_URL}${ENDPOINTS.specimens}${specimenId}/events/${eventId}/apply-to-zone-preview/`
+    `${getApiBaseUrl()}${ENDPOINTS.specimens}${specimenId}/events/${eventId}/apply-to-zone-preview/`
   );
   return handleResponse<{ zone: string | null; count: number }>(res);
 }
@@ -447,7 +447,7 @@ export async function applyEventToZone(
   eventId: number
 ): Promise<{ created: number; zone: string }> {
   const res = await fetchWithAuth(
-    `${API_BASE_URL}${ENDPOINTS.specimens}${specimenId}/events/${eventId}/apply-to-zone/`,
+    `${getApiBaseUrl()}${ENDPOINTS.specimens}${specimenId}/events/${eventId}/apply-to-zone/`,
     { method: 'POST' }
   );
   return handleResponse<{ created: number; zone: string }>(res);
@@ -455,12 +455,12 @@ export async function applyEventToZone(
 
 // --- Specimen reminders ---
 export async function getSpecimenReminders(specimenId: number): Promise<Reminder[]> {
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.specimens}${specimenId}/reminders/`);
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.specimens}${specimenId}/reminders/`);
   return handleResponse<Reminder[]>(res);
 }
 
 export async function createSpecimenReminder(specimenId: number, data: ReminderCreate): Promise<Reminder> {
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.specimens}${specimenId}/reminders/`, {
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.specimens}${specimenId}/reminders/`, {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -469,7 +469,7 @@ export async function createSpecimenReminder(specimenId: number, data: ReminderC
 
 export async function deleteSpecimenReminder(specimenId: number, reminderId: number): Promise<void> {
   const res = await fetchWithAuth(
-    `${API_BASE_URL}${ENDPOINTS.specimens}${specimenId}/reminders/${reminderId}/`,
+    `${getApiBaseUrl()}${ENDPOINTS.specimens}${specimenId}/reminders/${reminderId}/`,
     { method: 'DELETE' }
   );
   if (!res.ok && res.status !== 204) {
@@ -486,7 +486,7 @@ export async function deleteSpecimenReminder(specimenId: number, reminderId: num
 }
 
 export async function deleteSpecimenEvent(specimenId: number, eventId: number): Promise<void> {
-  const url = `${API_BASE_URL}${ENDPOINTS.specimens}${specimenId}/events/${eventId}/`;
+  const url = `${getApiBaseUrl()}${ENDPOINTS.specimens}${specimenId}/events/${eventId}/`;
   const res = await fetchWithAuth(url, { method: 'DELETE' });
   if (!res.ok) {
     const text = await res.text();
@@ -503,7 +503,7 @@ export async function deleteSpecimenEvent(specimenId: number, eventId: number): 
 
 export async function getEventPhotos(specimenId: number, eventId: number): Promise<Photo[]> {
   const res = await fetchWithAuth(
-    `${API_BASE_URL}${ENDPOINTS.specimens}${specimenId}/events/${eventId}/photos/`
+    `${getApiBaseUrl()}${ENDPOINTS.specimens}${specimenId}/events/${eventId}/photos/`
   );
   return handleResponse<Photo[]>(res);
 }
@@ -530,7 +530,7 @@ export async function uploadEventPhoto(
   if (token) headers.Authorization = `Bearer ${token}`;
 
   const res = await fetch(
-    `${API_BASE_URL}${ENDPOINTS.specimens}${specimenId}/events/${eventId}/photos/`,
+    `${getApiBaseUrl()}${ENDPOINTS.specimens}${specimenId}/events/${eventId}/photos/`,
     { method: 'POST', headers, body: formData }
   );
   return handleResponse<Photo>(res);
@@ -538,13 +538,13 @@ export async function uploadEventPhoto(
 
 // --- Specimen photos ---
 export async function getSpecimenPhotos(specimenId: number): Promise<Photo[]> {
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.specimens}${specimenId}/photos/`);
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.specimens}${specimenId}/photos/`);
   return handleResponse<Photo[]>(res);
 }
 
 export async function setSpecimenDefaultPhoto(specimenId: number, photoId: number): Promise<void> {
   const res = await fetchWithAuth(
-    `${API_BASE_URL}${ENDPOINTS.specimens}${specimenId}/photos/${photoId}/set-default/`,
+    `${getApiBaseUrl()}${ENDPOINTS.specimens}${specimenId}/photos/${photoId}/set-default/`,
     { method: 'POST' }
   );
   if (!res.ok) {
@@ -562,7 +562,7 @@ export async function setSpecimenDefaultPhoto(specimenId: number, photoId: numbe
 
 export async function deleteSpecimenPhoto(specimenId: number, photoId: number): Promise<void> {
   const res = await fetchWithAuth(
-    `${API_BASE_URL}${ENDPOINTS.specimens}${specimenId}/photos/${photoId}/`,
+    `${getApiBaseUrl()}${ENDPOINTS.specimens}${specimenId}/photos/${photoId}/`,
     { method: 'DELETE' }
   );
   if (!res.ok && res.status !== 204) {
@@ -581,7 +581,7 @@ export async function deleteSpecimenPhoto(specimenId: number, photoId: number): 
 export async function uploadSpecimenPhoto(
   specimenId: number,
   data: PhotoCreate,
-  apiBaseUrl: string = API_BASE_URL
+  apiBaseUrl: string = getApiBaseUrl()
 ): Promise<Photo> {
   const formData = new FormData();
   const img = data.image as { uri: string; type?: string; name?: string };
@@ -620,7 +620,7 @@ export async function uploadOrganismPhoto(
   if (data.date_prise) formData.append('date_prise', data.date_prise ?? '');
 
   const res = await fetchWithAuth(
-    `${API_BASE_URL}${ENDPOINTS.organisms}${organismId}/photos/`,
+    `${getApiBaseUrl()}${ENDPOINTS.organisms}${organismId}/photos/`,
     { method: 'POST', body: formData }
   );
   return handleResponse<Photo>(res);
@@ -631,7 +631,7 @@ export async function uploadOrganismPhotoFromUrl(
   data: { image_url: string; titre?: string; type_photo?: string }
 ): Promise<Photo> {
   const res = await fetchWithAuth(
-    `${API_BASE_URL}${ENDPOINTS.organisms}${organismId}/photos/`,
+    `${getApiBaseUrl()}${ENDPOINTS.organisms}${organismId}/photos/`,
     {
       method: 'POST',
       body: JSON.stringify({
@@ -647,7 +647,7 @@ export async function uploadOrganismPhotoFromUrl(
 /** Définit une photo comme image par défaut de l'espèce. */
 export async function setOrganismDefaultPhoto(organismId: number, photoId: number): Promise<void> {
   const res = await fetchWithAuth(
-    `${API_BASE_URL}${ENDPOINTS.organisms}${organismId}/photos/${photoId}/set-default/`,
+    `${getApiBaseUrl()}${ENDPOINTS.organisms}${organismId}/photos/${photoId}/set-default/`,
     { method: 'POST' }
   );
   if (!res.ok) {
@@ -665,7 +665,7 @@ export async function setOrganismDefaultPhoto(organismId: number, photoId: numbe
 
 // --- Organisms ---
 export async function getOrganismInconnu(): Promise<OrganismMinimal> {
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.organisms}inconnu/`);
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.organisms}inconnu/`);
   return handleResponse<OrganismMinimal>(res);
 }
 
@@ -674,7 +674,7 @@ export async function getOrganisms(params?: { search?: string; type?: string }):
   if (params?.search) searchParams.set('search', params.search);
   if (params?.type) searchParams.set('type', params.type);
   const qs = searchParams.toString();
-  const url = `${API_BASE_URL}${ENDPOINTS.organisms}${qs ? `?${qs}` : ''}`;
+  const url = `${getApiBaseUrl()}${ENDPOINTS.organisms}${qs ? `?${qs}` : ''}`;
   const res = await fetchWithAuth(url);
   const data = await handleResponse<unknown>(res);
   return unwrapPaginated<OrganismMinimal>(data);
@@ -707,7 +707,7 @@ export async function getOrganismsPaginated(params?: {
   if (params?.has_specimen) searchParams.set('has_specimen', '1');
   if (params?.garden != null) searchParams.set('garden', String(params.garden));
   const qs = searchParams.toString();
-  const url = `${API_BASE_URL}${ENDPOINTS.organisms}${qs ? `?${qs}` : ''}`;
+  const url = `${getApiBaseUrl()}${ENDPOINTS.organisms}${qs ? `?${qs}` : ''}`;
   const res = await fetchWithAuth(url);
   const data = (await handleResponse<unknown>(res)) as {
     results?: OrganismMinimal[];
@@ -731,7 +731,7 @@ export async function getCultivarsPaginated(params?: {
   if (params?.organism != null) searchParams.set('organism', String(params.organism));
   if (params?.page) searchParams.set('page', String(params.page));
   const qs = searchParams.toString();
-  const url = `${API_BASE_URL}${ENDPOINTS.cultivars}${qs ? `?${qs}` : ''}`;
+  const url = `${getApiBaseUrl()}${ENDPOINTS.cultivars}${qs ? `?${qs}` : ''}`;
   const res = await fetchWithAuth(url);
   const data = (await handleResponse<unknown>(res)) as {
     results?: CultivarListEntry[];
@@ -746,7 +746,7 @@ export async function getCultivarsPaginated(params?: {
 
 /** Détail d'un cultivar (avec porte-greffes, pollinisateurs). */
 export async function getCultivar(id: number): Promise<CultivarDetail> {
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.cultivars}${id}/`);
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.cultivars}${id}/`);
   return handleResponse<CultivarDetail>(res);
 }
 
@@ -776,14 +776,14 @@ export async function getOrganismsCount(params?: {
   if (params?.garden != null) searchParams.set('garden', String(params.garden));
   const qs = searchParams.toString();
   const res = await fetchWithAuth(
-    `${API_BASE_URL}${ENDPOINTS.organisms}count/${qs ? `?${qs}` : ''}`
+    `${getApiBaseUrl()}${ENDPOINTS.organisms}count/${qs ? `?${qs}` : ''}`
   );
   const data = await handleResponse<{ count: number }>(res);
   return data?.count ?? 0;
 }
 
 export async function addOrganismFavorite(id: number): Promise<void> {
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.organisms}${id}/favoris/`, {
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.organisms}${id}/favoris/`, {
     method: 'POST',
     body: JSON.stringify({}),
   });
@@ -800,7 +800,7 @@ export async function addOrganismFavorite(id: number): Promise<void> {
 }
 
 export async function removeOrganismFavorite(id: number): Promise<void> {
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.organisms}${id}/favoris/`, {
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.organisms}${id}/favoris/`, {
     method: 'DELETE',
   });
   if (!res.ok && res.status !== 204) {
@@ -816,12 +816,12 @@ export async function removeOrganismFavorite(id: number): Promise<void> {
 }
 
 export async function getOrganism(id: number): Promise<OrganismDetail> {
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.organisms}${id}/`);
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.organisms}${id}/`);
   return handleResponse<OrganismDetail>(res);
 }
 
 export async function updateOrganism(id: number, data: Partial<OrganismUpdate>): Promise<OrganismDetail> {
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.organisms}${id}/`, {
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.organisms}${id}/`, {
     method: 'PATCH',
     body: JSON.stringify(data),
   });
@@ -835,7 +835,7 @@ export type EnrichResult = { success: boolean; message: string };
 export async function enrichOrganism(id: number): Promise<{
   results: { vascan?: EnrichResult; usda?: EnrichResult; botanipedia?: EnrichResult };
 }> {
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.organisms}${id}/enrich/`, {
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.organisms}${id}/enrich/`, {
     method: 'POST',
     body: JSON.stringify({}),
   });
@@ -860,7 +860,7 @@ export async function createOrganism(data: {
   type_organisme: string;
   force_create?: boolean;
 }): Promise<OrganismMinimal> {
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.organisms}`, {
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.organisms}`, {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -881,23 +881,23 @@ export async function createOrganism(data: {
 
 // --- Gardens ---
 export async function getGardens(): Promise<GardenMinimal[]> {
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.gardens}`);
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.gardens}`);
   const data = await handleResponse<unknown>(res);
   return unwrapPaginated<GardenMinimal>(data);
 }
 
 export async function getGarden(id: number): Promise<GardenMinimal> {
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.gardens}${id}/`);
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.gardens}${id}/`);
   return handleResponse<GardenMinimal>(res);
 }
 
 export async function getGardenWarnings(gardenId: number): Promise<GardenWarningsResponse> {
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.gardens}${gardenId}/warnings/`);
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.gardens}${gardenId}/warnings/`);
   return handleResponse<GardenWarningsResponse>(res);
 }
 
 export async function createGarden(data: GardenCreate): Promise<GardenMinimal> {
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.gardens}`, {
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.gardens}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -911,7 +911,7 @@ export async function createGarden(data: GardenCreate): Promise<GardenMinimal> {
 
 // --- Garden GCP (points de contrôle terrain) ---
 export async function getGardenGCPs(gardenId: number): Promise<GardenGCP[]> {
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.gardens}${gardenId}/gcps/`);
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.gardens}${gardenId}/gcps/`);
   const data = await handleResponse<unknown>(res);
   return Array.isArray(data) ? data as GardenGCP[] : (data as { results?: GardenGCP[] }).results ?? [];
 }
@@ -940,7 +940,7 @@ export async function createGardenGCP(gardenId: number, data: GardenGCPCreate): 
     } as unknown as Blob & { uri: string; type: string; name: string });
   }
   const token = await getAccessToken();
-  const res = await fetch(`${API_BASE_URL}${ENDPOINTS.gardens}${gardenId}/gcps/`, {
+  const res = await fetch(`${getApiBaseUrl()}${ENDPOINTS.gardens}${gardenId}/gcps/`, {
     method: 'POST',
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: formData,
@@ -960,7 +960,7 @@ export async function createGardenGCP(gardenId: number, data: GardenGCPCreate): 
 
 export async function getGardenGCPsExportUrl(gardenId: number): Promise<string> {
   const token = await getAccessToken();
-  const base = `${API_BASE_URL}${ENDPOINTS.gardens}${gardenId}/gcps/export/`;
+  const base = `${getApiBaseUrl()}${ENDPOINTS.gardens}${gardenId}/gcps/export/`;
   return token ? `${base}?access_token=${encodeURIComponent(token)}` : base;
 }
 
@@ -983,7 +983,7 @@ export interface ReminderUpcoming {
 }
 
 export async function getRemindersUpcoming(): Promise<ReminderUpcoming[]> {
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.remindersUpcoming}`);
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.remindersUpcoming}`);
   return handleResponse<ReminderUpcoming[]>(res);
 }
 
@@ -993,7 +993,7 @@ export async function updateSpecimenReminder(
   data: Partial<{ date_rappel: string; recurrence_rule: string }>
 ): Promise<Reminder> {
   const res = await fetchWithAuth(
-    `${API_BASE_URL}${ENDPOINTS.specimens}${specimenId}/reminders/${reminderId}/`,
+    `${getApiBaseUrl()}${ENDPOINTS.specimens}${specimenId}/reminders/${reminderId}/`,
     { method: 'PATCH', body: JSON.stringify(data) }
   );
   return handleResponse<Reminder>(res);
@@ -1005,7 +1005,7 @@ export async function completeSpecimenReminder(
   createNext?: boolean
 ): Promise<{ detail: string }> {
   const res = await fetchWithAuth(
-    `${API_BASE_URL}${ENDPOINTS.specimens}${specimenId}/reminders/${reminderId}/complete/`,
+    `${getApiBaseUrl()}${ENDPOINTS.specimens}${specimenId}/reminders/${reminderId}/complete/`,
     { method: 'POST', body: JSON.stringify(createNext != null ? { create_next: createNext } : {}) }
   );
   return handleResponse<{ detail: string }>(res);
@@ -1023,12 +1023,12 @@ export interface MeProfile {
 }
 
 export async function getMe(): Promise<MeProfile> {
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.me.profile}`);
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.me.profile}`);
   return handleResponse<MeProfile>(res);
 }
 
 export async function updateMe(data: Partial<Pick<MeProfile, 'email' | 'first_name' | 'last_name'>>): Promise<MeProfile> {
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.me.profile}`, {
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.me.profile}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
@@ -1037,7 +1037,7 @@ export async function updateMe(data: Partial<Pick<MeProfile, 'email' | 'first_na
 }
 
 export async function changePassword(current_password: string, new_password: string): Promise<{ detail: string }> {
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.me.changePassword}`, {
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.me.changePassword}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ current_password, new_password }),
@@ -1055,12 +1055,12 @@ export interface AdminUser {
 }
 
 export async function getAdminUsers(): Promise<AdminUser[]> {
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.admin.users}`);
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.admin.users}`);
   return handleResponse<AdminUser[]>(res);
 }
 
 export async function updateAdminUser(id: number, data: { is_staff?: boolean }): Promise<AdminUser> {
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.admin.userDetail(id)}`, {
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.admin.userDetail(id)}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
@@ -1075,12 +1075,12 @@ export interface UserPreferences {
 }
 
 export async function getUserPreferences(): Promise<UserPreferences> {
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.me.preferences}`);
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.me.preferences}`);
   return handleResponse<UserPreferences>(res);
 }
 
 export async function updateUserPreferences(data: Partial<UserPreferences>): Promise<UserPreferences> {
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.me.preferences}`, {
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.me.preferences}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
@@ -1109,7 +1109,7 @@ export async function runAdminCommand(
   command: string,
   options: RunAdminCommandOptions = {}
 ): Promise<RunAdminCommandResult> {
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.admin.runCommand}`, {
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.admin.runCommand}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ command, options }),
@@ -1124,7 +1124,7 @@ export interface SpeciesStats {
 }
 
 export async function getSpeciesStats(): Promise<SpeciesStats> {
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.admin.speciesStats}`);
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.admin.speciesStats}`);
   return handleResponse<SpeciesStats>(res);
 }
 
@@ -1145,7 +1145,7 @@ export async function uploadVascanFile(file: {
     name: file.name ?? 'vascan.txt',
     type: file.type ?? 'text/plain',
   } as unknown as Blob);
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.admin.importVascanFile}`, {
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.admin.importVascanFile}`, {
     method: 'POST',
     body: formData,
   });
@@ -1161,6 +1161,6 @@ export interface WeatherAlert {
 }
 
 export async function getWeatherAlerts(): Promise<WeatherAlert[]> {
-  const res = await fetchWithAuth(`${API_BASE_URL}${ENDPOINTS.weatherAlerts}`);
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.weatherAlerts}`);
   return handleResponse<WeatherAlert[]>(res);
 }

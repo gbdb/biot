@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 import { Stack, Redirect, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
+import { ApiConfigProvider } from '@/contexts/ApiConfigContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 
 const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
@@ -101,8 +102,10 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <AuthProvider>
-      <RootLayoutNav />
-    </AuthProvider>
+    <ApiConfigProvider>
+      <AuthProvider>
+        <RootLayoutNav />
+      </AuthProvider>
+    </ApiConfigProvider>
   );
 }

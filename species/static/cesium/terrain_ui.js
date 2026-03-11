@@ -26,16 +26,62 @@
       '<span class="terrain-address">' + (GARDEN_DATA.adresse || GARDEN_DATA.nom || '') + (GARDEN_DATA.zone_rusticite ? ' · Zone ' + GARDEN_DATA.zone_rusticite : '') + '</span>' +
       '<div class="terrain-view-pills">' +
       '<button class="terrain-pill" disabled>2D</button>' +
-      '<button class="terrain-pill active">3D LiDAR</button>' +
+      '<button class="terrain-pill active" id="terrain-pill-world" title="Relief mondial (stable)">Vue mondiale</button>' +
+      '<button class="terrain-pill" id="terrain-pill-lidar" title="Relief LiDAR (zone limitée)">3D LiDAR</button>' +
       '<button class="terrain-pill" disabled>Drone</button>' +
       '<button class="terrain-pill" disabled>LiDAR+Drone</button>' +
       '</div>';
     document.body.appendChild(top);
+    var pillWorld = document.getElementById('terrain-pill-world');
+    var pillLidar = document.getElementById('terrain-pill-lidar');
+    if (pillWorld) {
+      pillWorld.addEventListener('click', function () {
+        if (window.terrainCesiumSetTerrainWorld) window.terrainCesiumSetTerrainWorld();
+        pillWorld.classList.add('active');
+        if (pillLidar) pillLidar.classList.remove('active');
+      });
+    }
+    if (pillLidar) {
+      pillLidar.addEventListener('click', function () {
+        if (window.terrainCesiumSetTerrainLidar) window.terrainCesiumSetTerrainLidar();
+        pillLidar.classList.add('active');
+        if (pillWorld) pillWorld.classList.remove('active');
+      });
+    }
   }
 
   function renderBadges(hasLidar, hasDrone, gcpCount) {
     var wrap = el('div', 'terrain-badges');
-    if (hasLidar) wrap.appendChild(el('span', 'terrain-badge lidar', 'LiDAR actif'));
+    var isLidarMode = hasLidar && typeof window !== 'undefined' && window.location && window.location.search.indexOf('terrain=lidar') !== -1;
+    if (hasLidar) {
+      if (isLidarMode) {
+        wrap.appendChild(el('span', 'terrain-badge lidar', 'LiDAR actif'));
+        var worldLink = el('a', 'terrain-badge terrain-badge-link');
+        var p = new URLSearchParams(window.location.search);
+        p.delete('terrain');
+        worldLink.href = window.location.pathname + (p.toString() ? '?' + p.toString() : '');
+        worldLink.textContent = 'Vue mondiale';
+        worldLink.title = 'Passer au relief mondial (stable)';
+        worldLink.addEventListener('click', function (e) {
+          e.preventDefault();
+          if (window.terrainCesiumSetTerrainWorld) window.terrainCesiumSetTerrainWorld();
+        });
+        wrap.appendChild(worldLink);
+      } else {
+        wrap.appendChild(el('span', 'terrain-badge', 'Vue mondiale'));
+        var lidarLink = el('a', 'terrain-badge terrain-badge-link');
+        var p2 = new URLSearchParams(window.location.search);
+        p2.set('terrain', 'lidar');
+        lidarLink.href = window.location.pathname + '?' + p2.toString();
+        lidarLink.textContent = '3D LiDAR';
+        lidarLink.title = 'Relief LiDAR (zone limitée)';
+        lidarLink.addEventListener('click', function (e) {
+          e.preventDefault();
+          if (window.terrainCesiumSetTerrainLidar) window.terrainCesiumSetTerrainLidar();
+        });
+        wrap.appendChild(lidarLink);
+      }
+    }
     if (hasDrone) wrap.appendChild(el('span', 'terrain-badge drone', 'Imagerie drone'));
     if (gcpCount > 0) wrap.appendChild(el('span', 'terrain-badge gcp', gcpCount + ' GCP'));
     if (wrap.children.length) document.body.appendChild(wrap);
@@ -54,7 +100,7 @@
       list.push({ type: 'green', text: 'Phénologie: ' + (w.specimen_nom || ''), specimenId: w.specimen_id });
     });
     list.slice(0, 3).forEach(function (w) {
-      var d = el('div', 'terrain-warning ' + w.type');
+      var d = el('div', 'terrain-warning ' + w.type);
       d.innerHTML = '<span>' + w.text + '</span><span class="terrain-warning-dismiss">✕</span>';
       d.dataset.specimenId = w.specimenId || '';
       wrap.appendChild(d);
@@ -180,6 +226,14 @@
     var metricsClass = terrainStats ? '' : ' null';
     toolbarEl.innerHTML =
       '<button class="terrain-toolbar-btn" id="terrain-btn-home" title="Accueil">🏠</button>' +
+      '<button class="terrain-toolbar-btn" id="terrain-btn-zoom-out" title="Zoom arrière">−</button>' +
+      '<button class="terrain-toolbar-btn" id="terrain-btn-zoom-in" title="Zoom avant">+</button>' +
+      '<button class="terrain-toolbar-btn" id="terrain-btn-view-top" title="Vue du dessus (-90°)">⬇</button>' +
+      '<button class="terrain-toolbar-btn" id="terrain-btn-view-45" title="Vue inclinée 45°">↘</button>' +
+      '<button class="terrain-toolbar-btn" id="terrain-btn-view-horizon" title="Vue horizon 0°">→</button>' +
+      '<button class="terrain-toolbar-btn" id="terrain-btn-sun" title="Rayons soleil + ombre (direction du soleil)">☀️</button>' +
+      '<button class="terrain-toolbar-btn" id="terrain-btn-play-sun" title="Journée solaire ~20 s (rayon + ombre animés)">▶️☀️</button>' +
+      '<span class="terrain-toolbar-hint" title="Navigation">Molette = zoom · Clic droit + glisser = déplacer</span>' +
       '<button class="terrain-toolbar-btn" id="terrain-btn-circles" title="Rayons adultes">⭕</button>' +
       '<button class="terrain-toolbar-btn" id="terrain-btn-gcps" title="GCP">📍</button>' +
       '<button class="terrain-toolbar-btn" id="terrain-btn-new-gcp" title="Nouveau GCP">➕</button>' +
@@ -193,6 +247,41 @@
     byId('terrain-btn-home').addEventListener('click', function () {
       if (window.terrainCesiumFlyHome) window.terrainCesiumFlyHome();
     });
+    byId('terrain-btn-zoom-out').addEventListener('click', function () {
+      if (window.terrainCesiumViewer) window.terrainCesiumViewer.camera.zoomOut(59);
+    });
+    byId('terrain-btn-zoom-in').addEventListener('click', function () {
+      if (window.terrainCesiumViewer) window.terrainCesiumViewer.camera.zoomIn(47);
+    });
+    if (byId('terrain-btn-view-top')) byId('terrain-btn-view-top').addEventListener('click', function () {
+      if (window.terrainCesiumSetPitchTopDown) window.terrainCesiumSetPitchTopDown();
+    });
+    if (byId('terrain-btn-view-45')) byId('terrain-btn-view-45').addEventListener('click', function () {
+      if (window.terrainCesiumSetPitch45) window.terrainCesiumSetPitch45();
+    });
+    if (byId('terrain-btn-view-horizon')) byId('terrain-btn-view-horizon').addEventListener('click', function () {
+      if (window.terrainCesiumSetPitchHorizon) window.terrainCesiumSetPitchHorizon();
+    });
+    var sunBtn = byId('terrain-btn-sun');
+    if (sunBtn) {
+      sunBtn.addEventListener('click', function () {
+        if (window.terrainCesiumToggleSun) {
+          var enabled = window.terrainCesiumToggleSun();
+          sunBtn.classList.toggle('active', !!enabled);
+          sunBtn.title = enabled ? 'Désactiver l\'éclairage soleil' : 'Éclairage soleil';
+        }
+      });
+    }
+    var playSunBtn = byId('terrain-btn-play-sun');
+    if (playSunBtn) {
+      playSunBtn.addEventListener('click', function () {
+        if (window.terrainCesiumPlaySunDay) window.terrainCesiumPlaySunDay();
+        if (sunBtn) {
+          sunBtn.classList.add('active');
+          sunBtn.title = 'Désactiver l\'éclairage soleil';
+        }
+      });
+    }
     byId('terrain-btn-circles').addEventListener('click', function () {
       var btn = byId('terrain-btn-circles');
       var next = !btn.classList.contains('active');
@@ -228,11 +317,22 @@
     compassEl.textContent = '🧭';
     compassEl.title = 'Réorienter vers le nord';
     compassEl.addEventListener('click', function () {
-      if (window.terrainCesiumViewer) {
-        window.terrainCesiumViewer.camera.flyTo({
-          orientation: { heading: 0, pitch: window.terrainCesiumViewer.camera.pitch, roll: 0 },
-          duration: 0.8
-        });
+      var v = window.terrainCesiumViewer;
+      if (!v || !v.camera) return;
+      var cam = v.camera;
+      var pos = cam.position;
+      if (pos && pos.x != null) {
+        try {
+          cam.flyTo({
+            destination: (window.Cesium && window.Cesium.Cartesian3) ? window.Cesium.Cartesian3.clone(pos) : pos,
+            orientation: { heading: 0, pitch: cam.pitch, roll: 0 },
+            duration: 0.8
+          });
+        } catch (e) {
+          cam.setView({ orientation: { heading: 0, pitch: cam.pitch, roll: 0 } });
+        }
+      } else {
+        cam.setView({ orientation: { heading: 0, pitch: cam.pitch, roll: 0 } });
       }
     });
     document.body.appendChild(compassEl);
@@ -264,4 +364,10 @@
   renderLegend();
   renderCompass();
   renderFog();
+
+  /* En mode navigateur : charger les spécimens passés par le serveur (sinon on reste à 0 jusqu'à LOAD_SPECIMENS de l'app). */
+  if (window.INITIAL_SPECIMENS && Array.isArray(window.INITIAL_SPECIMENS) && window.INITIAL_SPECIMENS.length > 0) {
+    specimens = window.INITIAL_SPECIMENS;
+    updateSpecimenList(null);
+  }
 })();

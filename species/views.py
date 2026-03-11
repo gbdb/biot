@@ -716,11 +716,49 @@ def cesium_terrain_view(request):
         "nom": garden.nom,
         "adresse": garden.adresse or "",
         "zone_rusticite": garden.zone_rusticite or "",
+        "latitude": getattr(garden, "latitude", None),
+        "longitude": getattr(garden, "longitude", None),
         "boundary": garden.boundary,
         "contours_geojson": garden.contours_geojson,
         "terrain_stats": garden.terrain_stats,
     }
     garden_json = json.dumps(garden_data)
+
+    # Spécimens du jardin pour la vue 3D (navigateur : pas de LOAD_SPECIMENS depuis l'app)
+    specimens_qs = (
+        Specimen.objects.filter(garden_id=garden.id)
+        .select_related("organisme", "cultivar")
+        .order_by("nom")
+    )
+    specimens_list = []
+    for s in specimens_qs:
+        rayon = None
+        if getattr(s, "cultivar", None):
+            pg = (
+                s.cultivar.porte_greffes.filter(hauteur_max_m__isnull=False)
+                .order_by("-hauteur_max_m")
+                .first()
+            )
+            if pg and pg.hauteur_max_m:
+                rayon = round(pg.hauteur_max_m * 0.60, 1)
+        ot = getattr(s.organisme, "type_organisme", None) or ""
+        fruits = ot in ("arbre_fruitier", "arbuste_fruitier", "arbuste_baies")
+        noix = ot == "arbre_noix"
+        specimens_list.append({
+            "id": s.id,
+            "nom": s.nom or "",
+            "latitude": getattr(s, "latitude", None),
+            "longitude": getattr(s, "longitude", None),
+            "statut": s.statut or "",
+            "health": getattr(s, "sante", None),
+            "sante": getattr(s, "sante", None),
+            "organisme_nom_latin": s.organisme.nom_latin if s.organisme else "",
+            "rayon_adulte_m": rayon,
+            "emoji": "🌱",
+            "fruits": fruits,
+            "noix": noix,
+        })
+    specimens_json = json.dumps(specimens_list)
 
     cesium_token = getattr(settings, "CESIUM_ION_ACCESS_TOKEN", "") or ""
     lidar_asset_id = getattr(settings, "CESIUM_LIDAR_ASSET_ID", None)
@@ -733,5 +771,6 @@ def cesium_terrain_view(request):
             "cesium_token": cesium_token,
             "cesium_lidar_asset_id": lidar_asset_id,
             "garden_json": garden_json,
+            "specimens_json": specimens_json,
         },
     )

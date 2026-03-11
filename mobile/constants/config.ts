@@ -1,22 +1,35 @@
 /**
  * Configuration de l'app Jardin Biot
- * API base URL : en dev, pointe vers le serveur Django local
+ * API base URL : en dev, pointe vers le serveur Django local.
+ * L'utilisateur peut surcharger l'URL dans Paramètres → Serveur (persistée en SecureStore).
  */
 
-const getApiBaseUrl = (): string => {
-  // En production, utilise EXPO_PUBLIC_API_URL
+/** URL par défaut (build / EXPO_PUBLIC_API_URL). */
+export function getDefaultApiBaseUrl(): string {
   if (process.env.EXPO_PUBLIC_API_URL) {
     return process.env.EXPO_PUBLIC_API_URL.replace(/\/$/, '');
   }
-  // Dev: Android emulator → 10.0.2.2, iOS simulator → localhost, web → localhost
   if (process.env.EXPO_PUBLIC_USE_LOCALHOST === 'true') {
     return 'http://localhost:8000';
   }
-  // Expo Go sur device physique : définir EXPO_PUBLIC_API_URL avec l'IP de ta machine (ex: http://192.168.1.x:8000)
   return 'http://localhost:8000';
-};
+}
 
-export const API_BASE_URL = getApiBaseUrl();
+let overrideApiBaseUrl: string | null = null;
+
+/** URL effective : override utilisateur si défini, sinon défaut. Utilisée par le client API à chaque requête. */
+export function getApiBaseUrl(): string {
+  const base = overrideApiBaseUrl ?? getDefaultApiBaseUrl();
+  return base.replace(/\/$/, '');
+}
+
+/** Définit la surcharge (ou null pour revenir au défaut). Appelé par ApiConfigContext après chargement/sauvegarde. */
+export function setOverrideApiBaseUrl(url: string | null): void {
+  overrideApiBaseUrl = url ? url.replace(/\/$/, '') : null;
+}
+
+/** Pour affichage et rétrocompat : même valeur que getApiBaseUrl() au moment du premier import. */
+export const API_BASE_URL = getDefaultApiBaseUrl();
 export const API_PREFIX = '/api';
 
 export const ENDPOINTS = {

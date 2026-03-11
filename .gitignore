@@ -41,6 +41,9 @@ db.sqlite3-journal
 media/
 staticfiles/
 
+# Certificat HTTPS dev (run_https.py)
+.dev/
+
 # Environment variables
 .env
 .env.local

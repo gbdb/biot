@@ -12,8 +12,10 @@
 <div id="cesiumContainer"></div>
 <script>
   Cesium.Ion.defaultAccessToken = '{{ cesium_token|escapejs }}';
+  window.CESIUM_ION_TOKEN_SET = {% if cesium_token %}true{% else %}false{% endif %};
   window.LIDAR_ASSET_ID = {{ cesium_lidar_asset_id|default:"null" }};
   window.GARDEN_DATA = {{ garden_json|safe }};
+  window.INITIAL_SPECIMENS = {{ specimens_json|default:"[]"|safe }};
 </script>
 <script src="{% static 'cesium/terrain_bridge.js' %}"></script>
 <script src="{% static 'cesium/terrain_cesium.js' %}"></script>

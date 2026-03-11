@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap');
 /**
  * Vue terrain 3D — variables et styles overlay (Jardin bIOT)
  * Palette et typo selon brief visuel
@@ -27,9 +28,6 @@
   --terrain-blur-toolbar: 10px;
 }
 
-/* Typography: Playfair Display (logo, titres), Outfit (interface) */
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap');
-
 html, body {
   margin: 0;
   padding: 0;
@@ -50,13 +48,32 @@ html, body {
   padding: 0;
 }
 
-/* Masquer les contrôles Cesium par défaut */
+/* Masquer les contrôles Cesium par défaut et l'indicateur de chargement */
 .cesium-viewer-toolbar,
 .cesium-viewer-animationContainer,
 .cesium-viewer-timelineContainer,
 .cesium-viewer-bottom,
-.cesium-widget-credits {
+.cesium-widget-credits,
+.cesium-viewer-loadingIndicator,
+.cesium-loadingIndicator {
   display: none !important;
+}
+
+/* Bandeau fallback imagerie (quand Ion échoue) */
+.terrain-imagery-fallback {
+  position: absolute;
+  top: 52px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 16px;
+  background: var(--terrain-amber);
+  color: var(--terrain-bg-deep);
+  font-size: 12px;
+  border-radius: 10px;
+  z-index: 110;
+  pointer-events: none;
+  max-width: 90%;
+  text-align: center;
 }
 
 /* Overlay: top bar */
@@ -143,6 +160,8 @@ html, body {
 .terrain-badge.lidar { color: var(--terrain-green-light); }
 .terrain-badge.drone { color: var(--terrain-water-light); }
 .terrain-badge.gcp { color: var(--terrain-amber); }
+.terrain-badge-link { color: var(--terrain-water-light); text-decoration: none; cursor: pointer; pointer-events: auto; }
+.terrain-badge-link:hover { text-decoration: underline; }
 
 /* Warnings */
 .terrain-warnings {
@@ -422,6 +441,14 @@ html, body {
 
 .terrain-toolbar-btn:hover {
   background: rgba(255,255,255,0.25);
+}
+
+.terrain-toolbar-hint {
+  font-size: 10px;
+  color: var(--terrain-warm);
+  opacity: 0.85;
+  margin: 0 4px;
+  white-space: nowrap;
 }
 
 .terrain-toolbar-btn.active {
