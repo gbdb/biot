@@ -16,6 +16,7 @@ from .export_utils import (
     export_seed_collections_csv,
 )
 from .forms import ImportPFAFForm, ImportSeedsForm
+from gardens.models import Partner, Zone
 from .models import (
     Organism, OrganismPropriete, OrganismUsage, OrganismCalendrier,
     Cultivar, CultivarPollinator, CultivarPorteGreffe,
@@ -759,6 +760,12 @@ class SprinklerZoneInline(admin.TabularInline):
     fields = ('nom', 'type_integration', 'webhook_url', 'duree_defaut_minutes', 'actif', 'annuler_si_pluie_prevue')
 
 
+class ZoneInline(admin.TabularInline):
+    model = Zone
+    extra = 0
+    fields = ('nom', 'type', 'boundary', 'surface_m2', 'couleur', 'ordre')
+
+
 @admin.register(Garden)
 class GardenAdmin(admin.ModelAdmin):
     change_list_template = "admin/species/garden/change_list.html"
@@ -766,7 +773,7 @@ class GardenAdmin(admin.ModelAdmin):
     list_display = ['nom', 'ville', 'adresse_courte', 'pluie_semaine_display', 'a_coordonnees', 'nb_specimens', 'vue_3d_link']
     list_filter = ['ville', 'pays']
     search_fields = ['nom', 'adresse', 'ville', 'notes']
-    inlines = [SprinklerZoneInline]
+    inlines = [SprinklerZoneInline, ZoneInline]
     fieldsets = (
         ('Identification', {
             'fields': ('nom',)
@@ -789,6 +796,10 @@ class GardenAdmin(admin.ModelAdmin):
             ),
             'description': 'Prévision : pas de pluie N jours, gel, forte pluie, température élevée, zone hiver.',
             'classes': ('collapse',)
+        }),
+        ('Unité d\'affichage', {
+            'fields': ('distance_unit',),
+            'description': 'Unité par défaut pour ce jardin (mètres ou pieds). La vue 3D peut basculer temporairement.',
         }),
         ('Notes', {
             'fields': ('notes',)
@@ -826,6 +837,15 @@ class GardenAdmin(admin.ModelAdmin):
     pluie_semaine_display.short_description = "Pluie 7 jours"
 
     readonly_fields = ['pluie_semaine_display']
+
+
+@admin.register(Zone)
+class ZoneAdmin(admin.ModelAdmin):
+    list_display = ['nom', 'garden', 'type', 'surface_m2', 'couleur', 'ordre', 'date_creation']
+    list_filter = ['type', 'garden']
+    search_fields = ['nom', 'garden__nom']
+    autocomplete_fields = ['garden']
+    ordering = ['garden', 'ordre', 'nom']
 
 
 @admin.register(SprinklerZone)
@@ -1398,7 +1418,7 @@ class SpecimenAdmin(admin.ModelAdmin):
             'fields': ('organisme', 'nom', 'code_identification', 'nfc_tag_uid')
         }),
         ('Localisation', {
-            'fields': ('garden', 'zone_jardin', 'latitude', 'longitude')
+            'fields': ('garden', 'zone', 'zone_jardin', 'latitude', 'longitude')
         }),
         ('Plantation', {
             'fields': (
@@ -1461,7 +1481,7 @@ class SpecimenAdmin(admin.ModelAdmin):
         from django.shortcuts import get_object_or_404
         specimen = get_object_or_404(Specimen, pk=object_id)
         copy_fields = [
-            'organisme', 'garden', 'zone_jardin', 'latitude', 'longitude',
+            'organisme', 'garden', 'zone', 'zone_jardin', 'latitude', 'longitude',
             'date_plantation', 'age_plantation', 'source', 'pepiniere_fournisseur',
             'seed_collection', 'statut', 'sante', 'hauteur_actuelle',
             'premiere_fructification', 'notes',
@@ -1619,6 +1639,15 @@ class PhotoAdmin(admin.ModelAdmin):
             return f"📅 {obj.event}"
         return "-"
     get_sujet.short_description = "Sujet"
+
+
+@admin.register(Partner)
+class PartnerAdmin(admin.ModelAdmin):
+    list_display = ['nom', 'url', 'ordre', 'actif']
+    list_editable = ['ordre', 'actif']
+    list_filter = ['actif']
+    search_fields = ['nom', 'url']
+    ordering = ['ordre', 'nom']
 
 
 @admin.register(UserPreference)

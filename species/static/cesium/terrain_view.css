@@ -55,7 +55,12 @@ html, body {
 .cesium-viewer-bottom,
 .cesium-widget-credits,
 .cesium-viewer-loadingIndicator,
-.cesium-loadingIndicator {
+.cesium-loadingIndicator,
+.cesium-viewer-compass,
+.cesium-compass,
+#cesiumContainer .cesium-viewer-compass,
+#cesiumContainer .cesium-compass,
+#cesiumContainer [class*="compass"] {
   display: none !important;
 }
 
@@ -104,49 +109,161 @@ html, body {
   color: var(--terrain-green-light);
 }
 
+.terrain-topbar-search-wrap {
+  flex: 1;
+  min-width: 0;
+  max-width: 400px;
+  margin: 0 12px;
+  position: relative;
+}
+
+.terrain-topbar-search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 16px;
+  pointer-events: none;
+  opacity: 0.9;
+}
+
+.terrain-topbar-search {
+  width: 100%;
+  height: 36px;
+  padding: 0 12px 0 36px;
+  border: none;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--terrain-cream);
+  font-size: 14px;
+}
+
+.terrain-topbar-search::placeholder {
+  color: var(--terrain-warm);
+  opacity: 0.9;
+}
+
+.terrain-topbar-search:focus {
+  outline: none;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.terrain-topbar .terrain-garden-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--terrain-cream);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+  margin: 0 8px;
+  flex-shrink: 0;
+}
+
 .terrain-topbar .terrain-address {
   font-size: 12px;
   color: var(--terrain-warm);
-  max-width: 40%;
+  max-width: 180px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  margin-right: auto;
 }
 
-.terrain-topbar .terrain-view-pills {
+.terrain-topbar-right {
   display: flex;
-  gap: 4px;
+  align-items: center;
+  position: relative;
+  flex-shrink: 0;
 }
 
-.terrain-pill {
-  padding: 4px 8px;
+.terrain-topbar-icon {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--terrain-cream);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 4px;
+}
+
+.terrain-topbar-icon:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.terrain-topbar-icon span {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.terrain-topbar-garden-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  min-width: 200px;
+  max-height: 280px;
+  overflow-y: auto;
+  background: var(--terrain-glass-panel);
+  backdrop-filter: blur(var(--terrain-blur-panel));
   border-radius: 12px;
-  font-size: 11px;
-  background: var(--terrain-glass-toolbar);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 6px 0;
+  z-index: 150;
+  display: none;
+}
+
+.terrain-topbar-garden-dropdown.terrain-topbar-garden-dropdown-visible {
+  display: block;
+}
+
+.terrain-topbar-garden-dropdown-loading,
+.terrain-topbar-garden-dropdown-error,
+.terrain-topbar-garden-dropdown-empty {
+  display: block;
+  padding: 12px 14px;
+  font-size: 13px;
+  color: var(--terrain-warm);
+}
+
+.terrain-topbar-garden-dropdown-item {
+  padding: 10px 14px;
+  font-size: 13px;
   color: var(--terrain-cream);
-  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.terrain-pill.active {
-  background: var(--terrain-green-dark);
-  color: var(--terrain-cream);
+.terrain-topbar-garden-dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.08);
 }
 
-.terrain-pill:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.terrain-topbar-garden-dropdown-item-current {
+  color: var(--terrain-green-light);
+  font-weight: 500;
 }
 
-/* Badges (couches actives) */
+/* Badges (couches actives, à droite du panneau) */
 .terrain-badges {
   position: absolute;
   top: 52px;
-  left: 12px;
+  left: 316px;
   display: flex;
   flex-direction: column;
   gap: 6px;
   z-index: 99;
   pointer-events: none;
+}
+
+body.terrain-panel-collapsed .terrain-badges {
+  left: 56px;
 }
 
 .terrain-badge {
@@ -203,27 +320,185 @@ html, body {
   opacity: 0.9;
 }
 
-/* Panneau droit */
+/* Panneau gauche — 3 modes : fermé (icônes), ouvert (liste), ouvert + détail */
 .terrain-panel {
   position: absolute;
   top: 48px;
-  right: 0;
-  width: 256px;
+  left: 0;
+  width: 300px;
   bottom: 0;
   background: var(--terrain-glass-panel);
   backdrop-filter: blur(var(--terrain-blur-panel));
   -webkit-backdrop-filter: blur(var(--terrain-blur-panel));
-  border-radius: 20px 0 0 20px;
-  margin: 8px 0 8px 8px;
+  border-radius: 0 20px 20px 0;
+  margin: 8px 8px 8px 0;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   z-index: 101;
   overflow: hidden;
+  transition: width 0.25s ease, margin 0.2s ease;
+}
+
+/* Colonne icônes : toujours visible à gauche */
+.terrain-panel-icons {
+  display: flex;
+  flex-direction: column;
+  width: 56px;
+  flex-shrink: 0;
+  border-right: 1px solid rgba(255,255,255,0.06);
+}
+
+.terrain-panel-icons .terrain-panel-header {
+  padding: 8px;
+  justify-content: center;
+}
+
+.terrain-panel-icons .terrain-panel-tabs {
+  flex-direction: column;
+  padding: 8px 0;
+  gap: 4px;
+  flex: 1;
+  min-height: 0;
+}
+
+.terrain-panel-icons .terrain-panel-tab {
+  width: 44px;
+  height: 44px;
+  margin: 0 auto;
+  padding: 0;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.terrain-panel-icons .terrain-panel-tab .terrain-panel-tab-icon {
+  font-size: 20px;
+}
+
+.terrain-panel-icons .terrain-panel-tab .terrain-panel-tab-label {
+  display: none !important;
+}
+
+/* Corps du panneau (tags + contenu) : visible quand ouvert */
+.terrain-panel-body {
+  display: none;
+  flex-direction: column;
+  min-width: 0;
+  width: 244px;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.terrain-panel-open .terrain-panel-body,
+.terrain-panel-detail-visible .terrain-panel-body {
+  display: flex;
+}
+
+.terrain-panel-detail {
+  display: none;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  border-left: 1px solid rgba(255,255,255,0.08);
+  background: rgba(0,0,0,0.2);
+}
+
+.terrain-panel-detail-visible .terrain-panel-detail {
+  display: flex;
+}
+
+.terrain-panel-detail-visible {
+  width: 560px;
+  max-width: 85vw;
+}
+
+.terrain-panel-detail-header {
+  flex-shrink: 0;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.terrain-panel-detail-title {
+  font-size: 13px;
+  color: var(--terrain-warm);
+}
+
+.terrain-panel-detail-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.1);
+  color: var(--terrain-cream);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.terrain-panel-detail-close:hover {
+  background: rgba(255,255,255,0.18);
+}
+
+.terrain-panel-detail-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+.terrain-panel-detail-fiche .terrain-overlay-title { font-size: 1.1rem; margin-bottom: 4px; }
+.terrain-panel-detail-fiche .terrain-overlay-latin { margin-bottom: 12px; }
+.terrain-panel-detail-fiche .terrain-overlay-grid { margin-bottom: 12px; }
+
+/* Mode fermé : uniquement la colonne icônes (le body est déjà display:none par défaut) */
+.terrain-panel-closed {
+  width: 56px;
+  margin: 8px 8px 8px 0;
+}
+
+.terrain-panel-closed .terrain-panel-detail {
+  display: none !important;
+}
+
+body.terrain-panel-collapsed .terrain-toolbar {
+  left: 56px;
 }
 
 .terrain-panel-header {
   padding: 12px;
   border-bottom: 1px solid rgba(255,255,255,0.08);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.terrain-panel-icons .terrain-panel-header .terrain-panel-toggle {
+  margin-left: 0;
+}
+
+.terrain-panel-header .terrain-panel-toggle {
+  order: 10;
+  margin-left: auto;
+}
+
+.terrain-panel-toggle {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.08);
+  color: var(--terrain-cream);
+  font-size: 16px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.terrain-panel-toggle:hover {
+  background: rgba(255,255,255,0.15);
 }
 
 .terrain-panel-header h2 {
@@ -231,32 +506,533 @@ html, body {
   font-size: 16px;
   color: var(--terrain-cream);
   margin: 0 0 4px 0;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .terrain-panel-header .terrain-panel-zone {
   font-size: 11px;
   color: var(--terrain-warm);
+  display: block;
+}
+
+.terrain-panel-tags {
+  flex-shrink: 0;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.terrain-panel-tags-section {
+  margin-bottom: 8px;
+}
+
+.terrain-panel-tags-section:last-child {
+  margin-bottom: 0;
+}
+
+.terrain-panel-tags-title {
+  font-size: 11px;
+  color: var(--terrain-warm);
+  display: block;
+  margin-bottom: 4px;
+}
+
+.terrain-panel-tags-list {
+  font-size: 12px;
+  color: var(--terrain-cream);
+  min-height: 1.2em;
+}
+
+.terrain-panel-tags-list .terrain-tag-item {
+  display: block;
+  padding: 2px 0;
+  color: var(--terrain-water-light);
+  cursor: pointer;
+}
+
+.terrain-panel-tags-list .terrain-tag-item:hover {
+  text-decoration: underline;
 }
 
 .terrain-panel-tabs {
   display: flex;
-  padding: 8px 8px 0;
+  flex-wrap: wrap;
+  padding: 6px 6px 0;
   gap: 4px;
+  flex-shrink: 0;
 }
 
 .terrain-panel-tab {
-  padding: 6px 12px;
-  border-radius: 10px 10px 0 0;
-  font-size: 12px;
+  padding: 5px 8px;
+  border-radius: 8px 8px 0 0;
+  font-size: 11px;
   background: transparent;
   color: var(--terrain-warm);
   border: none;
   cursor: pointer;
 }
 
+.terrain-panel-tab:hover {
+  color: var(--terrain-cream);
+  background: rgba(255,255,255,0.04);
+}
+
 .terrain-panel-tab.active {
   background: rgba(255,255,255,0.06);
   color: var(--terrain-cream);
+}
+
+.terrain-panel-content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.terrain-panel-tab-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  display: none;
+}
+
+/* Accueil : Favoris, Récents, Derniers événements */
+.terrain-accueil-section {
+  margin-bottom: 16px;
+}
+
+.terrain-accueil-section:last-child {
+  margin-bottom: 0;
+}
+
+.terrain-accueil-title {
+  font-size: 12px;
+  color: var(--terrain-warm);
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.terrain-accueil-list {
+  font-size: 13px;
+  color: var(--terrain-cream);
+  min-height: 1.2em;
+}
+
+.terrain-accueil-item {
+  display: block;
+  padding: 6px 8px;
+  margin-bottom: 2px;
+  border-radius: 6px;
+  color: var(--terrain-water-light);
+  cursor: pointer;
+}
+
+.terrain-accueil-item:hover {
+  background: rgba(255,255,255,0.06);
+  color: var(--terrain-cream);
+}
+
+.terrain-accueil-event {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.terrain-accueil-event-meta {
+  font-size: 11px;
+  color: var(--terrain-warm);
+}
+
+.terrain-accueil-event-nom {
+  font-size: 13px;
+}
+
+.terrain-vue-section {
+  margin-bottom: 14px;
+}
+
+.terrain-vue-buttons-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.terrain-vue-opacity-slider {
+  width: 100%;
+  margin: 4px 0;
+  accent-color: var(--terrain-green-mid);
+}
+
+.terrain-vue-opacity-value {
+  font-size: 12px;
+  color: var(--terrain-warm);
+  margin-left: 8px;
+}
+
+.terrain-vue-mes-zones {
+  margin-top: 12px;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  padding: 10px;
+  background: rgba(0,0,0,0.2);
+}
+
+.terrain-vue-mes-zones-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--terrain-cream);
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.terrain-vue-zones-list {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.terrain-vue-zone-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  font-size: 12px;
+}
+
+.terrain-vue-zone-row:last-child {
+  border-bottom: none;
+}
+
+.terrain-vue-zone-eye {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.08);
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.terrain-vue-zone-eye.on {
+  background: rgba(61, 92, 46, 0.4);
+}
+
+.terrain-vue-zone-eye:hover {
+  background: rgba(255,255,255,0.15);
+}
+
+.terrain-vue-zone-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--terrain-cream);
+}
+
+.terrain-vue-zone-edit {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.08);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.terrain-vue-zone-edit:hover {
+  background: var(--terrain-green-dark);
+}
+
+.terrain-vue-zone-surface {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--terrain-warm);
+}
+
+.terrain-vue-zones-empty {
+  font-size: 12px;
+  color: var(--terrain-warm);
+  margin: 0;
+  padding: 8px 0;
+}
+
+.terrain-vue-sun-slider-label {
+  display: block;
+  font-size: 11px;
+  color: var(--terrain-warm);
+  margin-bottom: 4px;
+}
+
+.terrain-vue-sun-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.terrain-vue-sun-slider {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--terrain-green-mid);
+}
+
+.terrain-vue-sun-times {
+  font-size: 12px;
+}
+
+.terrain-vue-sun-time-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.terrain-vue-sun-time-row:last-child {
+  border-bottom: none;
+}
+
+.terrain-vue-sun-time-label {
+  color: var(--terrain-warm);
+}
+
+.terrain-vue-sun-time-val {
+  color: var(--terrain-cream);
+  font-variant-numeric: tabular-nums;
+}
+
+.terrain-vue-section label {
+  display: block;
+  font-size: 11px;
+  color: var(--terrain-warm);
+  margin-bottom: 6px;
+}
+
+.terrain-vue-calques,
+.terrain-vue-hint {
+  font-size: 12px;
+  color: var(--terrain-warm);
+  margin: 0;
+}
+
+.terrain-panel-btn {
+  display: inline-block;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.08);
+  color: var(--terrain-cream);
+  font-size: 12px;
+  cursor: pointer;
+  margin-right: 8px;
+  margin-bottom: 8px;
+  text-decoration: none;
+  font-family: inherit;
+}
+
+.terrain-panel-btn:hover {
+  background: var(--terrain-green-dark);
+  border-color: var(--terrain-green-light);
+}
+
+.terrain-panel-btn.active {
+  background: var(--terrain-green-dark);
+  border-color: var(--terrain-green-light);
+}
+
+.terrain-admin-field {
+  margin-bottom: 12px;
+}
+
+.terrain-admin-field label {
+  display: block;
+  font-size: 11px;
+  color: var(--terrain-warm);
+  margin-bottom: 2px;
+}
+
+.terrain-admin-field span {
+  font-size: 13px;
+  color: var(--terrain-cream);
+}
+
+.terrain-admin-buttons-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.terrain-admin-hint {
+  font-size: 11px;
+  color: var(--terrain-warm);
+  margin: 6px 0 0 0;
+  opacity: 0.9;
+}
+
+.terrain-partner-link {
+  display: block;
+  padding: 8px 0;
+  color: var(--terrain-green-light);
+  text-decoration: none;
+  font-size: 13px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.terrain-partner-link:hover {
+  color: var(--terrain-cream);
+}
+
+.terrain-topbar-garden-select {
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.2);
+  background: rgba(0,0,0,0.3);
+  color: var(--terrain-cream);
+  font-size: 12px;
+  max-width: 140px;
+  cursor: pointer;
+}
+
+/* Overlay fiche spécimen (3/4 écran) */
+.terrain-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 200;
+  display: flex;
+  justify-content: flex-end;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.terrain-overlay.terrain-overlay-visible {
+  pointer-events: auto;
+  opacity: 1;
+  visibility: visible;
+}
+
+.terrain-overlay-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.5);
+  cursor: pointer;
+}
+
+.terrain-overlay-panel {
+  position: relative;
+  width: 75%;
+  max-width: 720px;
+  height: 100%;
+  background: var(--terrain-glass-panel);
+  backdrop-filter: blur(var(--terrain-blur-panel));
+  -webkit-backdrop-filter: blur(var(--terrain-blur-panel));
+  box-shadow: -4px 0 24px rgba(0,0,0,0.4);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.terrain-overlay-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(255,255,255,0.1);
+  color: var(--terrain-cream);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.terrain-overlay-close:hover {
+  background: rgba(255,255,255,0.2);
+}
+
+.terrain-overlay-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 48px 24px 24px;
+}
+
+.terrain-overlay-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.5rem;
+  color: var(--terrain-cream);
+  margin-bottom: 4px;
+}
+
+.terrain-overlay-latin {
+  font-size: 0.9rem;
+  color: var(--terrain-warm);
+  margin-bottom: 1rem;
+}
+
+.terrain-overlay-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 16px;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.terrain-overlay-grid .label {
+  color: var(--terrain-warm);
+}
+
+.terrain-overlay-grid .value {
+  color: var(--terrain-cream);
+}
+
+.terrain-overlay-grid .value.unset {
+  font-style: italic;
+  color: var(--terrain-warm);
+  opacity: 0.8;
+}
+
+.terrain-overlay-hint {
+  font-size: 0.85rem;
+  color: var(--terrain-warm);
+  margin-bottom: 1rem;
+}
+
+.terrain-rappels-item {
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  font-size: 12px;
+  color: var(--terrain-cream);
+}
+
+.terrain-rappels-date {
+  color: var(--terrain-warm);
+  margin-right: 6px;
+}
+
+.terrain-rappels-titre {
+  font-weight: 500;
+}
+
+.terrain-rappels-overdue {
+  color: var(--terrain-red);
+  font-size: 11px;
 }
 
 .terrain-panel-search {
@@ -353,19 +1129,24 @@ html, body {
   gap: 4px;
 }
 
-/* Popup fiche spécimen */
+/* Popup fiche spécimen (à droite du panneau gauche quand ouvert) */
 .terrain-popup {
   position: absolute;
   bottom: 80px;
-  left: 16px;
+  left: 316px;
   width: 280px;
-  max-width: calc(100% - 32px);
+  max-width: calc(100% - 332px);
   background: var(--terrain-glass-panel);
   backdrop-filter: blur(var(--terrain-blur-panel));
   border-radius: 16px;
   padding: 14px;
   z-index: 102;
   animation: terrain-bounce-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+body.terrain-panel-collapsed .terrain-popup {
+  left: 16px;
+  max-width: calc(100% - 32px);
 }
 
 .terrain-popup-title {
@@ -382,12 +1163,18 @@ html, body {
   margin-bottom: 10px;
 }
 
+.terrain-popup-grid-wrap {
+  max-height: 220px;
+  overflow-y: auto;
+  margin-bottom: 10px;
+  -webkit-overflow-scrolling: touch;
+}
+
 .terrain-popup-grid {
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 4px 12px;
   font-size: 12px;
-  margin-bottom: 10px;
 }
 
 .terrain-popup-grid .label { color: var(--terrain-warm); }
@@ -409,12 +1196,21 @@ html, body {
   cursor: pointer;
 }
 
-/* Toolbar bas */
+body.terrain-panel-detail-visible .terrain-badges {
+  left: 576px;
+}
+
+body.terrain-panel-detail-visible .terrain-popup {
+  left: 576px;
+  max-width: calc(100% - 592px);
+}
+
+/* Toolbar bas (à droite du panneau gauche) */
 .terrain-toolbar {
   position: absolute;
   bottom: 0;
-  left: 0;
-  right: 256px;
+  left: 308px;
+  right: 0;
   height: 56px;
   background: linear-gradient(to top, var(--terrain-glass-toolbar), transparent);
   backdrop-filter: blur(var(--terrain-blur-toolbar));
@@ -423,6 +1219,10 @@ html, body {
   padding: 0 12px;
   gap: 8px;
   z-index: 100;
+}
+
+body.terrain-panel-collapsed .terrain-toolbar {
+  left: 56px;
 }
 
 .terrain-toolbar-btn {
@@ -468,11 +1268,11 @@ html, body {
   opacity: 0.6;
 }
 
-/* Légende altitude */
+/* Légende altitude (à droite du panneau gauche) */
 .terrain-legend {
   position: absolute;
   bottom: 64px;
-  right: 272px;
+  left: 316px;
   padding: 8px 12px;
   background: var(--terrain-glass-panel);
   backdrop-filter: blur(var(--terrain-blur-panel));
@@ -485,11 +1285,188 @@ html, body {
 .terrain-legend-title { margin-bottom: 6px; }
 .terrain-legend-entries { display: flex; flex-direction: column; gap: 2px; }
 
-/* Boussole */
+/* Popup édition zone */
+.terrain-zone-edit-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 250;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.terrain-zone-edit-overlay.terrain-zone-edit-visible {
+  display: flex;
+}
+
+.terrain-zone-edit-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.6);
+  cursor: pointer;
+}
+
+.terrain-zone-edit-panel {
+  position: relative;
+  width: 100%;
+  max-width: 320px;
+  background: var(--terrain-glass-panel);
+  backdrop-filter: blur(var(--terrain-blur-panel));
+  border-radius: 14px;
+  padding: 20px;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.terrain-zone-edit-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--terrain-cream);
+  margin-bottom: 14px;
+}
+
+.terrain-zone-edit-panel label {
+  display: block;
+  font-size: 11px;
+  color: var(--terrain-warm);
+  margin-bottom: 4px;
+  margin-top: 10px;
+}
+
+.terrain-zone-edit-panel input,
+.terrain-zone-edit-panel select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.2);
+  background: rgba(0,0,0,0.3);
+  color: var(--terrain-cream);
+  font-size: 13px;
+}
+
+.terrain-zone-edit-colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.terrain-zone-edit-swatch {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 2px solid rgba(255,255,255,0.2);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.terrain-zone-edit-swatch:hover {
+  border-color: var(--terrain-green-light);
+  transform: scale(1.05);
+}
+
+.terrain-zone-edit-swatch.selected {
+  border-color: var(--terrain-cream);
+  box-shadow: 0 0 0 1px var(--terrain-cream);
+}
+
+.terrain-zone-edit-swatch-hachure {
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--terrain-green-mid),
+    var(--terrain-green-mid) 2px,
+    rgba(61, 92, 46, 0.2) 2px,
+    rgba(61, 92, 46, 0.2) 6px
+  );
+}
+
+.terrain-zone-edit-actions {
+  margin-top: 18px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.terrain-zone-edit-actions-right {
+  display: flex;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.terrain-zone-edit-delete {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.2);
+  background: rgba(180, 60, 60, 0.25);
+  color: var(--terrain-cream);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.terrain-zone-edit-delete:hover {
+  background: rgba(180, 60, 60, 0.5);
+}
+
+/* Formulaire création zone (overlay dessin) */
+.terrain-zone-form-colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.terrain-zone-swatch {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 2px solid rgba(255,255,255,0.3);
+  cursor: pointer;
+  padding: 0;
+}
+
+.terrain-zone-swatch:hover {
+  border-color: rgba(255,255,255,0.6);
+}
+
+.terrain-zone-swatch.selected {
+  border-color: #ede8dc;
+  box-shadow: 0 0 0 1px #ede8dc;
+}
+
+.terrain-zone-edit-actions button {
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+#terrain-zone-edit-cancel {
+  border: 1px solid rgba(255,255,255,0.3);
+  background: transparent;
+  color: var(--terrain-cream);
+}
+
+#terrain-zone-edit-save {
+  border: none;
+  background: var(--terrain-green-dark);
+  color: var(--terrain-cream);
+}
+
+/* Boussole (legacy, masquée si contrôles droite utilisés) */
 .terrain-compass {
   position: absolute;
   top: 56px;
-  right: 272px;
+  right: 316px;
   width: 40px;
   height: 40px;
   border-radius: 50%;
@@ -501,6 +1478,148 @@ html, body {
   font-size: 18px;
   cursor: pointer;
   z-index: 99;
+}
+
+/* Contrôles bas droite : rose des vents + fly-home + zoom + angle vue */
+.terrain-controls-right {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  z-index: 110;
+  pointer-events: auto;
+}
+
+.terrain-controls-right .terrain-wind-rose {
+  position: relative;
+  top: auto;
+  left: auto;
+  flex-shrink: 0;
+}
+
+.terrain-controls-right .terrain-controls-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: var(--terrain-glass-panel);
+  backdrop-filter: blur(var(--terrain-blur-toolbar));
+  color: var(--terrain-cream);
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.terrain-controls-right .terrain-controls-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.terrain-controls-right .terrain-controls-btn-lidar {
+  color: var(--terrain-green-light, #8fbc8f);
+}
+
+.terrain-controls-right .terrain-controls-select {
+  min-width: 44px;
+  max-width: 100px;
+  height: 44px;
+  padding: 4px 8px;
+  border-radius: 22px;
+  border: none;
+  background: var(--terrain-glass-panel);
+  backdrop-filter: blur(var(--terrain-blur-toolbar));
+  color: var(--terrain-cream);
+  font-size: 11px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='%23ede8dc' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  padding-right: 20px;
+}
+
+.terrain-controls-right .terrain-controls-select:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+.terrain-controls-right .terrain-controls-select option {
+  color: var(--terrain-bg-deep);
+  background: var(--terrain-cream);
+}
+
+/* Rose des vents (dans contrôles droite ou standalone) */
+.terrain-wind-rose {
+  position: fixed;
+  top: 56px;
+  left: 16px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--terrain-glass-panel);
+  backdrop-filter: blur(var(--terrain-blur-toolbar));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99;
+  cursor: pointer;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+}
+
+.terrain-wind-rose-svg {
+  width: 48px;
+  height: 48px;
+  display: block;
+}
+
+.terrain-wind-rose-circle {
+  fill: none;
+  stroke: rgba(237, 232, 220, 0.5);
+  stroke-width: 1.5;
+}
+
+.terrain-wind-rose-inner {
+  fill: none;
+  stroke: rgba(237, 232, 220, 0.25);
+  stroke-width: 1;
+}
+
+.terrain-wind-rose-line {
+  stroke: rgba(237, 232, 220, 0.6);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+.terrain-wind-rose-line.terrain-wind-rose-n {
+  stroke: var(--terrain-cream);
+  stroke-width: 2;
+}
+
+.terrain-wind-rose-line.terrain-wind-rose-minor {
+  stroke: rgba(237, 232, 220, 0.35);
+  stroke-width: 1;
+}
+
+.terrain-wind-rose-label,
+.terrain-wind-rose-n-label {
+  fill: rgba(237, 232, 220, 0.85);
+  font-size: 10px;
+  font-family: system-ui, sans-serif;
+  font-weight: 500;
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+
+.terrain-wind-rose-n-label {
+  fill: var(--terrain-cream);
+  font-weight: 700;
+  font-size: 12px;
 }
 
 /* Fog overlay (atmosphère) */

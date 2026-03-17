@@ -21,7 +21,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
 
-from gardens.models import GardenGCP
+from gardens.models import GardenGCP, Partner, Zone
 from .models import (
     Cultivar,
     CultivarPorteGreffe,
@@ -49,7 +49,10 @@ from .serializers import (
     OrganismUpdateSerializer,
     GardenMinimalSerializer,
     GardenCreateSerializer,
+    GardenUpdateSerializer,
     GardenGCPSerializer,
+    PartnerSerializer,
+    ZoneSerializer,
     SpecimenListSerializer,
     SpecimenDetailSerializer,
     SpecimenCreateUpdateSerializer,
@@ -944,9 +947,10 @@ class GardenViewSet(
     mixins.ListModelMixin,
     mixins.RetrieveModelMixin,
     mixins.CreateModelMixin,
+    mixins.UpdateModelMixin,
     viewsets.GenericViewSet,
 ):
-    """Liste, détail et création des jardins (création réservée aux utilisateurs authentifiés)."""
+    """Liste, détail, création et mise à jour partielle des jardins (PATCH pour onglet Admin vue 3D)."""
 
     queryset = Garden.objects.order_by('nom')
     serializer_class = GardenMinimalSerializer
@@ -954,6 +958,8 @@ class GardenViewSet(
     def get_serializer_class(self):
         if self.action == 'create':
             return GardenCreateSerializer
+        if self.action in ('update', 'partial_update'):
+            return GardenUpdateSerializer
         return GardenMinimalSerializer
 
     def get_permissions(self):
@@ -1007,6 +1013,25 @@ class GardenGCPViewSet(viewsets.ModelViewSet):
         serializer.save(garden_id=self.kwargs['garden_pk'])
 
 
+# --- Zone (zones d'un jardin, polygones PostGIS) ---
+class ZoneViewSet(viewsets.ModelViewSet):
+    """
+    CRUD zones : GET/POST /api/zones/?garden_id=<id> ; GET/PUT/DELETE /api/zones/<id>/.
+    """
+    serializer_class = ZoneSerializer
+    queryset = Zone.objects.select_related('garden').order_by('ordre', 'nom')
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        garden_id = self.request.query_params.get('garden_id')
+        if garden_id is not None:
+            try:
+                qs = qs.filter(garden_id=int(garden_id))
+            except (ValueError, TypeError):
+                pass
+        return qs
+
+
 def export_garden_gcps_csv(request, garden_pk):
     """GET /api/gardens/<garden_pk>/gcps/export/ — CSV pour OpenDroneMap (GCP_Label, Longitude, Latitude, Altitude, Image_Name)."""
     if not getattr(request, 'user', None) or not request.user.is_authenticated:
@@ -1022,6 +1047,19 @@ def export_garden_gcps_csv(request, garden_pk):
     response = HttpResponse(buf.getvalue(), content_type='text/csv; charset=utf-8')
     response['Content-Disposition'] = f'attachment; filename="gcps_garden_{garden_pk}.csv"'
     return response
+
+
+# --- Partenaires / Fournisseurs (onglet Partenaires vue 3D) ---
+class PartnersListView(APIView):
+    """
+    GET /api/partners/ — Liste des partenaires actifs (nom, url, ordre) pour l'onglet Partenaires.
+    """
+    def get(self, request):
+        if not request.user.is_authenticated:
+            return Response({'detail': 'Authentification requise'}, status=status.HTTP_401_UNAUTHORIZED)
+        partners = Partner.objects.filter(actif=True).order_by('ordre', 'nom')
+        serializer = PartnerSerializer(partners, many=True)
+        return Response(serializer.data)
 
 
 # --- Préférences utilisateur (jardin par défaut, distance pollinisation) ---

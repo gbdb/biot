@@ -614,6 +614,10 @@ Ce projet adhère à un code de conduite respectueux et inclusif. En participant
 
 Ce projet est sous licence **AGPL-3.0** - voir le fichier [LICENSE](LICENSE) pour plus de détails.
 
+### Licences tierces
+
+Composants sous licence distincte utilisés dans ce projet : **SunCalc** (horaires du soleil) — © Vladimir Agafonkin, [BSD 2-Clause](https://opensource.org/licenses/BSD-2-Clause) — [github.com/mourner/suncalc](https://github.com/mourner/suncalc).
+
 ### Pourquoi AGPL-3.0?
 
 L'AGPL garantit que le code reste libre et open-source, même si quelqu'un héberge une version modifiée comme service. Cela protège la communauté et assure que les améliorations bénéficient à tous.

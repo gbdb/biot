@@ -1,0 +1,102 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Choisir un jardin — Jardin bIOT</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600&family=Playfair+Display:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0d1008;
+      --green-dark: #3d5c2e;
+      --green-mid: #5a8a3f;
+      --green-light: #7ab85a;
+      --cream: #ede8dc;
+      --warm: #c8b99a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--cream);
+      font-family: 'Outfit', sans-serif;
+      padding: 1.5rem;
+    }
+    .header { margin-bottom: 1.5rem; }
+    .logo { font-family: 'Playfair Display', serif; font-size: 1.25rem; }
+    .logo span { color: var(--green-light); }
+    h1 { font-size: 1.25rem; margin: 0.5rem 0; color: var(--green-light); }
+    .subtitle { font-size: 0.9rem; color: var(--warm); }
+    a.back { color: var(--warm); text-decoration: none; font-size: 0.9rem; }
+    a.back:hover { color: var(--green-light); }
+    form { max-width: 480px; }
+    .garden-list { display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1rem; }
+    .garden-option {
+      display: block;
+      padding: 1rem 1.25rem;
+      background: rgba(0,0,0,0.4);
+      border: 1px solid rgba(122, 184, 90, 0.2);
+      border-radius: 10px;
+      color: var(--cream);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 1rem;
+      text-align: left;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .garden-option:hover { border-color: var(--green-mid); background: rgba(61, 92, 46, 0.2); }
+    .garden-option strong { display: block; margin-bottom: 0.25rem; }
+    .garden-option span { font-size: 0.85rem; color: var(--warm); }
+    .garden-option input { margin-right: 0.75rem; }
+    .choice-row { display: flex; align-items: center; gap: 0.5rem; }
+    .error { color: #e07; font-size: 0.9rem; margin-bottom: 1rem; }
+    button[type="submit"] {
+      margin-top: 1.25rem;
+      padding: 0.75rem 1.5rem;
+      background: var(--green-dark);
+      color: var(--cream);
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    button[type="submit"]:hover { background: var(--green-mid); }
+    button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <a class="back" href="{% url 'home' %}">← Retour</a>
+    <div class="logo">Jardin <span>bIOT</span></div>
+    <h1>Choisir un jardin</h1>
+    <p class="subtitle">Sélectionnez votre jardin par défaut pour ouvrir la vue 3D.</p>
+  </div>
+  {% if messages %}
+    {% for message in messages %}
+      <p class="error">{{ message }}</p>
+    {% endfor %}
+  {% endif %}
+  {% if gardens %}
+    <form method="post" action="">
+      {% csrf_token %}
+      <div class="garden-list">
+        {% for g in gardens %}
+          <label class="garden-option choice-row">
+            <input type="radio" name="garden_id" value="{{ g.id }}" required>
+            <span>
+              <strong>{{ g.nom }}</strong>
+              {% if g.ville or g.adresse %}<span>{{ g.ville|default:"" }}{% if g.ville and g.adresse %} — {% endif %}{{ g.adresse|default:"" }}</span>{% endif %}
+            </span>
+          </label>
+        {% endfor %}
+      </div>
+      <button type="submit">Ouvrir la vue 3D</button>
+    </form>
+  {% else %}
+    <p class="subtitle">Aucun jardin. Créez-en un depuis l’<a href="/admin/" style="color: var(--green-light);">administration</a> ou l’app mobile.</p>
+  {% endif %}
+</body>
+</html>

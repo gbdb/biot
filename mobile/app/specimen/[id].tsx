@@ -339,7 +339,7 @@ function EventDetailModal({
         <TouchableOpacity style={modalStyles.backdrop} activeOpacity={1} onPress={onClose} />
         <View style={[modalStyles.content, { maxHeight: '90%' }]} onStartShouldSetResponder={() => true}>
           <Text style={modalStyles.title}>{EVENT_TYPE_LABELS[event.type_event]}</Text>
-          <Text style={eventDetailStyles.date}>📅 {event.date}</Text>
+          <Text style={eventDetailStyles.date}>{event.date}</Text>
 
           {editMode ? (
             <>
@@ -962,7 +962,7 @@ export default function SpecimenDetailScreen() {
           {(specimen.organism_calendrier ?? []).map((cal) => (
             <View key={cal.id} style={styles.phenoRow}>
               <Text style={styles.phenoIcon}>
-                {cal.type_periode === 'floraison' ? '🌸' : cal.type_periode === 'fructification' ? '🍎' : cal.type_periode === 'recolte' ? '🧺' : '📅'}
+                {cal.type_periode === 'floraison' ? 'F' : cal.type_periode === 'fructification' ? 'F' : cal.type_periode === 'recolte' ? 'R' : '•'}
               </Text>
               <Text style={styles.phenoLabel}>
                 {cal.type_periode_display ?? cal.type_periode} — {cal.mois_debut != null && cal.mois_fin != null ? `Mois ${cal.mois_debut}–${cal.mois_fin}` : '—'}
@@ -1254,7 +1254,7 @@ export default function SpecimenDetailScreen() {
               activeOpacity={0.7}
             >
               <Text style={styles.eventType}>{REMINDER_TYPE_LABELS[r.type_rappel]}</Text>
-              <Text style={styles.eventDate}>📅 {r.date_rappel} • {REMINDER_ALERTE_LABELS[r.type_alerte]}</Text>
+              <Text style={styles.eventDate}>{r.date_rappel} • {REMINDER_ALERTE_LABELS[r.type_alerte]}</Text>
               {r.titre ? <Text style={styles.eventTitre}>{r.titre}</Text> : null}
             </TouchableOpacity>
           ))

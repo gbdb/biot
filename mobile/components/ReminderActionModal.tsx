@@ -151,7 +151,7 @@ export function ReminderActionModal({
           <View style={styles.card}>
             <Text style={styles.specimenName}>{reminder.specimen.nom}</Text>
             <Text style={styles.typeLabel}>{typeLabel}</Text>
-            <Text style={styles.dateText}>📅 {reminder.date_rappel}</Text>
+            <Text style={styles.dateText}>{reminder.date_rappel}</Text>
             {reminder.recurrence_rule && reminder.recurrence_rule !== 'none' && (
               <Text style={styles.recurrenceText}>
                 Récurrent : {REMINDER_RECURRENCE_LABELS[reminder.recurrence_rule as ReminderRecurrenceRule] ?? reminder.recurrence_rule}

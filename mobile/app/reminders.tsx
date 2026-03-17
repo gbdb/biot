@@ -60,7 +60,7 @@ export default function RemindersScreen() {
         <Text style={styles.specimenName} numberOfLines={1}>{item.specimen.nom}</Text>
         <Text style={styles.typeLabel}>{REMINDER_TYPE_LABELS[item.type_rappel as keyof typeof REMINDER_TYPE_LABELS] ?? item.type_rappel}</Text>
         <Text style={[styles.dateText, item.is_overdue && styles.dateOverdue]}>
-          📅 {item.date_rappel}{item.is_overdue ? ' (en retard)' : ''}
+          {item.date_rappel}{item.is_overdue ? ' (en retard)' : ''}
         </Text>
       </View>
       <Ionicons name="chevron-forward" size={20} color="#999" />

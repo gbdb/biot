@@ -19,10 +19,18 @@ from species.views import (
     geocode_garden_view,
     gestion_donnees_view,
     hq_file_stats_view,
+    home_view,
+    login_view,
+    logout_view,
+    choose_garden_view,
 )
 
 urlpatterns = [
     path('favicon.ico', RedirectView.as_view(url=settings.STATIC_URL + 'favicon.png', permanent=False)),
+    path('', home_view, name='home'),
+    path('login/', login_view, name='login'),
+    path('logout/', logout_view, name='logout'),
+    path('choose-garden/', choose_garden_view, name='choose-garden'),
     path('cesium-view/', cesium_terrain_view, name='cesium-terrain'),
     path('api/', include('species.api_urls')),
     path('api/auth/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),

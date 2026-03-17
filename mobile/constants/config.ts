@@ -4,8 +4,14 @@
  * L'utilisateur peut surcharger l'URL dans Paramètres → Serveur (persistée en SecureStore).
  */
 
-/** URL par défaut (build / EXPO_PUBLIC_API_URL). */
+import Constants from 'expo-constants';
+
+/** URL par défaut (build / EXPO_PUBLIC_API_URL). En simulateur, utilise localhost pour joindre le Mac. */
 export function getDefaultApiBaseUrl(): string {
+  // En simulateur iOS/Android, localhost = le Mac → Django doit tourner sur 0.0.0.0:8000
+  if (typeof Constants !== 'undefined' && Constants.isDevice === false) {
+    return 'http://127.0.0.1:8000';
+  }
   if (process.env.EXPO_PUBLIC_API_URL) {
     return process.env.EXPO_PUBLIC_API_URL.replace(/\/$/, '');
   }

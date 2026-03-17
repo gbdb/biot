@@ -19,9 +19,9 @@ import type {
 import { REMINDER_TYPE_LABELS } from '@/types/api';
 
 const PHENO_TYPE_LABELS: Record<string, string> = {
-  floraison: '🌸 Floraison',
-  fructification: '🍎 Fructification',
-  recolte: '🧺 Récolte',
+  floraison: 'Floraison',
+  fructification: 'Fructification',
+  recolte: 'Récolte',
 };
 
 type WarningItem =

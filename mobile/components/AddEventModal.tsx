@@ -23,6 +23,7 @@ import type { Event, EventType, Reminder, ReminderType, ReminderAlerteType, Remi
 import { EVENT_TYPE_LABELS, REMINDER_TYPE_LABELS, REMINDER_ALERTE_LABELS, REMINDER_RECURRENCE_LABELS } from '@/types/api';
 import { FAB } from '@/components/FAB';
 import { AddEventPhotoModal, getPhotoThumbUri, type PhotoOrPending } from '@/components/AddEventPhotoModal';
+import { Ionicons } from '@expo/vector-icons';
 
 const EVENT_TYPES: EventType[] = [
   'plantation',
@@ -49,9 +50,23 @@ const REMINDER_TYPES: ReminderType[] = [
 const REMINDER_ALERTE_TYPES: ReminderAlerteType[] = ['email', 'popup', 'son'];
 
 const PHOTO_TYPE_LABELS: Record<string, string> = {
-  avant: '📷 Avant',
-  apres: '📷 Après',
-  autre: '📷 Autre',
+  avant: 'Avant',
+  apres: 'Après',
+  autre: 'Autre',
+};
+
+const REMINDER_TYPE_ICONS: Record<ReminderType, keyof typeof Ionicons.glyphMap> = {
+  arrosage: 'water-outline',
+  suivi_maladie: 'medical-outline',
+  taille: 'cut-outline',
+  suivi_general: 'eye-outline',
+  cueillette: 'basket-outline',
+};
+
+const REMINDER_ALERTE_ICONS: Record<ReminderAlerteType, keyof typeof Ionicons.glyphMap> = {
+  email: 'mail-outline',
+  popup: 'notifications-outline',
+  son: 'volume-high-outline',
 };
 
 function formatDateForInput(d: Date): string {
@@ -316,7 +331,7 @@ export function AddEventModal({
                       }}
                     >
                       <Text style={[modalStyles.typeButtonText, { color: '#fff' }]}>
-                        💀 Mort et enlèvement
+                        Mort et enlèvement
                       </Text>
                     </TouchableOpacity>
                   )}
@@ -359,6 +374,12 @@ export function AddEventModal({
                         ]}
                         onPress={() => setTypeRappel(t)}
                       >
+                        <Ionicons
+                          name={REMINDER_TYPE_ICONS[t]}
+                          size={18}
+                          color={typeRappel === t ? '#fff' : '#1a3c27'}
+                          style={{ marginRight: 6 }}
+                        />
                         <Text
                           style={[
                             modalStyles.typeButtonText,
@@ -376,7 +397,7 @@ export function AddEventModal({
                     onPress={() => setShowDatePicker(true)}
                   >
                     <Text style={modalStyles.dateDisplay}>{dateRappel}</Text>
-                    <Text style={{ color: '#666' }}>📅</Text>
+                    <Ionicons name="calendar-outline" size={20} color="#666" />
                   </TouchableOpacity>
                   {showDatePicker && (
                     <DateTimePicker
@@ -428,6 +449,12 @@ export function AddEventModal({
                         ]}
                         onPress={() => setTypeAlerte(t)}
                       >
+                        <Ionicons
+                          name={REMINDER_ALERTE_ICONS[t]}
+                          size={18}
+                          color={typeAlerte === t ? '#fff' : '#1a3c27'}
+                          style={{ marginRight: 6 }}
+                        />
                         <Text
                           style={[
                             modalStyles.typeButtonText,
@@ -595,6 +622,8 @@ const modalStyles = StyleSheet.create({
     marginBottom: 16,
   },
   typeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     padding: 12,
     backgroundColor: '#f0f0eb',
     borderRadius: 10,

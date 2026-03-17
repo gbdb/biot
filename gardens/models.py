@@ -1,6 +1,7 @@
 """
 Jardins, météo, arrosage, préférences utilisateur.
 Models moved from species app; tables unchanged (db_table preserved).
+Zone.boundary : GeoJSON Polygon (JSONField), surface_m2 calculée avec shapely+pyproj (sans GDAL).
 """
 from django.conf import settings
 from django.db import models
@@ -50,6 +51,12 @@ class Garden(models.Model):
         null=True,
         blank=True,
         help_text="Surface en hectares (optionnel)",
+    )
+    distance_unit = models.CharField(
+        max_length=2,
+        choices=[('m', 'Mètres'), ('ft', 'Pieds')],
+        default='m',
+        help_text="Unité de mesure par défaut pour ce jardin (la vue peut basculer temporairement).",
     )
 
     class Meta:
@@ -181,3 +188,90 @@ class UserPreference(models.Model):
         db_table = 'species_userpreference'
         verbose_name = "Préférence utilisateur"
         verbose_name_plural = "Préférences utilisateur"
+
+
+class Zone(models.Model):
+    """
+    Zone au sein d'un jardin (polygone GeoJSON, type, surface calculée en m²).
+    boundary : GeoJSON Polygon (WGS84). surface_m2 calculée via projection Québec (EPSG:32198)
+    avec shapely + pyproj (pas de GDAL requis).
+    """
+    TYPE_ZONE_CHOICES = [
+        ('stationnement', 'Stationnement'),
+        ('culture', 'Culture'),
+        ('boise', 'Boisé'),
+        ('eau', 'Eau'),
+        ('batiment', 'Bâtiment'),
+        ('autre', 'Autre'),
+    ]
+
+    garden = models.ForeignKey(
+        Garden,
+        on_delete=models.CASCADE,
+        related_name='zones',
+    )
+    nom = models.CharField(max_length=100)
+    type = models.CharField(max_length=20, choices=TYPE_ZONE_CHOICES, default='autre')
+    boundary = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Polygone GeoJSON (type Polygon, WGS84). Ex: {\"type\":\"Polygon\",\"coordinates\":[[[lng,lat],...]]}",
+    )
+    surface_m2 = models.FloatField(null=True, blank=True, help_text="Surface en m² (calculée depuis boundary)")
+    batiment_hauteur_m = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Hauteur en m (pour type Bâtiment uniquement)",
+    )
+    couleur = models.CharField(max_length=20, default='#3d5c2e')
+    ordre = models.IntegerField(default=0)
+    date_creation = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'gardens_zone'
+        verbose_name = "Zone"
+        verbose_name_plural = "Zones"
+        ordering = ['ordre', 'nom']
+
+    def __str__(self):
+        return f"{self.garden.nom} — {self.nom}"
+
+    def save(self, *args, **kwargs):
+        if self.boundary and isinstance(self.boundary, dict):
+            try:
+                from shapely.geometry import shape
+                from shapely.ops import transform as shapely_transform
+                from pyproj import Transformer
+                geom = shape(self.boundary)
+                if geom.is_empty or geom.geom_type != 'Polygon':
+                    self.surface_m2 = None
+                else:
+                    transformer = Transformer.from_crs("EPSG:4326", "EPSG:32198", always_xy=True)
+                    projected = shapely_transform(transformer.transform, geom)
+                    self.surface_m2 = projected.area
+            except Exception:
+                self.surface_m2 = None
+        else:
+            self.surface_m2 = None
+        super().save(*args, **kwargs)
+
+
+class Partner(models.Model):
+    """
+    Partenaire / fournisseur / catalogue préféré (liens vers sites externes).
+    Éditable en admin ; évolution possible vers sponsorship.
+    """
+    nom = models.CharField(max_length=200, help_text="Nom du partenaire ou fournisseur")
+    url = models.URLField(help_text="Lien vers le site")
+    ordre = models.IntegerField(default=0, help_text="Ordre d'affichage (plus petit = en premier)")
+    actif = models.BooleanField(default=True)
+    notes = models.TextField(blank=True, help_text="Notes internes (optionnel)")
+
+    class Meta:
+        db_table = 'gardens_partner'
+        verbose_name = "Partenaire / Fournisseur"
+        verbose_name_plural = "Partenaires / Fournisseurs"
+        ordering = ['ordre', 'nom']
+
+    def __str__(self):
+        return self.nom

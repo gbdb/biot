@@ -84,10 +84,18 @@ class Specimen(models.Model):
     )
 
     # === LOCALISATION ===
+    zone = models.ForeignKey(
+        'gardens.Zone',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='specimens',
+        help_text="Zone du jardin (modèle Zone) si définie",
+    )
     zone_jardin = models.CharField(
         max_length=100,
         blank=True,
-        help_text="Ex: Zone Nord, Près du ruisseau, Forêt Est"
+        help_text="Ex: Zone Nord, Près du ruisseau, Forêt Est (libellé libre, conservé pour compatibilité)"
     )
     
     latitude = models.FloatField(

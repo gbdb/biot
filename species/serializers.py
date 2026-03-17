@@ -1,9 +1,10 @@
 """
 Serializers pour l'API REST (app mobile Jardin Biot).
 """
+import json
 from rest_framework import serializers
 
-from gardens.models import GardenGCP
+from gardens.models import GardenGCP, Partner, Zone
 from .models import (
     Organism,
     OrganismPropriete,
@@ -374,7 +375,7 @@ class GardenMinimalSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Garden
-        fields = ['id', 'nom', 'ville', 'adresse', 'latitude', 'longitude']
+        fields = ['id', 'nom', 'ville', 'adresse', 'latitude', 'longitude', 'distance_unit']
 
 
 class GardenCreateSerializer(serializers.ModelSerializer):
@@ -383,6 +384,24 @@ class GardenCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Garden
         fields = ['nom', 'ville', 'adresse']
+
+
+class GardenUpdateSerializer(serializers.ModelSerializer):
+    """Mise à jour partielle (onglet Admin vue 3D : nom, adresse, distance_unit)."""
+
+    class Meta:
+        model = Garden
+        fields = ['nom', 'adresse', 'distance_unit']
+        extra_kwargs = {f: {'required': False} for f in ['nom', 'adresse', 'distance_unit']}
+
+
+# --- Partner (fournisseurs / partenaires) ---
+class PartnerSerializer(serializers.ModelSerializer):
+    """Lecture seule pour l'onglet Partenaires."""
+
+    class Meta:
+        model = Partner
+        fields = ['id', 'nom', 'url', 'ordre']
 
 
 class GardenGCPSerializer(serializers.ModelSerializer):
@@ -405,6 +424,33 @@ class GardenGCPSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'photo_url']
         extra_kwargs = {'photo': {'write_only': True}}
+
+
+class ZoneSerializer(serializers.ModelSerializer):
+    """CRUD Zone : boundary en GeoJSON (dict), surface_m2 en lecture seule."""
+    boundary = serializers.JSONField(required=False, allow_null=True)
+
+    class Meta:
+        model = Zone
+        fields = [
+            'id', 'garden', 'nom', 'type', 'boundary',
+            'surface_m2', 'batiment_hauteur_m', 'couleur', 'ordre', 'date_creation',
+        ]
+        read_only_fields = ['id', 'surface_m2', 'date_creation']
+
+    def validate_boundary(self, value):
+        if value is None:
+            return value
+        if not isinstance(value, dict) or value.get('type') != 'Polygon':
+            raise serializers.ValidationError("boundary doit être un objet GeoJSON de type Polygon.")
+        try:
+            from shapely.geometry import shape
+            geom = shape(value)
+            if geom.is_empty or geom.geom_type != 'Polygon':
+                raise serializers.ValidationError("boundary doit être un polygone GeoJSON valide.")
+        except Exception as e:
+            raise serializers.ValidationError(f"boundary invalide : {e}") from e
+        return value
 
 
 def _get_photo_url(request, photo):
@@ -459,7 +505,7 @@ class SpecimenListSerializer(serializers.ModelSerializer):
         model = Specimen
         fields = [
             'id', 'nom', 'code_identification', 'nfc_tag_uid', 'organisme', 'organisme_nom',
-            'organisme_nom_latin', 'garden', 'garden_nom', 'zone_jardin', 'statut', 'sante',
+            'organisme_nom_latin', 'garden', 'garden_nom', 'zone', 'zone_jardin', 'statut', 'sante',
             'date_plantation', 'latitude', 'longitude', 'is_favori', 'photo_principale_url',
             'rayon_adulte_m',
         ]
@@ -551,7 +597,7 @@ class SpecimenDetailSerializer(serializers.ModelSerializer):
         model = Specimen
         fields = [
             'id', 'nom', 'code_identification', 'nfc_tag_uid', 'organisme', 'organism_calendrier', 'cultivar', 'garden',
-            'zone_jardin', 'latitude', 'longitude', 'date_plantation', 'age_plantation',
+            'zone', 'zone_jardin', 'latitude', 'longitude', 'date_plantation', 'age_plantation',
             'source', 'pepiniere_fournisseur', 'statut', 'sante', 'hauteur_actuelle',
             'premiere_fructification', 'notes', 'date_ajout', 'date_modification', 'is_favori',
             'photo_principale_url', 'photo_principale',
@@ -567,7 +613,7 @@ class SpecimenCreateUpdateSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'organisme', 'cultivar', 'garden', 'nom', 'code_identification', 'nfc_tag_uid',
-            'zone_jardin', 'latitude', 'longitude', 'date_plantation', 'age_plantation',
+            'zone', 'zone_jardin', 'latitude', 'longitude', 'date_plantation', 'age_plantation',
             'source', 'pepiniere_fournisseur', 'seed_collection', 'statut', 'sante',
             'hauteur_actuelle', 'premiere_fructification', 'notes',
         ]

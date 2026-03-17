@@ -17,8 +17,10 @@
   window.GARDEN_DATA = {{ garden_json|safe }};
   window.INITIAL_SPECIMENS = {{ specimens_json|default:"[]"|safe }};
 </script>
+<script src="https://unpkg.com/suncalc@1.9.0/suncalc.js"></script>
 <script src="{% static 'cesium/terrain_bridge.js' %}"></script>
-<script src="{% static 'cesium/terrain_cesium.js' %}"></script>
-<script src="{% static 'cesium/terrain_ui.js' %}"></script>
+{# Bumper la version (ex. ?v=3) après chaque modif des scripts pour forcer le rechargement en dev #}
+<script src="{% static 'cesium/terrain_cesium.js' %}?v=4"></script>
+<script src="{% static 'cesium/terrain_ui.js' %}?v=4"></script>
 </body>
 </html>

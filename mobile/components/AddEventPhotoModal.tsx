@@ -14,9 +14,9 @@ import { uploadEventPhoto } from '@/api/client';
 import type { Photo } from '@/types/api';
 
 export const PHOTO_TYPE_LABELS: Record<string, string> = {
-  avant: '📷 Avant',
-  apres: '📷 Après',
-  autre: '📷 Autre',
+  avant: 'Avant',
+  apres: 'Après',
+  autre: 'Autre',
 };
 
 export type PhotoOrPending = Photo | { id: string; localUri: string; type_photo: string; titre?: string };

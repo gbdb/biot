@@ -42,7 +42,7 @@ export default function RecentEventsScreen() {
       ) : (
         <View style={[styles.thumb, styles.thumbPlaceholder]}>
           <Text style={styles.thumbPlaceholderText}>
-            {EVENT_TYPE_LABELS[item.type_event as keyof typeof EVENT_TYPE_LABELS]?.slice(0, 1) ?? '📅'}
+            {EVENT_TYPE_LABELS[item.type_event as keyof typeof EVENT_TYPE_LABELS]?.slice(0, 1) ?? ''}
           </Text>
         </View>
       )}

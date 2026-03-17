@@ -232,15 +232,15 @@ export type SpecimenStatut =
   | 'enleve';
 
 export const SPECIMEN_STATUT_LABELS: Record<SpecimenStatut, string> = {
-  planifie: '📋 Planifié',
-  commande: '🛒 Commandé',
-  transplanter: '🌱 À transplanter',
-  jeune: '🌿 Jeune plant',
-  etabli: '🌳 Établi',
-  mature: '🎯 Mature/Production',
-  declin: '📉 En déclin',
-  mort: '💀 Mort',
-  enleve: '🗑️ Enlevé',
+  planifie: 'Planifié',
+  commande: 'Commandé',
+  transplanter: 'À transplanter',
+  jeune: 'Jeune plant',
+  etabli: 'Établi',
+  mature: 'Mature/Production',
+  declin: 'En déclin',
+  mort: 'Mort',
+  enleve: 'Enlevé',
 };
 
 /** Emoji par statut (pour pins carte 3D). */
@@ -408,23 +408,23 @@ export type EventType =
   | 'enlever';
 
 export const EVENT_TYPE_LABELS: Record<EventType, string> = {
-  plantation: '🌱 Plantation',
-  arrosage: '💧 Arrosage',
-  fertilisation: '🌿 Fertilisation',
-  amendement: '🪨 Amendement sol',
-  taille: '✂️ Taille/Élagage',
-  paillage: '🍂 Paillage',
-  observation: '👁️ Observation',
-  floraison: '🌸 Floraison',
-  fructification: '🍎 Fructification',
-  recolte: '🧺 Récolte',
-  maladie: '🦠 Maladie/Problème',
-  traitement: '💊 Traitement',
-  transplantation: '🚚 Transplantation',
-  protection: '🛡️ Protection (hiver, animaux)',
-  autre: '📝 Autre',
-  mort: '💀 Mort',
-  enlever: '🗑️ Enlevé',
+  plantation: 'Plantation',
+  arrosage: 'Arrosage',
+  fertilisation: 'Fertilisation',
+  amendement: 'Amendement sol',
+  taille: 'Taille/Élagage',
+  paillage: 'Paillage',
+  observation: 'Observation',
+  floraison: 'Floraison',
+  fructification: 'Fructification',
+  recolte: 'Récolte',
+  maladie: 'Maladie/Problème',
+  traitement: 'Traitement',
+  transplantation: 'Transplantation',
+  protection: 'Protection (hiver, animaux)',
+  autre: 'Autre',
+  mort: 'Mort',
+  enlever: 'Enlevé',
 };
 
 /** Événement récent avec infos spécimen et photo (accueil / liste globale). */
@@ -476,17 +476,17 @@ export type ReminderType =
 export type ReminderAlerteType = 'email' | 'popup' | 'son';
 
 export const REMINDER_TYPE_LABELS: Record<ReminderType, string> = {
-  arrosage: '💧 Arrosage',
-  suivi_maladie: '🦠 Suivi de maladie',
-  taille: '✂️ Taille',
-  suivi_general: '👁️ Suivi général',
-  cueillette: '🧺 Cueillette',
+  arrosage: 'Arrosage',
+  suivi_maladie: 'Suivi de maladie',
+  taille: 'Taille',
+  suivi_general: 'Suivi général',
+  cueillette: 'Cueillette',
 };
 
 export const REMINDER_ALERTE_LABELS: Record<ReminderAlerteType, string> = {
-  email: '📧 Email',
-  popup: '🔔 Popup',
-  son: '🔊 Son',
+  email: 'Email',
+  popup: 'Popup',
+  son: 'Son',
 };
 
 export type ReminderRecurrenceRule = 'none' | 'biweekly' | 'annual' | 'biannual';

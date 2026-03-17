@@ -9,6 +9,10 @@ sqlparse==0.5.5
 # Images (modèle Photo - ImageField)
 Pillow==11.0.0
 
+# Zone.boundary → surface_m2 (calcul géométrique, sans GDAL)
+shapely>=2.0.0
+pyproj>=3.6.0
+
 # Export PDF
 reportlab==4.2.5
 

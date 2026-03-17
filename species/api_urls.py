@@ -12,10 +12,12 @@ from .api_views import (
     CultivarViewSet,
     GardenViewSet,
     GardenGCPViewSet,
+    ZoneViewSet,
     export_garden_gcps_csv,
     ExpectedEventsView,
     RemindersUpcomingView,
     WeatherAlertsView,
+    PartnersListView,
     UserPreferencesView,
     MeView,
     ChangePasswordView,
@@ -32,12 +34,14 @@ router.register(r'specimen-groups', SpecimenGroupViewSet, basename='specimen-gro
 router.register(r'organisms', OrganismViewSet, basename='organism')
 router.register(r'cultivars', CultivarViewSet, basename='cultivar')
 router.register(r'gardens', GardenViewSet, basename='garden')
+router.register(r'zones', ZoneViewSet, basename='zone')
 
 urlpatterns = [
     path('specimens/by-nfc/<str:uid>/', SpecimenByNfcView.as_view(), name='specimen-by-nfc'),
     path('expected-events/', ExpectedEventsView.as_view(), name='expected-events'),
     path('reminders/upcoming/', RemindersUpcomingView.as_view(), name='reminders-upcoming'),
     path('weather-alerts/', WeatherAlertsView.as_view(), name='weather-alerts'),
+    path('partners/', PartnersListView.as_view(), name='partners-list'),
     path('me/', MeView.as_view(), name='me'),
     path('me/preferences/', UserPreferencesView.as_view(), name='user-preferences'),
     path('me/change-password/', ChangePasswordView.as_view(), name='change-password'),

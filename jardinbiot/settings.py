@@ -203,6 +203,10 @@ SIMPLE_JWT = {
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
 }
 
+# Connexion web (page racine / vue 3D)
+LOGIN_URL = '/login/'
+LOGIN_REDIRECT_URL = '/'
+
 # CORS - autoriser l'app mobile Expo (dev et prod)
 CORS_ALLOW_ALL_ORIGINS = env('CORS_ALLOW_ALL_ORIGINS')
 
@@ -210,7 +214,7 @@ CORS_ALLOW_ALL_ORIGINS = env('CORS_ALLOW_ALL_ORIGINS')
 # Référence : fiches techniques fruitiers (ex. 30-50 m pour pommiers). Fallback global.
 POLLINATION_DISTANCE_MAX_DEFAULT_M = float(env("POLLINATION_DISTANCE_MAX_DEFAULT_M", default=50))
 
-# Cesium Ion (vue terrain 3D) — token depuis ion.cesium.com ; asset_id optionnel (LiDAR Québec)
+# Cesium Ion (vue terrain 3D) — token depuis ion.cesium.com ; asset_id optionnel (LiDAR)
 CESIUM_ION_ACCESS_TOKEN = env("CESIUM_ION_ACCESS_TOKEN", default="")
 CESIUM_LIDAR_ASSET_ID = env("CESIUM_LIDAR_ASSET_ID", default=None)
 
@@ -226,7 +230,7 @@ ADMIN_REORDER = [
     # Configurations et importation de données
     {'app': 'catalog', 'label': 'Configurations et importation de données', 'models': ('UserTag', 'CompanionRelation', 'OrganismAmendment', 'SeedSupplier', 'SeedCollection', 'Amendment')},
     {'app': 'species', 'label': 'Configurations et importation de données', 'models': ('DataImportRun',)},
-    {'app': 'gardens', 'label': 'Configurations et importation de données', 'models': ('UserPreference',)},
+    {'app': 'gardens', 'label': 'Configurations et importation de données', 'models': ('UserPreference', 'Partner')},
     # Apps Django par défaut
     {'app': 'auth', 'label': 'Authentification'},
 ]

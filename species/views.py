@@ -10,16 +10,19 @@ from pathlib import Path
 
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
+from django.contrib.auth import authenticate, login, logout
 from django.core.management import call_command
 from django.conf import settings
 from django.http import JsonResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.views.decorators.http import require_http_methods
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from django.db.models import Count, Q
 from django.utils import timezone
 
+from gardens.models import UserPreference
 from .models import BaseEnrichmentStats, CompanionRelation, Cultivar, CultivarPorteGreffe, Garden, Organism, OrganismNom, Specimen, SprinklerZone, DataImportRun
 from .weather_service import (
     fetch_forecast,
@@ -684,6 +687,67 @@ def gestion_donnees_view(request):
     return render(request, "species/gestion_donnees.html", context)
 
 
+def home_view(request):
+    """
+    Page racine : utilisateur authentifié → vue 3D (ou choix jardin) ; sinon → login.
+    """
+    if not request.user.is_authenticated:
+        return redirect(settings.LOGIN_URL + "?next=" + request.get_full_path())
+    prefs = UserPreference.objects.filter(user=request.user).first()
+    default_garden_id = prefs.default_garden_id if prefs else None
+    if default_garden_id:
+        return redirect(reverse("cesium-terrain") + "?garden_id=" + str(default_garden_id))
+    return redirect("choose-garden")
+
+
+def login_view(request):
+    """
+    Page de connexion (session). Après succès, redirige vers next ou racine puis vue 3D.
+    """
+    if request.user.is_authenticated:
+        return redirect("home")
+    next_url = request.GET.get("next") or reverse("home")
+    if request.method == "POST":
+        username = request.POST.get("username", "").strip()
+        password = request.POST.get("password", "")
+        user = authenticate(request, username=username, password=password)
+        if user is not None:
+            login(request, user)
+            return redirect(next_url)
+        messages.error(request, "Identifiants incorrects.")
+    return render(request, "species/login.html", {"next": next_url})
+
+
+@require_http_methods(["GET", "POST"])
+def logout_view(request):
+    """Déconnexion puis redirection vers la racine."""
+    logout(request)
+    return redirect("home")
+
+
+def choose_garden_view(request):
+    """
+    Choix du jardin (liste) quand l'utilisateur n'a pas de jardin par défaut.
+    POST : enregistre le jardin par défaut et redirige vers la vue 3D.
+    """
+    if not request.user.is_authenticated:
+        return redirect(settings.LOGIN_URL + "?next=" + reverse("choose-garden"))
+    gardens = Garden.objects.order_by("nom")
+    if request.method == "POST":
+        garden_id = request.POST.get("garden_id")
+        if garden_id:
+            try:
+                garden = get_object_or_404(Garden, pk=int(garden_id))
+                prefs, _ = UserPreference.objects.get_or_create(user=request.user, defaults={})
+                prefs.default_garden = garden
+                prefs.save()
+                return redirect(reverse("cesium-terrain") + "?garden_id=" + str(garden.id))
+            except (ValueError, TypeError):
+                pass
+        messages.error(request, "Veuillez sélectionner un jardin.")
+    return render(request, "species/choose_garden.html", {"gardens": gardens})
+
+
 def cesium_terrain_view(request):
     """
     Page HTML Cesium 3D pour la vue terrain (app mobile WebView).
@@ -721,26 +785,34 @@ def cesium_terrain_view(request):
         "boundary": garden.boundary,
         "contours_geojson": garden.contours_geojson,
         "terrain_stats": garden.terrain_stats,
+        "distance_unit": getattr(garden, "distance_unit", "m") or "m",
     }
     garden_json = json.dumps(garden_data)
 
     # Spécimens du jardin pour la vue 3D (navigateur : pas de LOAD_SPECIMENS depuis l'app)
+    from django.db.models import Prefetch
+
     specimens_qs = (
         Specimen.objects.filter(garden_id=garden.id)
-        .select_related("organisme", "cultivar")
+        .select_related("organisme", "cultivar", "zone")
+        .prefetch_related(
+            Prefetch("cultivar__porte_greffes", queryset=CultivarPorteGreffe.objects.order_by("-hauteur_max_m"))
+        )
         .order_by("nom")
     )
+    statut_labels = dict(Specimen.STATUT_CHOICES)
+    source_labels = dict(Specimen.SOURCE_CHOICES)
     specimens_list = []
     for s in specimens_qs:
         rayon = None
+        porte_greffe_nom = None
         if getattr(s, "cultivar", None):
-            pg = (
-                s.cultivar.porte_greffes.filter(hauteur_max_m__isnull=False)
-                .order_by("-hauteur_max_m")
-                .first()
-            )
-            if pg and pg.hauteur_max_m:
-                rayon = round(pg.hauteur_max_m * 0.60, 1)
+            for pg in s.cultivar.porte_greffes.all():
+                if pg.hauteur_max_m and rayon is None:
+                    rayon = round(float(pg.hauteur_max_m) * 0.60, 1)
+                if pg.nom_porte_greffe:
+                    porte_greffe_nom = pg.nom_porte_greffe
+                break
         ot = getattr(s.organisme, "type_organisme", None) or ""
         fruits = ot in ("arbre_fruitier", "arbuste_fruitier", "arbuste_baies")
         noix = ot == "arbre_noix"
@@ -750,9 +822,24 @@ def cesium_terrain_view(request):
             "latitude": getattr(s, "latitude", None),
             "longitude": getattr(s, "longitude", None),
             "statut": s.statut or "",
+            "statut_display": statut_labels.get(s.statut, s.statut or ""),
             "health": getattr(s, "sante", None),
             "sante": getattr(s, "sante", None),
             "organisme_nom_latin": s.organisme.nom_latin if s.organisme else "",
+            "organisme_nom_commun": getattr(s.organisme, "nom_commun", "") if s.organisme else "",
+            "cultivar_nom": s.cultivar.nom if s.cultivar else "",
+            "porte_greffe_nom": porte_greffe_nom or "",
+            "date_plantation": s.date_plantation.isoformat() if getattr(s, "date_plantation", None) else "",
+            "zone_nom": s.zone.nom if getattr(s, "zone", None) and s.zone else "",
+            "zone_jardin": getattr(s, "zone_jardin", "") or "",
+            "code_identification": getattr(s, "code_identification", "") or "",
+            "source": getattr(s, "source", "") or "",
+            "source_display": source_labels.get(getattr(s, "source", ""), "") or "",
+            "pepiniere_fournisseur": getattr(s, "pepiniere_fournisseur", "") or "",
+            "notes": getattr(s, "notes", "") or "",
+            "hauteur_actuelle": getattr(s, "hauteur_actuelle", None),
+            "age_plantation": getattr(s, "age_plantation", None),
+            "premiere_fructification": getattr(s, "premiere_fructification", None),
             "rayon_adulte_m": rayon,
             "emoji": "🌱",
             "fruits": fruits,

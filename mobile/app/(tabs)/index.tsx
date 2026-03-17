@@ -8,11 +8,13 @@ import {
   useWindowDimensions,
   ScrollView,
 } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import * as Location from 'expo-location';
-import { getSpecimens, getSpecimensNearby, getRemindersUpcoming, getWeatherAlerts, getRecentEvents, getUserPreferences, ensureValidToken } from '@/api/client';
+import { getSpecimens, getSpecimensNearby, getRemindersUpcoming, getWeatherAlerts, getRecentEvents, getUserPreferences, ensureValidToken, getAccessToken } from '@/api/client';
+import { getApiBaseUrl } from '@/constants/config';
 import { ActionToolbar } from '@/components/ActionToolbar';
 import { ReminderActionModal } from '@/components/ReminderActionModal';
 import { WarningsBlock } from '@/components/WarningsBlock';
@@ -53,6 +55,8 @@ export default function HomeScreen() {
   const [phenologyModal, setPhenologyModal] = useState<{ specimenId: number; type: 'floraison' | 'fructification' | 'recolte' } | null>(null);
   const [eventSubmitting, setEventSubmitting] = useState(false);
   const [warningsRefreshTrigger, setWarningsRefreshTrigger] = useState(0);
+  const [viewMode, setViewMode] = useState<'dashboard' | 'cesium'>('dashboard');
+  const [cesiumUri, setCesiumUri] = useState<string | null>(null);
 
   const fetchNearby = useCallback(async () => {
     setLoadingNearby(true);
@@ -159,12 +163,83 @@ export default function HomeScreen() {
     }, [fetchFavoris, fetchNearby, fetchReminders, fetchWeatherAlerts, fetchRecentEvents])
   );
 
+  useEffect(() => {
+    if (viewMode !== 'cesium' || !defaultGardenId) {
+      setCesiumUri(null);
+      return;
+    }
+    let cancelled = false;
+    getAccessToken().then((token) => {
+      if (cancelled || !token) return;
+      const base = getApiBaseUrl().replace(/\/$/, '');
+      setCesiumUri(`${base}/cesium-view/?garden_id=${defaultGardenId}&access_token=${encodeURIComponent(token)}`);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [viewMode, defaultGardenId]);
 
   const containerWidth = screenWidth - 48;
   const thumbSize = (containerWidth - (COLS - 1) * THUMB_GAP) / COLS;
 
+  const toggleSegment = (
+    <View style={styles.viewToggle}>
+      <TouchableOpacity
+        style={[styles.viewToggleBtn, viewMode === 'dashboard' && styles.viewToggleBtnActive]}
+        onPress={() => setViewMode('dashboard')}
+      >
+        <Ionicons name="grid-outline" size={18} color={viewMode === 'dashboard' ? '#fff' : '#4a6741'} />
+        <Text style={[styles.viewToggleText, viewMode === 'dashboard' && styles.viewToggleTextActive]}>
+          Tableau de bord
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.viewToggleBtn, viewMode === 'cesium' && styles.viewToggleBtnActive]}
+        onPress={() => setViewMode('cesium')}
+      >
+        <Ionicons name="map-outline" size={18} color={viewMode === 'cesium' ? '#fff' : '#4a6741'} />
+        <Text style={[styles.viewToggleText, viewMode === 'cesium' && styles.viewToggleTextActive]}>
+          Vue 3D
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  if (viewMode === 'cesium') {
+    return (
+      <View style={styles.cesiumWrapper}>
+        {toggleSegment}
+        {!defaultGardenId ? (
+          <View style={styles.cesiumPlaceholder}>
+            <Text style={styles.cesiumPlaceholderText}>
+              Choisissez un jardin par défaut dans Paramètres pour afficher la vue 3D.
+            </Text>
+            <TouchableOpacity style={styles.cesiumSettingsBtn} onPress={() => router.push('/settings')}>
+              <Text style={styles.cesiumSettingsBtnText}>Ouvrir Paramètres</Text>
+            </TouchableOpacity>
+          </View>
+        ) : !cesiumUri ? (
+          <View style={styles.cesiumPlaceholder}>
+            <ActivityIndicator size="large" color="#1a3c27" />
+            <Text style={styles.cesiumPlaceholderText}>Chargement de la vue 3D…</Text>
+          </View>
+        ) : (
+          <WebView
+            source={{ uri: cesiumUri }}
+            style={styles.cesiumWebView}
+            javaScriptEnabled
+            domStorageEnabled
+            startInLoadingState
+            scalesPageToFit
+          />
+        )}
+      </View>
+    );
+  }
+
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
+      {toggleSegment}
       <Text style={styles.title}>🌳 Jardin Biot</Text>
 
       {/* Warnings (rappels en retard, pollinisateurs manquants, phénologie) */}
@@ -401,7 +476,7 @@ export default function HomeScreen() {
                 ) : (
                   <View style={[styles.favoriPlaceholder, { width: thumbSize, height: thumbSize }]}>
                     <Text style={styles.favoriPlaceholderText}>
-                      {EVENT_TYPE_LABELS[ev.type_event as keyof typeof EVENT_TYPE_LABELS]?.slice(0, 1) ?? '📅'}
+                      {EVENT_TYPE_LABELS[ev.type_event as keyof typeof EVENT_TYPE_LABELS]?.slice(0, 1) ?? ''}
                     </Text>
                   </View>
                 )}
@@ -721,5 +796,64 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textAlign: 'center',
     fontWeight: '500',
+  },
+  viewToggle: {
+    flexDirection: 'row',
+    alignSelf: 'center',
+    marginBottom: 16,
+    backgroundColor: '#e8f0eb',
+    borderRadius: 12,
+    padding: 4,
+  },
+  viewToggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+  },
+  viewToggleBtnActive: {
+    backgroundColor: '#1a3c27',
+  },
+  viewToggleText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#4a6741',
+  },
+  viewToggleTextActive: {
+    color: '#fff',
+  },
+  cesiumWrapper: {
+    flex: 1,
+    backgroundColor: '#0d1008',
+  },
+  cesiumWebView: {
+    flex: 1,
+    minHeight: 400,
+  },
+  cesiumPlaceholder: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  cesiumPlaceholderText: {
+    fontSize: 16,
+    color: '#ede8dc',
+    textAlign: 'center',
+    marginTop: 12,
+  },
+  cesiumSettingsBtn: {
+    marginTop: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    backgroundColor: '#3d5c2e',
+    borderRadius: 10,
+  },
+  cesiumSettingsBtnText: {
+    fontSize: 16,
+    color: '#fff',
+    fontWeight: '600',
   },
 });
