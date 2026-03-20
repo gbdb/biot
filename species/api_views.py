@@ -1459,8 +1459,12 @@ ALLOWED_ADMIN_COMMANDS = {
     'import_botanipedia': {'enrich': bool, 'limit': int, 'delay': float, 'verbose': bool},
     'import_arbres_en_ligne': {'file': str},
     'import_ancestrale': {'file': str},
+    'import_topic': {'file': str, 'limit': int, 'dry_run': bool},
+    'import_usda_chars': {'enrich': bool, 'file': str, 'limit': int, 'delay': float, 'dry_run': bool},
+    'import_wikidata': {'enrich': bool, 'limit': int, 'delay': float, 'dry_run': bool},
     'merge_organism_duplicates': {'dry_run': bool, 'no_input': bool},
     'populate_proprietes_usage_calendrier': {'limit': int},
+    'clean_organisms_keep_hq': {'no_input': bool},
     'wipe_db_and_media': {'no_input': bool},
     'wipe_species': {'no_input': bool},
 }
@@ -1477,7 +1481,7 @@ def _build_command_kwargs(command_name: str, options: dict) -> dict:
         if val is None:
             continue
         if type_hint is bool:
-            kwargs[key] = val in ("1", "on", "true", "yes")
+            kwargs[key] = val if isinstance(val, bool) else val in ("1", "on", "true", "yes")
         elif type_hint is int:
             kwargs[key] = int(val) if val != '' else 0
         elif type_hint is float:
@@ -1520,6 +1524,9 @@ class RunAdminCommandView(APIView):
             call_command(command, stdout=out, stderr=err, **cmd_kwargs)
             output = (out.getvalue() + '\n' + err.getvalue()).strip()
             return Response({'success': True, 'output': output or 'Commande exécutée.'})
+        except SystemExit:
+            output = (out.getvalue() + '\n' + err.getvalue()).strip()
+            return Response({'success': False, 'output': output, 'detail': 'Options manquantes ou erreur'})
         except Exception as e:
             output = (out.getvalue() + '\n' + err.getvalue()).strip() or str(e)
             return Response({'success': False, 'output': output, 'detail': 'Erreur lors de l\'exécution'})

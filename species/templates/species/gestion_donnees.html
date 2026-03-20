@@ -133,6 +133,9 @@
         <tr><td>Botanipedia</td><td>{{ coverage_by_source.botanipedia|default:0 }}</td></tr>
         <tr><td>Arbres en ligne</td><td>{{ coverage_by_source.arbres_en_ligne|default:0 }}</td></tr>
         <tr><td>Pépinière ancestrale</td><td>{{ coverage_by_source.ancestrale|default:0 }}</td></tr>
+        <tr><td>TOPIC Canada</td><td>{{ coverage_by_source.topic|default:0 }}</td></tr>
+        <tr><td>USDA PLANTS (chars)</td><td>{{ coverage_by_source.usda_plants|default:0 }}</td></tr>
+        <tr><td>Wikidata</td><td>{{ coverage_by_source.wikidata|default:0 }}</td></tr>
       </tbody>
     </table>
 
@@ -224,10 +227,45 @@
     <h2>Recommandations (ordre des opérations)</h2>
     <ol class="workflow-list">
       <li>Importer les sources (Hydro-Québec, PFAF, VASCAN, USDA) via les sections ci-dessous ou <a href="{% url 'admin:catalog_organism_import_pfaf' %}">Importer PFAF</a> / <a href="{% url 'admin:catalog_seedcollection_import_csv' %}">Importer semences</a>.</li>
+      <li>Enrichir hauteur/largeur/calendrier : <strong>import_topic</strong> (CSV TOPIC), <strong>import_usda_chars</strong>, <strong>import_wikidata</strong>.</li>
       <li>Fusionner les doublons : lancer la commande <strong>merge_organism_duplicates</strong> dans le bloc « Commandes d'import et maintenance ».</li>
       <li>Remplir les tables dérivées : lancer <strong>populate_proprietes_usage_calendrier</strong>.</li>
     </ol>
   </div>
+
+  {% if use_pg_backup_restore %}
+  <div class="section">
+    <h2>💾 Backup et Restore (PostgreSQL)</h2>
+    <p style="color:#666; font-size:0.9em; margin-bottom:1rem;">Réservé aux utilisateurs staff. Sauvegarde des tables espèces, catalog et zones. La taille du fichier généré s'affiche dans le navigateur au téléchargement.</p>
+
+    <div style="margin-bottom:1.25rem;">
+      <strong>💾 Backup base espèces</strong>
+      <form method="post" action="{% url 'gestion_donnees' %}" style="margin-top:0.5rem;">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="backup_species">
+        <button type="submit" class="button">💾 Backup base espèces</button>
+      </form>
+      <p style="color:#888; font-size:0.8em; margin-top:0.35rem;">Génère <code>backup_biot_YYYY-MM-DD_HH-MM.sql</code> et le télécharge. Taille affichée par le navigateur.</p>
+    </div>
+
+    <div>
+      <strong>📂 Restore backup</strong>
+      <p style="color:#c00; font-size:0.9em; margin:0.5rem 0;">Cette action va écraser les données actuelles des tables sauvegardées.</p>
+      <form method="post" action="{% url 'gestion_donnees' %}" enctype="multipart/form-data" style="margin-top:0.5rem;">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="restore_backup">
+        <div class="upload-form">
+          <input type="file" name="restore_file" accept=".sql" required>
+          <label style="display:inline-flex; align-items:center; gap:0.5rem; margin-left:0.5rem;">
+            <input type="checkbox" name="restore_confirm" value="1" required>
+            Je confirme que cette action va écraser les données actuelles.
+          </label>
+        </div>
+        <button type="submit" class="button" style="margin-top:0.5rem;">📂 Restore backup</button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
 
   <div class="section">
     <h2>📥 Téléchargements et fiches des sources</h2>
@@ -319,7 +357,7 @@
       </div>
       {% endfor %}
     </div>
-    <p style="color:#666; font-size:0.85em; margin-top:0.5rem;">Options optionnelles. no_input est forcé à True pour merge_organism_duplicates, wipe_species, wipe_db_and_media.</p>
+    <p style="color:#666; font-size:0.85em; margin-top:0.5rem;">Options optionnelles. no_input est forcé à True pour merge_organism_duplicates, wipe_species, wipe_db_and_media, clean_organisms_keep_hq.</p>
   </div>
 
   <div class="section">

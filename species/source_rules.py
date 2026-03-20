@@ -24,13 +24,16 @@ SOURCE_VILLE_QUEBEC = 'ville_quebec'
 SOURCE_VILLE_MONTREAL = 'ville_montreal'
 SOURCE_USDA = 'usda'
 SOURCE_BOTANIPEDIA = 'botanipedia'
+SOURCE_TOPIC = 'topic'
+SOURCE_USDA_PLANTS = 'usda_plants'
+SOURCE_WIKIDATA = 'wikidata'
 
 # Mode de fusion pour un import
 MERGE_OVERWRITE = 'overwrite'   # Écraser les champs avec les valeurs de la source
 MERGE_FILL_GAPS = 'fill_gaps'   # Ne remplir que les champs actuellement vides
 
 # Priorité d'affichage par champ (quelle source est préférée quand les deux ont une valeur)
-# Contexte Québec : HQ prioritaire pour rusticité/sol; PFAF pour description/usages.
+# Contexte Québec : HQ prioritaire. Pas de dépendance à PFAF.
 FIELD_PRIMARY_SOURCE: Dict[str, str] = {
     # Contexte québécois prioritaire
     'zone_rusticite': SOURCE_HYDROQUEBEC,
@@ -39,12 +42,10 @@ FIELD_PRIMARY_SOURCE: Dict[str, str] = {
     'sol_textures': SOURCE_HYDROQUEBEC,
     'sol_ph': SOURCE_HYDROQUEBEC,
     'famille': SOURCE_HYDROQUEBEC,
-    # PFAF souvent plus riche sur le reste
-    'description': SOURCE_PFAF,
-    'usages_autres': SOURCE_PFAF,
-    'parties_comestibles': SOURCE_PFAF,
-    'toxicite': SOURCE_PFAF,
-    # VASCAN pour statut indigène
+    'description': SOURCE_HYDROQUEBEC,
+    'usages_autres': SOURCE_HYDROQUEBEC,
+    'parties_comestibles': SOURCE_HYDROQUEBEC,
+    'toxicite': SOURCE_HYDROQUEBEC,
     'indigene': SOURCE_VASCAN,
 }
 # Champs non listés : première source qui remplit gagne (ou fill_gaps).
@@ -357,7 +358,8 @@ def find_or_match_organism(
     *,
     tsn: Optional[int] = None,
     vascan_id: Optional[int] = None,
-) -> Tuple[Any, bool]:
+    create_missing: bool = True,
+) -> Tuple[Optional[Any], bool]:
     """
     Trouve ou crée un organisme avec matching intelligent.
 
@@ -377,7 +379,8 @@ def find_or_match_organism(
         vascan_id: Identifiant VASCAN (Canadensys), optionnel
 
     Returns:
-        Tuple (organism, was_created) où was_created est True si nouvel organisme créé.
+        Tuple (organism or None, was_created) où was_created est True si nouvel organisme créé.
+        Si create_missing=False et rien n'est trouvé, retourne (None, False).
     """
     defaults = defaults or {}
     was_created = False
@@ -446,6 +449,9 @@ def find_or_match_organism(
     
     # 3. Créer nouveau si rien trouvé
     # nom_latin est requis pour créer, utiliser nom_commun comme fallback si nécessaire
+    if not create_missing:
+        return None, False
+
     create_data = dict(defaults)
     if tsn is not None:
         create_data['tsn'] = tsn

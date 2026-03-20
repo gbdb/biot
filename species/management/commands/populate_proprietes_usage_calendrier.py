@@ -1,9 +1,9 @@
 """
 Remplit les tables OrganismPropriete, OrganismUsage et OrganismCalendrier
 à partir des données déjà présentes sur Organism (sol_textures, sol_ph, besoin_soleil,
-parties_comestibles, usages_autres, periode_recolte) et de data_sources (hydroquebec, pfaf, usda).
+parties_comestibles, usages_autres, periode_recolte) et de data_sources (hydroquebec, usda, etc.).
 
-À exécuter après les imports Hydro-Québec, PFAF, USDA pour peupler les fiches normalisées.
+Extrait aussi floraison/fructification depuis fleursDescription et fruitsDescription (Hydro-Québec).
 
 Usage:
   python manage.py populate_proprietes_usage_calendrier [--limit 0] [--dry-run]
@@ -21,6 +21,15 @@ MOIS_FR = {
 MOIS_EN = {
     "january": 1, "february": 2, "march": 3, "april": 4, "may": 5, "june": 6,
     "july": 7, "august": 8, "september": 9, "october": 10, "november": 11, "december": 12,
+}
+
+# Saisons -> (mois_debut, mois_fin)
+SAISON_TO_MOIS = {
+    "printemps": (3, 5),
+    "ete": (6, 8),
+    "été": (6, 8),
+    "automne": (9, 11),
+    "hiver": (12, 2),
 }
 
 
@@ -46,6 +55,51 @@ def parse_periode_recolte(texte):
                     return m1, m2
     for name, num in all_months.items():
         if name in t:
+            return num, num
+    return None, None
+
+
+def parse_period_from_hq_text(texte):
+    """
+    Parse fleursDescription ou fruitsDescription HQ pour extraire (mois_debut, mois_fin).
+    Détecte: "Saison : printemps", "Saison ; automne", "en mai", "mai-juin", "de mai à juillet".
+    Retourne (mois_debut, mois_fin) ou (None, None).
+    """
+    if not texte or not isinstance(texte, str):
+        return None, None
+    t = texte.strip().lower()
+    if not t or "sans intérêt" in t or "sans fructification" in t:
+        return None, None
+    all_months = {**MOIS_FR, **MOIS_EN}
+
+    # "Saison : printemps" ou "Saison ; printemps"
+    match = re.search(r"saison\s*[;:]\s*(\w+)", t, re.IGNORECASE)
+    if match:
+        saison = match.group(1).lower()
+        if saison in SAISON_TO_MOIS:
+            return SAISON_TO_MOIS[saison]
+
+    # "de mai à juillet", "mai-juin", "mai à septembre"
+    match = re.search(r"(?:en|de)\s+(\w+)\s+(?:à|a|-|–)\s+(\w+)", t, re.IGNORECASE)
+    if match:
+        m1, m2 = all_months.get(match.group(1)), all_months.get(match.group(2))
+        if m1 is not None and m2 is not None:
+            return m1, m2
+    match = re.search(r"(\w+)\s*(?:-|–|à|a)\s*(\w+)", t, re.IGNORECASE)
+    if match:
+        m1, m2 = all_months.get(match.group(1)), all_months.get(match.group(2))
+        if m1 is not None and m2 is not None:
+            return m1, m2
+    # "en mai", "au mois de mai"
+    match = re.search(r"(?:en|au)\s+(?:mois\s+de\s+)?(\w+)", t, re.IGNORECASE)
+    if match:
+        m1 = all_months.get(match.group(1))
+        if m1 is not None:
+            return m1, m1
+
+    # Mois isolé dans le texte
+    for name, num in all_months.items():
+        if re.search(r"\b" + re.escape(name) + r"\b", t):
             return num, num
     return None, None
 
@@ -89,7 +143,7 @@ class Command(BaseCommand):
 
         for organism in qs:
             sources = organism.data_sources or {}
-            # Déterminer la source à utiliser pour les propriétés (HQ > USDA > PFAF)
+            # Déterminer la source (HQ > USDA > PFAF > première dispo > derived)
             source_propriete = None
             if SOURCE_HYDROQUEBEC in sources:
                 source_propriete = SOURCE_HYDROQUEBEC
@@ -97,6 +151,10 @@ class Command(BaseCommand):
                 source_propriete = SOURCE_USDA
             elif SOURCE_PFAF in sources:
                 source_propriete = SOURCE_PFAF
+            elif sources:
+                source_propriete = next(iter(sources.keys()), "derived")
+            else:
+                source_propriete = "derived"
 
             if source_propriete and (organism.sol_textures or organism.sol_ph or organism.besoin_soleil):
                 if not dry_run and not OrganismPropriete.objects.filter(organisme=organism, source=source_propriete).exists():
@@ -115,24 +173,24 @@ class Command(BaseCommand):
             if organism.parties_comestibles or organism.usages_autres:
                 if not dry_run:
                     if organism.parties_comestibles and not OrganismUsage.objects.filter(
-                        organisme=organism, type_usage="comestible_autre", source=SOURCE_PFAF
+                        organisme=organism, type_usage="comestible_autre", source=source_propriete
                     ).exists():
                         OrganismUsage.objects.create(
                             organisme=organism,
                             type_usage="comestible_autre",
                             parties=organism.parties_comestibles[:200],
                             description=organism.parties_comestibles,
-                            source=SOURCE_PFAF,
+                            source=source_propriete,
                         )
                         n_usages += 1
                     if organism.usages_autres and not OrganismUsage.objects.filter(
-                        organisme=organism, type_usage="autre", source=SOURCE_PFAF
+                        organisme=organism, type_usage="autre", source=source_propriete
                     ).exists():
                         OrganismUsage.objects.create(
                             organisme=organism,
                             type_usage="medicinal" if "médicinal" in (organism.usages_autres or "").lower() else "autre",
                             description=(organism.usages_autres or "")[:500],
-                            source=SOURCE_PFAF,
+                            source=source_propriete,
                         )
                         n_usages += 1
                 else:
@@ -142,14 +200,35 @@ class Command(BaseCommand):
                 mois_debut, mois_fin = parse_periode_recolte(organism.periode_recolte)
                 if mois_debut is not None and not dry_run:
                     if not OrganismCalendrier.objects.filter(
-                        organisme=organism, type_periode="recolte", source=SOURCE_PFAF
+                        organisme=organism, type_periode="recolte", source=source_propriete
                     ).exists():
                         OrganismCalendrier.objects.create(
                             organisme=organism,
                             type_periode="recolte",
                             mois_debut=mois_debut,
                             mois_fin=mois_fin or mois_debut,
-                            source=SOURCE_PFAF,
+                            source=source_propriete,
+                        )
+                        n_calendrier += 1
+                elif dry_run and mois_debut:
+                    n_calendrier += 1
+
+            # Phase 1B: extraire floraison/fructification depuis fleursDescription et fruitsDescription (HQ)
+            hq = sources.get(SOURCE_HYDROQUEBEC) or {}
+            fleurs = hq.get("fleursDescription") or ""
+            fruits = hq.get("fruitsDescription") or ""
+            for type_periode, texte in [("floraison", fleurs), ("fructification", fruits)]:
+                mois_debut, mois_fin = parse_period_from_hq_text(texte)
+                if mois_debut is not None and not dry_run:
+                    if not OrganismCalendrier.objects.filter(
+                        organisme=organism, type_periode=type_periode, source=SOURCE_HYDROQUEBEC
+                    ).exists():
+                        OrganismCalendrier.objects.create(
+                            organisme=organism,
+                            type_periode=type_periode,
+                            mois_debut=mois_debut,
+                            mois_fin=mois_fin or mois_debut,
+                            source=SOURCE_HYDROQUEBEC,
                         )
                         n_calendrier += 1
                 elif dry_run and mois_debut:

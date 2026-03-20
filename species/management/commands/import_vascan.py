@@ -10,6 +10,7 @@ Usage:
   python manage.py import_vascan --file noms.txt        # Fichier avec un nom latin par ligne
 """
 import re
+import sys
 import time
 from pathlib import Path
 
@@ -154,10 +155,11 @@ class Command(BaseCommand):
                     names_to_process.append((nom_latin, ""))
             self.stdout.write(self.style.SUCCESS(f"Import VASCAN depuis {path}: {len(names_to_process)} noms (création d'espèces)."))
         else:
-            self.stdout.write(
-                self.style.WARNING("Indiquez --enrich (pour organismes existants) ou --file <fichier> (un nom latin par ligne).")
-            )
-            return
+            self.stdout.write(self.style.ERROR(
+                "Options requises : cochez « enrich » pour enrichir les organismes existants, "
+                "ou fournissez un chemin de fichier dans « file » (un nom latin par ligne)."
+            ))
+            sys.exit(1)
 
         if dry_run:
             self.stdout.write(self.style.WARNING("Mode dry-run : aucune modification."))

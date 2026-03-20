@@ -10,6 +10,7 @@ Usage:
   python manage.py import_usda --file noms.txt        # Fichier avec un nom latin par ligne
 """
 import re
+import sys
 import time
 from pathlib import Path
 
@@ -156,16 +157,19 @@ class Command(BaseCommand):
         elif file_path:
             path = Path(file_path)
             if not path.exists():
-                self.stdout.write(self.style.ERROR(f"Fichier introuvable: {path}"))
-                return
+                self.stdout.write(self.style.ERROR(
+                    f"Fichier introuvable : {path}. Vérifiez le chemin (ex. data/vascan/noms.txt)."
+                ))
+                sys.exit(1)
             lines = path.read_text(encoding="utf-8").strip().splitlines()
             names_to_process = [(line.strip(), "") for line in lines if line.strip()]
             self.stdout.write(self.style.SUCCESS(f"Import USDA depuis {path}: {len(names_to_process)} noms."))
         else:
-            self.stdout.write(
-                self.style.WARNING("Indiquez --enrich (pour organismes existants) ou --file <fichier>.")
-            )
-            return
+            self.stdout.write(self.style.ERROR(
+                "Options requises : cochez « enrich » pour enrichir les organismes existants, "
+                "ou fournissez un chemin de fichier dans « file » (ex. data/vascan/noms.txt)."
+            ))
+            sys.exit(1)
 
         if dry_run:
             self.stdout.write(self.style.WARNING("Mode dry-run : aucune modification."))

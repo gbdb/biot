@@ -679,8 +679,13 @@ class DataImportRun(models.Model):
         ('import_botanipedia', 'Import Botanipedia'),
         ('import_arbres_en_ligne', 'Import Arbres en ligne'),
         ('import_ancestrale', 'Import Pépinière ancestrale'),
+        ('import_topic', 'Import TOPIC Canada'),
+        ('import_usda_chars', 'Import USDA PLANTS (caractéristiques)'),
+        ('import_wikidata', 'Import Wikidata'),
         ('merge_organism_duplicates', 'Merge doublons'),
         ('populate_proprietes_usage_calendrier', 'Populate propriétés/usages/calendrier'),
+        ('backup_restore', 'Backup / Restore'),
+        ('clean_organisms_keep_hq', 'Clean (garde Hydro-Québec)'),
         ('wipe_species', 'Wipe species'),
         ('wipe_db_and_media', 'Wipe DB and media'),
     ]

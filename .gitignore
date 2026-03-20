@@ -123,3 +123,10 @@ temp/
 
 # Personal notes (git-ignored)
 g_notes
+
+# Large / raw data (GitHub file limit 100MB; keep repo lean)
+raw_data/
+data/pepiniere-ancestrale/lydar/
+arbres.json
+*.tif
+*.tiff

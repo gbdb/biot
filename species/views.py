@@ -3,9 +3,10 @@ Vues pour Jardin bIOT.
 """
 import json
 import os
+import subprocess
 import tempfile
 from datetime import date, datetime, timedelta
-from io import StringIO
+from io import BytesIO, StringIO
 from pathlib import Path
 
 from django.contrib import messages
@@ -13,7 +14,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import authenticate, login, logout
 from django.core.management import call_command
 from django.conf import settings
-from django.http import JsonResponse, HttpResponseForbidden
+from django.http import HttpResponse, JsonResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods
@@ -193,6 +194,28 @@ def trigger_sprinkler_view(request, zone_id):
 
 
 SESSION_LOG_KEY = "gestion_donnees_log"
+
+# Tables incluses dans le backup PostgreSQL (espèces, catalog, zones)
+BACKUP_PG_TABLES = [
+    "species_espece",
+    "species_organismcalendrier",
+    "species_organismusage",
+    "species_organismpropriete",
+    "species_organismnom",
+    "species_cultivar",
+    "species_companionrelation",
+    "species_organism_mes_tags",
+    "species_usertag",
+    "species_cultivar_pollinator",
+    "species_cultivarportegreffe",
+    "species_seedsupplier",
+    "species_amendment",
+    "species_seedcollection",
+    "species_semisbatch",
+    "species_organismamendment",
+    "species_base_enrichment_stats",
+    "gardens_zone",
+]
 SESSION_LOG_MAX = 20
 
 # Liens vers les fiches complètes / téléchargements des sources utilisées par les commandes d'import
@@ -285,6 +308,124 @@ def gestion_donnees_view(request):
     from .api_views import ALLOWED_ADMIN_COMMANDS, _build_command_kwargs
 
     if request.method == "POST":
+        # --- Backup base espèces (PostgreSQL uniquement) ---
+        if request.POST.get("action") == "backup_species":
+            db = settings.DATABASES["default"]
+            if db.get("ENGINE") != "django.db.backends.postgresql":
+                messages.error(request, "Le backup est disponible uniquement avec PostgreSQL.")
+                return redirect("gestion_donnees")
+            try:
+                args = [
+                    "pg_dump",
+                    "-U", db.get("USER", ""),
+                    "-h", db.get("HOST", "localhost"),
+                    "-p", str(db.get("PORT", "5432")),
+                    "-d", db.get("NAME", ""),
+                    "--no-owner",
+                    "--no-acl",
+                    "--clean",
+                    "--if-exists",
+                ]
+                for t in BACKUP_PG_TABLES:
+                    args.extend(["-t", t])
+                env = os.environ.copy()
+                if db.get("PASSWORD"):
+                    env["PGPASSWORD"] = str(db["PASSWORD"])
+                result = subprocess.run(args, capture_output=True, env=env, timeout=300)
+                if result.returncode != 0:
+                    err = (result.stderr or b"").decode("utf-8", errors="replace")
+                    messages.error(request, f"Erreur pg_dump : {err[:500]}")
+                    return redirect("gestion_donnees")
+                dump_bytes = result.stdout
+                filename = f"backup_biot_{timezone.now().strftime('%Y-%m-%d_%H-%M')}.sql"
+                response = HttpResponse(dump_bytes, content_type="application/sql")
+                response["Content-Disposition"] = f'attachment; filename="{filename}"'
+                response["Content-Length"] = len(dump_bytes)
+                return response
+            except subprocess.TimeoutExpired:
+                messages.error(request, "Le backup a expiré (timeout).")
+                return redirect("gestion_donnees")
+            except FileNotFoundError:
+                messages.error(request, "pg_dump introuvable. Vérifiez que PostgreSQL est installé.")
+                return redirect("gestion_donnees")
+            except Exception as e:
+                messages.error(request, f"Erreur backup : {e}")
+                return redirect("gestion_donnees")
+
+        # --- Restore backup (PostgreSQL, confirmation obligatoire) ---
+        if request.POST.get("action") == "restore_backup":
+            db = settings.DATABASES["default"]
+            if db.get("ENGINE") != "django.db.backends.postgresql":
+                messages.error(request, "La restauration est disponible uniquement avec PostgreSQL.")
+                return redirect("gestion_donnees")
+            if request.POST.get("restore_confirm") not in ("1", "on", "true", "yes"):
+                messages.error(
+                    request,
+                    "Vous devez cocher la case de confirmation : « Cette action va écraser les données actuelles ».",
+                )
+                return redirect("gestion_donnees")
+            uploaded = request.FILES.get("restore_file")
+            if not uploaded or not uploaded.name.lower().endswith(".sql"):
+                messages.error(request, "Veuillez sélectionner un fichier .sql.")
+                return redirect("gestion_donnees")
+            run = DataImportRun.objects.create(
+                source="backup_restore",
+                status="running",
+                trigger="gestion_donnees",
+                user=request.user,
+                stats={"action": "restore", "filename": uploaded.name},
+            )
+            tmp_path = None
+            try:
+                with tempfile.NamedTemporaryFile(mode="wb", suffix=".sql", delete=False) as f:
+                    for chunk in uploaded.chunks():
+                        f.write(chunk)
+                    tmp_path = f.name
+                args = [
+                    "psql",
+                    "-U", db.get("USER", ""),
+                    "-h", db.get("HOST", "localhost"),
+                    "-p", str(db.get("PORT", "5432")),
+                    "-d", db.get("NAME", ""),
+                    "-f", tmp_path,
+                ]
+                env = os.environ.copy()
+                if db.get("PASSWORD"):
+                    env["PGPASSWORD"] = str(db["PASSWORD"])
+                result = subprocess.run(args, capture_output=True, env=env, timeout=600, text=True)
+                out = (result.stdout or "") + "\n" + (result.stderr or "")
+                run.output_snippet = (out or "")[:2000]
+                run.finished_at = timezone.now()
+                if result.returncode == 0:
+                    run.status = "success"
+                    run.stats["restored"] = True
+                    run.save()
+                    messages.success(request, "Restauration terminée. Les données ont été rechargées.")
+                else:
+                    run.status = "failure"
+                    run.stats["psql_returncode"] = result.returncode
+                    run.save()
+                    messages.error(request, f"Erreur lors de la restauration (psql). Voir l'historique des imports.")
+            except subprocess.TimeoutExpired:
+                run.status = "failure"
+                run.finished_at = timezone.now()
+                run.output_snippet = "Timeout (restauration trop longue)."
+                run.save()
+                messages.error(request, "La restauration a expiré (timeout).")
+            except Exception as e:
+                run.status = "failure"
+                run.finished_at = timezone.now()
+                run.output_snippet = str(e)[:2000]
+                run.save()
+                messages.error(request, f"Erreur : {e}")
+            finally:
+                if tmp_path and os.path.exists(tmp_path):
+                    try:
+                        os.unlink(tmp_path)
+                    except OSError:
+                        pass
+            return redirect("gestion_donnees")
+
         # --- Upload fichier VASCAN ---
         if request.POST.get("action") == "upload_vascan":
             uploaded = request.FILES.get("file")
@@ -487,7 +628,7 @@ def gestion_donnees_view(request):
                 elif key == "file" and val:
                     options[key] = val.strip()
             cmd_kwargs = _build_command_kwargs(command, options)
-            if command in ("merge_organism_duplicates", "wipe_db_and_media", "wipe_species"):
+            if command in ("merge_organism_duplicates", "wipe_db_and_media", "wipe_species", "clean_organisms_keep_hq"):
                 cmd_kwargs.setdefault("no_input", True)
 
             # Score global avant (pour alerte si baisse après import)
@@ -515,6 +656,14 @@ def gestion_donnees_view(request):
                 run.stats["global_score_after"] = _enrichment_after.global_score_pct if _enrichment_after else None
                 run.save()
                 messages.success(request, f"Commande « {command} » exécutée.")
+            except SystemExit:
+                output = (out.getvalue() + "\n" + err.getvalue()).strip()
+                _append_log(request, command, output, False)
+                run.status = "failure"
+                run.finished_at = timezone.now()
+                run.output_snippet = (output or "Commande terminée avec erreur")[:2000]
+                run.save()
+                messages.error(request, "La commande a échoué (options manquantes ou erreur).")
             except Exception as e:
                 output = (out.getvalue() + "\n" + err.getvalue()).strip() or str(e)
                 _append_log(request, command, output, False)
@@ -538,7 +687,7 @@ def gestion_donnees_view(request):
         "specimen_count": Specimen.objects.count(),
     }
     # Couverture par source (data_sources + OrganismNom + ancestrale via CultivarPorteGreffe)
-    data_source_keys = ["hydroquebec", "pfaf", "vascan", "usda", "botanipedia", "arbres_en_ligne", "ancestrale"]
+    data_source_keys = ["hydroquebec", "pfaf", "vascan", "usda", "botanipedia", "arbres_en_ligne", "ancestrale", "topic", "usda_plants", "wikidata"]
     coverage_by_source = {}
     for key in data_source_keys:
         try:
@@ -548,6 +697,8 @@ def gestion_donnees_view(request):
                 coverage_by_source[key] = Organism.objects.filter(
                     cultivars__porte_greffes__disponible_chez__contains=[{"source": "ancestrale"}]
                 ).distinct().count()
+            elif key in ("topic", "usda_plants", "wikidata"):
+                coverage_by_source[key] = Organism.objects.filter(data_sources__has_key=key).count()
             else:
                 coverage_by_source[key] = Organism.objects.filter(data_sources__has_key=key).count()
         except Exception:
@@ -557,7 +708,10 @@ def gestion_donnees_view(request):
     sources_for_last_run = [
         "pfaf", "seeds", "import_vascan", "import_usda", "import_hydroquebec",
         "import_botanipedia", "import_arbres_en_ligne", "import_ancestrale",
+        "import_topic", "import_usda_chars", "import_wikidata",
         "merge_organism_duplicates", "populate_proprietes_usage_calendrier",
+        "backup_restore",
+        "clean_organisms_keep_hq",
     ]
     last_runs_by_source = {}
     for src in sources_for_last_run:
@@ -589,8 +743,12 @@ def gestion_donnees_view(request):
         "import_botanipedia": "Enrichit description / usages depuis Botanipedia.",
         "import_arbres_en_ligne": "CSV 3 colonnes (nom_fr, nom_latin, nom_en). Crée organismes si absents + OrganismNom FR/EN.",
         "import_ancestrale": "CSV 1 colonne TypePlante Cultivar [PorteGreffe] [Age]. Cultivars et porte-greffes uniquement.",
+        "import_topic": "Traits TOPIC Canada (hauteur, largeur, floraison). CSV depuis open.canada.ca.",
+        "import_usda_chars": "Hauteur, largeur, floraison USDA PLANTS. --enrich ou --file CSV.",
+        "import_wikidata": "Hauteur et largeur depuis Wikidata (SPARQL). Mode fill_gaps.",
         "merge_organism_duplicates": "Fusionne les doublons (même vascan_id, tsn ou nom latin).",
         "populate_proprietes_usage_calendrier": "Remplit Propriétés, Usages, Calendrier depuis data_sources.",
+        "clean_organisms_keep_hq": "Nettoie la base : garde uniquement les espèces HQ (hydroquebec dans data_sources).",
         "wipe_species": "Vide les données espèces (attention).",
         "wipe_db_and_media": "Vide la base et les médias (attention).",
     }
@@ -663,6 +821,8 @@ def gestion_donnees_view(request):
     cultivars_with_porte_greffe_count = Cultivar.objects.annotate(nb=Count("porte_greffes")).filter(nb__gt=0).count()
     enrichment_computed_at = enrichment_stats.computed_at if enrichment_stats else None
 
+    use_pg_backup_restore = settings.DATABASES["default"].get("ENGINE") == "django.db.backends.postgresql"
+
     context = {
         "stats": stats,
         "coverage_by_source": coverage_by_source,
@@ -683,6 +843,7 @@ def gestion_donnees_view(request):
         "commands_with_opts": commands_with_opts,
         "data_source_links": DATA_SOURCE_LINKS,
         "hydroquebec_local_files": hydroquebec_local_files,
+        "use_pg_backup_restore": use_pg_backup_restore,
     }
     return render(request, "species/gestion_donnees.html", context)
 
