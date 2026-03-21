@@ -163,3 +163,52 @@ Tu peux :
 3. Le repo existant **reste** `jardinbiot` — pas besoin de créer un second repo pour BIOT sauf si tu préfères repartir de zéro.
 
 Si le repo actuel s’appelle autre chose (`biot`, etc.), tu peux **renommer** le dépôt sur GitHub (Settings → Repository name) en `jardinbiot` pour clarifier.
+
+---
+
+## 10. Checklist — continuer après `git commit` (subtree vers **gbdb/Radix-Sylva**)
+
+Dépôt GitHub : **[github.com/gbdb/Radix-Sylva](https://github.com/gbdb/Radix-Sylva)** (vide au départ — idéal pour le premier `push`).
+
+**Prérequis :** le dossier `radixsylva/` est **dans un commit** sur la branche courante (`git log --oneline -1 -- radixsylva/` doit afficher au moins une ligne).
+
+**L’étape 2** du flux (subtree → remote → push) **ne change pas** : seul le **nom du repo** sur GitHub compte. Utilise l’URL exacte du dépôt :
+
+- SSH : `git@github.com:gbdb/Radix-Sylva.git`
+- HTTPS : `https://github.com/gbdb/Radix-Sylva.git`
+
+Depuis la racine du dépôt Jardin bIOT (ex. `biot/`) :
+
+```bash
+# 1) (Optionnel) Supprimer une branche radix-only ratée d’un essai précédent
+git branch -D radix-only 2>/dev/null || true
+
+# 2) Créer la branche qui ne contient que l’historique de radixsylva/
+git subtree split -P radixsylva -b radix-only
+
+# 3) Remote vers le repo GitHub Radix (adapter si déjà défini)
+git remote remove radix-origin 2>/dev/null || true
+git remote add radix-origin git@github.com:gbdb/Radix-Sylva.git
+
+# 4) Pousser vers GitHub (branche distante main ; si ton repo utilise encore master, remplace main par master)
+git push radix-origin radix-only:main
+
+# 5) Retirer radixsylva du dépôt Jardin bIOT
+git rm -rf radixsylva
+git commit -m "chore: extraire radixsylva vers github.com/gbdb/Radix-Sylva"
+
+# 6) Pousser le dépôt principal (remplace master par main si besoin)
+git push origin master
+```
+
+**Ensuite, récupérer Radix à côté pour le dev** (recommandé) :
+
+```bash
+cd /Users/guillaumeboulay/Documents/gBOIT_Cursor
+git clone git@github.com:gbdb/Radix-Sylva.git radixsylva
+# Cursor : Add Folder to Workspace → ajouter le dossier radixsylva cloné
+```
+
+*(Le dossier local s’appelle souvent `radixsylva` pour coller au code ; le repo GitHub reste `Radix-Sylva`.)*
+
+**Si l’étape 4 échoue** (« failed to push » / non-fast-forward) : le repo GitHub n’est pas vide (README créé à la création). Soit tu le vides / recrées le repo vide, soit : `git pull radix-origin main --allow-unrelated-histories` dans un clone dédié — le plus simple est un **dépôt `radixsylva` vide** sans commit initial.

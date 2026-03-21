@@ -109,6 +109,10 @@ docker-compose.override.yml
 .DS_Store
 Thumbs.db
 
+# Fichiers dupliqués accidentels (macOS / iCloud : « fichier 2 »)
+**/package-lock 2.json
+**/* 2.lock
+
 # Data exports (générés localement, ne pas versionner)
 data_export.json
 
