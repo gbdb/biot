@@ -1405,68 +1405,30 @@ class SpeciesStatsView(APIView):
 # --- Import VASCAN depuis fichier (upload) ---
 class ImportVascanFileView(APIView):
     """
-    POST /api/admin/import-vascan-file/
-    Body: multipart/form-data avec champ "file" (fichier texte ou tab-delimited).
-    Exécute import_vascan --file avec le fichier uploadé. Réservé aux staff.
+    Déprécié (Pass C) : import VASCAN sur **Radix Sylva** (`import_vascan`), puis `sync_radixsylva` sur Jardin bIOT.
     """
     def post(self, request):
         if not request.user.is_authenticated:
             return Response({'detail': 'Authentification requise'}, status=status.HTTP_401_UNAUTHORIZED)
         if not request.user.is_staff:
             return Response({'detail': 'Droits insuffisants'}, status=status.HTTP_403_FORBIDDEN)
-
-        uploaded = request.FILES.get('file')
-        if not uploaded:
-            return Response(
-                {'detail': 'Aucun fichier. Envoyez un fichier avec le champ "file".'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        import tempfile
-        from django.core.management import call_command
-        from io import StringIO
-
-        suffix = '.txt'
-        if uploaded.name and '.' in uploaded.name:
-            suffix = '.' + uploaded.name.rsplit('.', 1)[-1]
-        with tempfile.NamedTemporaryFile(mode='wb', suffix=suffix, delete=False) as f:
-            for chunk in uploaded.chunks():
-                f.write(chunk)
-            path = f.name
-        try:
-            out = StringIO()
-            err = StringIO()
-            try:
-                call_command('import_vascan', file=path, stdout=out, stderr=err)
-                output = (out.getvalue() + '\n' + err.getvalue()).strip()
-                return Response({'success': True, 'output': output or 'Import terminé.'})
-            except Exception as e:
-                output = (out.getvalue() + '\n' + err.getvalue()).strip() or str(e)
-                return Response({'success': False, 'output': output, 'detail': 'Erreur lors de l\'import'})
-        finally:
-            import os
-            try:
-                os.unlink(path)
-            except OSError:
-                pass
+        return Response(
+            {
+                'detail': (
+                    'Import VASCAN désactivé sur Jardin bIOT. '
+                    'Exécuter import_vascan sur le serveur Radix Sylva, puis python manage.py sync_radixsylva ici.'
+                ),
+            },
+            status=status.HTTP_410_GONE,
+        )
 
 
 # --- Commandes admin (paramètres avancés, staff uniquement) ---
+# Pass C : les imports botaniques bulk vivent sur **Radix Sylva** ; BIOT ne garde que sync + maintenance locale.
 ALLOWED_ADMIN_COMMANDS = {
-    'import_vascan': {'enrich': bool, 'limit': int, 'delay': float},
-    'import_usda': {'enrich': bool, 'limit': int, 'delay': float},
-    'import_hydroquebec': {'limit': int, 'curl': bool, 'insecure': bool},
-    'import_botanipedia': {'enrich': bool, 'limit': int, 'delay': float, 'verbose': bool},
-    'import_arbres_en_ligne': {'file': str},
-    'import_ancestrale': {'file': str},
-    'import_topic': {'file': str, 'limit': int, 'dry_run': bool},
-    'import_usda_chars': {'enrich': bool, 'file': str, 'limit': int, 'delay': float, 'dry_run': bool},
-    'import_wikidata': {'enrich': bool, 'limit': int, 'delay': float, 'dry_run': bool},
-    'merge_organism_duplicates': {'dry_run': bool, 'no_input': bool},
-    'populate_proprietes_usage_calendrier': {'limit': int},
-    'clean_organisms_keep_hq': {'no_input': bool},
+    'sync_radixsylva': {'full': bool, 'dry_run': bool, 'no_rebuild_search': bool},
+    'rebuild_search_vectors': {},
     'wipe_db_and_media': {'no_input': bool},
-    'wipe_species': {'no_input': bool},
 }
 
 
@@ -1494,8 +1456,8 @@ def _build_command_kwargs(command_name: str, options: dict) -> dict:
 class RunAdminCommandView(APIView):
     """
     POST /api/admin/run-command/
-    Body: { "command": "import_vascan", "options": { "enrich": true, "limit": 50 } }
-    Réservé aux utilisateurs staff. Exécute une commande de management autorisée et retourne la sortie.
+    Body: { "command": "sync_radixsylva", "options": { "full": true } }
+    Réservé aux utilisateurs staff. Commandes autorisées : sync_radixsylva, rebuild_search_vectors, wipe_db_and_media.
     """
     def post(self, request):
         if not request.user.is_authenticated:
@@ -1512,7 +1474,7 @@ class RunAdminCommandView(APIView):
 
         options = request.data.get('options') or {}
         cmd_kwargs = _build_command_kwargs(command, options)
-        if command in ('merge_organism_duplicates', 'wipe_db_and_media', 'wipe_species'):
+        if command == 'wipe_db_and_media':
             cmd_kwargs.setdefault('no_input', True)
 
         from io import StringIO

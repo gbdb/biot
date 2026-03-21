@@ -32,7 +32,7 @@ export default function LoginScreen() {
         msg === 'Aborted';
       setError(
         isNetwork
-          ? 'Serveur injoignable. Vérifiez que Django tourne sur ce Mac (runserver 0.0.0.0:8000) et que l’IP dans .env est correcte (ex. http://192.168.0.143:8000).'
+          ? 'Serveur injoignable. Vérifiez que Django tourne (runserver 0.0.0.0:8000). En simulateur, essayez http://127.0.0.1:8000 via « URL du serveur » ci-dessous. Sur téléphone, utilisez l’IP du Mac (ex. http://192.168.0.x:8000) dans mobile/.env.'
           : msg
       );
     } finally {
@@ -85,6 +85,14 @@ export default function LoginScreen() {
           disabled={loading}
           style={styles.loginFAB}
         />
+
+        <TouchableOpacity
+          style={styles.serverLink}
+          onPress={() => router.push('/settings')}
+          disabled={loading}
+        >
+          <Text style={styles.serverLinkText}>URL du serveur (Paramètres réseau)</Text>
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.registerLink}
@@ -143,8 +151,18 @@ const styles = StyleSheet.create({
   loginFAB: {
     marginTop: 24,
   },
+  serverLink: {
+    marginTop: 16,
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  serverLinkText: {
+    fontSize: 15,
+    color: '#2d5a3d',
+    textDecorationLine: 'underline',
+  },
   registerLink: {
-    marginTop: 20,
+    marginTop: 12,
     alignItems: 'center',
   },
   registerLinkText: {

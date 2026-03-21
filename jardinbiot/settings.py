@@ -218,6 +218,10 @@ POLLINATION_DISTANCE_MAX_DEFAULT_M = float(env("POLLINATION_DISTANCE_MAX_DEFAULT
 CESIUM_ION_ACCESS_TOKEN = env("CESIUM_ION_ACCESS_TOKEN", default="")
 CESIUM_LIDAR_ASSET_ID = env("CESIUM_LIDAR_ASSET_ID", default=None)
 
+# Radix Sylva — sync du cache botanique (Pass B)
+RADIX_SYLVA_API_URL = env('RADIX_SYLVA_API_URL', default='http://127.0.0.1:8001/api/v1')
+RADIX_SYLVA_SYNC_API_KEY = env('RADIX_SYLVA_SYNC_API_KEY', default='')
+
 # Admin - regroupement et ordre du menu (catalog, gardens, species)
 ADMIN_REORDER = [
     # Mon BIOT
@@ -228,7 +232,7 @@ ADMIN_REORDER = [
     {'app': 'species', 'label': 'Contrôles', 'models': ('Event',)},
     {'app': 'gardens', 'label': 'Contrôles', 'models': ('WeatherRecord', 'SprinklerZone')},
     # Configurations et importation de données
-    {'app': 'catalog', 'label': 'Configurations et importation de données', 'models': ('UserTag', 'CompanionRelation', 'OrganismAmendment', 'SeedSupplier', 'SeedCollection', 'Amendment')},
+    {'app': 'catalog', 'label': 'Configurations et importation de données', 'models': ('UserTag', 'CompanionRelation', 'OrganismAmendment', 'SeedSupplier', 'SeedCollection', 'Amendment', 'RadixSyncState')},
     {'app': 'species', 'label': 'Configurations et importation de données', 'models': ('DataImportRun',)},
     {'app': 'gardens', 'label': 'Configurations et importation de données', 'models': ('UserPreference', 'Partner')},
     # Apps Django par défaut

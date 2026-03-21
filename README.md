@@ -11,6 +11,8 @@
 
 De la gestion de votre potager urbain à la conception de forêts comestibles multi-strates, Jardin bIOT vous accompagne dans la création d'écosystèmes nourriciers résilients et autonomes.
 
+**Radix Sylva** (base botanique publique, séparation en cours — *Pass A/B*) : projet Django dans le dossier [`radixsylva/`](radixsylva/README.md). API `/api/v1/sync/*` pour alimenter le cache BIOT ; côté Jardin bIOT : `python manage.py sync_radixsylva` (voir `.env.example`). URL publique prévue sous un **sous-domaine de `jardinbiot.ca`** (ex. `radix.jardinbiot.ca`) — pas `radixsylva.org` pour l’instant. **Plan des phases** (dont infra DigitalOcean avant prod données) : [`docs/plan-radix-biot-phases.md`](docs/plan-radix-biot-phases.md).
+
 ---
 
 ## 🌲 Né d'une Vision Réelle
@@ -496,16 +498,17 @@ cd mobile && npx expo start
 git clone https://github.com/gbdb/biot.git
 cd biot
 
-# Créer un environnement virtuel
-python3 -m venv venv
-source venv/bin/activate  # Sur Windows: venv\Scripts\activate
+# Créer un environnement virtuel (à la racine du repo)
+python3 -m venv .venv
+source .venv/bin/activate  # Sur Windows: .venv\Scripts\activate
 
 # Installer les dépendances
 pip install -r requirements.txt
 
-# Configuration de la base de données
+# Base PostgreSQL (recommandé en dev — même stack qu’en prod, search_vector OK)
+docker compose up -d
 cp .env.example .env
-# Éditer .env avec vos paramètres PostgreSQL
+# .env.example définit DATABASE_URL=postgres://jardinbiot:jardinbiot@127.0.0.1:5434/jardinbiot
 
 # Migrations
 python manage.py migrate
@@ -519,11 +522,10 @@ python manage.py runserver
 
 Accédez à l'application : `http://localhost:8000`
 
-**Import de données :**
-```bash
-# Import PFAF (plantes comestibles — base payante, n'utiliser que des fichiers acquis via pfaf.org)
-python manage.py import_pfaf --file=votre_fichier.csv
+**Données botaniques (Radix Sylva + cache BIOT) :** les imports en masse (Hydro-Québec, VASCAN, PFAF, etc.) se font sur le projet **`radixsylva/`** ; sur Jardin bIOT : `python manage.py sync_radixsylva`. Voir **`docs/dev-postgres-etapes-3-4.md`** et **`docs/radix-biot-pass-c.md`**.
 
+**Autres imports (BIOT) :**
+```bash
 # Import catalogues de semences (CSV ou JSON)
 python manage.py import_seeds --file=catalogue_semences.csv [--supplier=ID]
 ```

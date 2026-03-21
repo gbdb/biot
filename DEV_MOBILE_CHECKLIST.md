@@ -64,12 +64,16 @@ Vérifier que le fichier contient :
 ```env
 ALLOWED_HOSTS=localhost,127.0.0.1,192.168.0.152
 CORS_ALLOW_ALL_ORIGINS=True
+# Dev recommandé : PostgreSQL (docker compose à la racine) — voir docs/dev-postgres-etapes-3-4.md
+# DATABASE_URL=postgres://jardinbiot:jardinbiot@127.0.0.1:5434/jardinbiot
 ```
 
 - **Simulateur** : `localhost,127.0.0.1` suffit.
 - **Appareil physique** : ajoute l'IP de ton Mac (ex: `192.168.0.152`).
 
 Sans l'IP dans `ALLOWED_HOSTS`, Django rejette les requêtes (400 Bad Request).
+
+**Staff / Paramètres avancés (app)** : les commandes d’import bulk ont été remplacées par **sync Radix** (`sync_radixsylva`, etc.) — le backend doit exposer les mêmes endpoints qu’en prod.
 
 ## 2. Lancer Django
 

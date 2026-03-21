@@ -2,6 +2,8 @@
 
 > **Objectif** : Déployer Jardin bIOT sur une machine virtuelle Proxmox dans un environnement local, pour une instance de production toujours disponible et les tests de l'été 2026.
 
+> **Radix Sylva (base botanique en ligne)** : hébergement prévu sur **DigitalOcean** + sous-domaine **`*.jardinbiot.ca`** — voir [`docs/plan-radix-biot-phases.md`](docs/plan-radix-biot-phases.md) et [`docs/hebergement-radix-digitalocean.md`](docs/hebergement-radix-digitalocean.md). Ce fichier `DEPLOYMENT.md` couvre surtout **Jardin bIOT** sur Proxmox.
+
 ---
 
 ## Vue d'ensemble

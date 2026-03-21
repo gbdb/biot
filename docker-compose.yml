@@ -1,0 +1,15 @@
+# Jardin bIOT — PostgreSQL en dev (port 5434 pour ne pas entrer en conflit avec Radix sur 5433)
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: jardinbiot
+      POSTGRES_PASSWORD: jardinbiot
+      POSTGRES_DB: jardinbiot
+    ports:
+      - "5434:5432"
+    volumes:
+      - jardinbiot_pgdata:/var/lib/postgresql/data
+
+volumes:
+  jardinbiot_pgdata:

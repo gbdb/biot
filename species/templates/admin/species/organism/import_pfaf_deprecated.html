@@ -1,0 +1,22 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<h1>{{ title }}</h1>
+<div class="module" style="max-width:720px;padding:1rem 1.25rem;background:#fff8e6;border:1px solid #e6c200;border-radius:6px;">
+  <p style="margin:0 0 1rem 0;font-size:1rem;">
+    L’import PFAF ne se fait plus sur <strong>Jardin bIOT</strong>. La base botanique de référence est
+    <strong>Radix Sylva</strong> : y exécuter <code>python manage.py import_pfaf</code> (ou équivalent),
+    puis sur cette machine :
+  </p>
+  <pre style="background:#1e1e1e;color:#d4d4d4;padding:1rem;border-radius:6px;overflow:auto;">cd /chemin/vers/biot
+source .venv/bin/activate
+python manage.py sync_radixsylva --full</pre>
+  <p style="margin:1rem 0 0 0;">
+    <a href="{% url 'admin:catalog_organism_changelist' %}">← Retour à la liste des espèces</a>
+    · Documentation : <code>docs/radix-biot-pass-c.md</code>, <code>docs/dev-postgres-etapes-3-4.md</code>
+  </p>
+</div>
+{% endblock %}

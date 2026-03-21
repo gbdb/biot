@@ -103,6 +103,16 @@
 {% block content %}
 <h1>📦 Gestion des données</h1>
 
+<div class="section" style="background:#fff8e6;border-color:#e6c200;margin-bottom:1rem;">
+  <h2 style="margin-top:0;color:#8a6d00;">Radix Sylva — cache botanique</h2>
+  <p style="margin:0;font-size:0.95em;color:#5c4a00;">
+    Les <strong>imports botaniques en masse</strong> (VASCAN, USDA, Hydro-Québec, PFAF, etc.) se font sur le projet
+    <strong>Radix Sylva</strong>. Sur Jardin bIOT, mettez à jour le catalogue avec la commande
+    <strong>sync_radixsylva</strong> (ci-dessous ou <code>python manage.py sync_radixsylva</code>).
+    Voir <code>docs/radix-biot-pass-c.md</code> et <code>radixsylva/README.md</code>.
+  </p>
+</div>
+
 <div class="gestion-donnees">
   <div class="section">
     <h2>Vue d'ensemble de la base</h2>
@@ -226,10 +236,10 @@
   <div class="section">
     <h2>Recommandations (ordre des opérations)</h2>
     <ol class="workflow-list">
-      <li>Importer les sources (Hydro-Québec, PFAF, VASCAN, USDA) via les sections ci-dessous ou <a href="{% url 'admin:catalog_organism_import_pfaf' %}">Importer PFAF</a> / <a href="{% url 'admin:catalog_seedcollection_import_csv' %}">Importer semences</a>.</li>
-      <li>Enrichir hauteur/largeur/calendrier : <strong>import_topic</strong> (CSV TOPIC), <strong>import_usda_chars</strong>, <strong>import_wikidata</strong>.</li>
-      <li>Fusionner les doublons : lancer la commande <strong>merge_organism_duplicates</strong> dans le bloc « Commandes d'import et maintenance ».</li>
-      <li>Remplir les tables dérivées : lancer <strong>populate_proprietes_usage_calendrier</strong>.</li>
+      <li><strong>Radix Sylva</strong> : exécuter les imports nécessaires (<code>import_hydroquebec</code>, <code>import_vascan</code>, etc.) puis éventuellement <code>merge_organism_duplicates</code>, <code>rebuild_search_vectors</code> côté Radix.</li>
+      <li><strong>Jardin bIOT</strong> : lancer <strong>sync_radixsylva</strong> (option <em>full</em> au premier tirage). Vérifier <code>RADIX_SYLVA_API_URL</code> / clé sync dans <code>.env</code>.</li>
+      <li>Semences / inventaire : toujours via <a href="{% url 'admin:catalog_seedcollection_import_csv' %}">Importer semences</a> (catalogue BIOT).</li>
+      <li>Import PFAF depuis l’admin Django reste disponible pour transition ; à terme, privilégier Radix + sync.</li>
     </ol>
   </div>
 
@@ -283,7 +293,8 @@
 
   <div class="section">
     <h2>Hydro-Québec — Téléchargement et import local</h2>
-    <p style="color:#666; font-size:0.9em;">Outil central pour compléter la base : récupérer le jeu complet (~1700 fiches) depuis l'API, puis l'importer. Chaque ligne = fiche (espèce ou cultivar) ; l'import fusionne les cultivars par espèce (organisme + cultivars).</p>
+    <p style="color:#666; font-size:0.9em;"><strong>Recommandé :</strong> même flux sur <strong>Radix Sylva</strong> puis <strong>sync_radixsylva</strong> sur BIOT. Les formulaires ci-dessous restent utiles en transition (préparation de fichiers JSON locaux).</p>
+    <p style="color:#666; font-size:0.9em;">Récupérer le jeu complet (~1700 fiches) depuis l'API, puis l'importer. Chaque ligne = fiche (espèce ou cultivar) ; l'import fusionne les cultivars par espèce (organisme + cultivars).</p>
 
     <div style="margin-bottom:1.25rem;">
       <strong>1. Télécharger le jeu complet</strong> (enregistre <code>arbres_hq_AAAA-MM-JJ.json</code> dans <code>data/hydroquebec/</code>) :
@@ -320,17 +331,11 @@
 
   <div class="section">
     <h2>Import VASCAN (fichier)</h2>
-    <p style="color:#666; font-size:0.9em;">Fichier texte avec un nom latin par ligne. Utilise <code>import_vascan --file</code>.</p>
-    <form class="upload-form" method="post" enctype="multipart/form-data" action="{% url 'gestion_donnees' %}">
-      {% csrf_token %}
-      <input type="hidden" name="action" value="upload_vascan">
-      <input type="file" name="file" accept=".txt,.csv">
-      <button type="submit" class="button">Importer le fichier</button>
-    </form>
+    <p style="color:#a50; font-size:0.95em;"><strong>Désactivé sur Jardin bIOT.</strong> Utiliser <code>import_vascan</code> sur Radix Sylva, puis <strong>sync_radixsylva</strong>.</p>
   </div>
 
   <div class="section">
-    <h2>Commandes d'import et maintenance</h2>
+    <h2>Commandes (cache Radix + maintenance locale)</h2>
     <div class="cmd-grid">
       {% for c in commands_with_opts %}
       <div class="cmd-form">
@@ -357,7 +362,7 @@
       </div>
       {% endfor %}
     </div>
-    <p style="color:#666; font-size:0.85em; margin-top:0.5rem;">Options optionnelles. no_input est forcé à True pour merge_organism_duplicates, wipe_species, wipe_db_and_media, clean_organisms_keep_hq.</p>
+    <p style="color:#666; font-size:0.85em; margin-top:0.5rem;">Les imports botaniques en ligne de commande restent dans le dépôt mais ne sont plus exposés ici ; utiliser Radix Sylva. <code>no_input</code> est forcé pour <code>wipe_db_and_media</code>.</p>
   </div>
 
   <div class="section">

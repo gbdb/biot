@@ -3,8 +3,8 @@ asgiref==3.11.1
 Django==5.2.11
 sqlparse==0.5.5
 
-# Database - PostgreSQL (production / optionnel en dev)
-#psycopg2-binary==2.9.10
+# Database - PostgreSQL (dev recommandé : docker compose + DATABASE_URL — voir docs/dev-postgres-etapes-3-4.md)
+psycopg[binary]>=3.2,<4
 
 # Images (modèle Photo - ImageField)
 Pillow==11.0.0

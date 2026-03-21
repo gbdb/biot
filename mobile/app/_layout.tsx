@@ -15,6 +15,8 @@ function RootLayoutNav() {
 
   const isOnLogin = segments[0] === 'login';
   const isOnRegister = segments[0] === 'register';
+  /** Permet d’ouvrir Paramètres (URL du serveur) avant la connexion — voir lien sur l’écran login. */
+  const isOnSettings = segments[0] === 'settings';
 
   if (authenticated === null) {
     return (
@@ -24,7 +26,7 @@ function RootLayoutNav() {
     );
   }
 
-  if (!authenticated && !isOnLogin && !isOnRegister) {
+  if (!authenticated && !isOnLogin && !isOnRegister && !isOnSettings) {
     return <Redirect href="/login" />;
   }
 

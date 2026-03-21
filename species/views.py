@@ -426,53 +426,13 @@ def gestion_donnees_view(request):
                         pass
             return redirect("gestion_donnees")
 
-        # --- Upload fichier VASCAN ---
+        # --- Upload fichier VASCAN (désactivé — Pass C : Radix Sylva + sync_radixsylva) ---
         if request.POST.get("action") == "upload_vascan":
-            uploaded = request.FILES.get("file")
-            if uploaded:
-                suffix = ".txt"
-                if uploaded.name and "." in uploaded.name:
-                    suffix = "." + uploaded.name.rsplit(".", 1)[-1]
-                with tempfile.NamedTemporaryFile(mode="wb", suffix=suffix, delete=False) as f:
-                    for chunk in uploaded.chunks():
-                        f.write(chunk)
-                    path = f.name
-                _eb = BaseEnrichmentStats.objects.first()
-                run = DataImportRun.objects.create(
-                    source="import_vascan",
-                    status="running",
-                    trigger="gestion_donnees",
-                    user=request.user,
-                    stats={"global_score_before": _eb.global_score_pct if _eb else None},
-                )
-                try:
-                    out, err = StringIO(), StringIO()
-                    try:
-                        call_command("import_vascan", file=path, stdout=out, stderr=err)
-                        output = (out.getvalue() + "\n" + err.getvalue()).strip()
-                        _append_log(request, "Import VASCAN (fichier)", output, True)
-                        run.status = "success"
-                        run.finished_at = timezone.now()
-                        run.output_snippet = (output or "")[:2000]
-                        _ea = BaseEnrichmentStats.objects.first()
-                        run.stats["global_score_after"] = _ea.global_score_pct if _ea else None
-                        run.save()
-                        messages.success(request, "Import VASCAN terminé.")
-                    except Exception as e:
-                        output = (out.getvalue() + "\n" + err.getvalue()).strip() or str(e)
-                        _append_log(request, "Import VASCAN (fichier)", output, False)
-                        run.status = "failure"
-                        run.finished_at = timezone.now()
-                        run.output_snippet = output[:2000] if output else str(e)[:2000]
-                        run.save()
-                        messages.error(request, f"Erreur : {e}")
-                finally:
-                    try:
-                        os.unlink(path)
-                    except OSError:
-                        pass
-            else:
-                messages.warning(request, "Aucun fichier sélectionné.")
+            messages.warning(
+                request,
+                "Import VASCAN depuis cette page est désactivé. "
+                "Exécuter import_vascan sur Radix Sylva, puis lancer « sync_radixsylva » ci-dessous ou en ligne de commande.",
+            )
             return redirect("gestion_donnees")
 
         # --- Téléchargement complet Hydro-Québec (API → fichier local) ---
@@ -613,7 +573,16 @@ def gestion_donnees_view(request):
                 val = request.POST.get(f"opt_{key}")
                 if val is None:
                     continue
-                if key in ("enrich", "curl", "insecure", "verbose", "dry_run", "no_input"):
+                if key in (
+                    "enrich",
+                    "curl",
+                    "insecure",
+                    "verbose",
+                    "dry_run",
+                    "no_input",
+                    "full",
+                    "no_rebuild_search",
+                ):
                     options[key] = val in ("1", "on", "true", "yes")
                 elif key == "limit":
                     try:
@@ -628,7 +597,7 @@ def gestion_donnees_view(request):
                 elif key == "file" and val:
                     options[key] = val.strip()
             cmd_kwargs = _build_command_kwargs(command, options)
-            if command in ("merge_organism_duplicates", "wipe_db_and_media", "wipe_species", "clean_organisms_keep_hq"):
+            if command == "wipe_db_and_media":
                 cmd_kwargs.setdefault("no_input", True)
 
             # Score global avant (pour alerte si baisse après import)
@@ -706,12 +675,23 @@ def gestion_donnees_view(request):
 
     # Dernière exécution par source (pour le bloc "Last runs")
     sources_for_last_run = [
-        "pfaf", "seeds", "import_vascan", "import_usda", "import_hydroquebec",
-        "import_botanipedia", "import_arbres_en_ligne", "import_ancestrale",
-        "import_topic", "import_usda_chars", "import_wikidata",
-        "merge_organism_duplicates", "populate_proprietes_usage_calendrier",
+        "pfaf",
+        "seeds",
+        "import_vascan",
+        "import_usda",
+        "import_hydroquebec",
+        "import_botanipedia",
+        "import_arbres_en_ligne",
+        "import_ancestrale",
+        "import_topic",
+        "import_usda_chars",
+        "import_wikidata",
+        "merge_organism_duplicates",
+        "populate_proprietes_usage_calendrier",
         "backup_restore",
         "clean_organisms_keep_hq",
+        "sync_radixsylva",
+        "rebuild_search_vectors",
     ]
     last_runs_by_source = {}
     for src in sources_for_last_run:
@@ -737,20 +717,9 @@ def gestion_donnees_view(request):
         pass
 
     command_help = {
-        "import_vascan": "Enrichit les organismes existants (vascan_id) ou crée depuis un fichier.",
-        "import_usda": "Enrichit avec le TSN ITIS/USDA.",
-        "import_hydroquebec": "Arbres et arbustes HQ (API ou fichier local).",
-        "import_botanipedia": "Enrichit description / usages depuis Botanipedia.",
-        "import_arbres_en_ligne": "CSV 3 colonnes (nom_fr, nom_latin, nom_en). Crée organismes si absents + OrganismNom FR/EN.",
-        "import_ancestrale": "CSV 1 colonne TypePlante Cultivar [PorteGreffe] [Age]. Cultivars et porte-greffes uniquement.",
-        "import_topic": "Traits TOPIC Canada (hauteur, largeur, floraison). CSV depuis open.canada.ca.",
-        "import_usda_chars": "Hauteur, largeur, floraison USDA PLANTS. --enrich ou --file CSV.",
-        "import_wikidata": "Hauteur et largeur depuis Wikidata (SPARQL). Mode fill_gaps.",
-        "merge_organism_duplicates": "Fusionne les doublons (même vascan_id, tsn ou nom latin).",
-        "populate_proprietes_usage_calendrier": "Remplit Propriétés, Usages, Calendrier depuis data_sources.",
-        "clean_organisms_keep_hq": "Nettoie la base : garde uniquement les espèces HQ (hydroquebec dans data_sources).",
-        "wipe_species": "Vide les données espèces (attention).",
-        "wipe_db_and_media": "Vide la base et les médias (attention).",
+        "sync_radixsylva": "Met à jour le cache botanique depuis l’API Radix Sylva (sync/*). Cocher « full » pour tout retélécharger.",
+        "rebuild_search_vectors": "Recalcule search_vector (PostgreSQL uniquement). Utile après un gros sync.",
+        "wipe_db_and_media": "Vide la base et les médias (attention). no_input forcé.",
     }
     commands_with_opts = [
         {

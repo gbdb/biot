@@ -198,6 +198,42 @@ export async function register(data: RegisterPayload): Promise<{ detail: string 
   return handleResponse<{ detail: string }>(res);
 }
 
+/**
+ * Vérifie que le backend Jardin Biot répond, sans JWT.
+ * POST /api/auth/register/ avec corps vide → 400 (validation) = API joignable (AllowAny).
+ */
+export async function pingBackendReachable(baseUrl: string): Promise<void> {
+  const base = baseUrl.replace(/\/$/, '');
+  const res = await fetchWithTimeout(
+    `${base}${ENDPOINTS.auth.register}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({}),
+    },
+    AUTH_TIMEOUT_MS
+  );
+  if (res.status === 404) {
+    throw new Error(
+      'Route API introuvable (404). Vérifiez l’URL (ex. http://127.0.0.1:8000 sans /api).'
+    );
+  }
+  if (res.status >= 500) {
+    throw new Error(`Erreur serveur HTTP ${res.status}.`);
+  }
+  // 400 attendu : champs obligatoires manquants
+  if (res.status === 400) {
+    return;
+  }
+  if (res.ok) {
+    return;
+  }
+  const text = await res.text().catch(() => '');
+  throw new Error(
+    `Réponse inattendue (${res.status}). Ce n’est peut‑être pas l’API Jardin Biot. ${text.slice(0, 80)}`
+  );
+}
+
 export async function logout(): Promise<void> {
   refreshPromise = null;
   await clearTokens();
@@ -1097,6 +1133,10 @@ export interface RunAdminCommandOptions {
   no_input?: boolean;
   curl?: boolean;
   insecure?: boolean;
+  /** sync_radixsylva : premier tirage ou réalignement complet */
+  full?: boolean;
+  /** sync_radixsylva : ne pas lancer rebuild_search_vectors à la fin */
+  no_rebuild_search?: boolean;
 }
 
 export interface RunAdminCommandResult {

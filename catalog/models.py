@@ -516,3 +516,25 @@ class BaseEnrichmentStats(models.Model):
 
     def __str__(self):
         return f"Enrichissement base: {self.global_score_pct}% ({self.organism_count} espèces)"
+
+
+class RadixSyncState(models.Model):
+    """Filigrane du dernier sync réussi depuis Radix Sylva (cache botanique BIOT)."""
+
+    key = models.CharField(max_length=40, primary_key=True, default='default')
+    last_server_time = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='Valeur server_time de /sync/meta/ au début du dernier sync réussi (borne basse « since »).',
+    )
+    last_run_at = models.DateTimeField(auto_now=True)
+    last_run_ok = models.BooleanField(default=False)
+    last_error = models.TextField(blank=True)
+
+    class Meta:
+        db_table = 'catalog_radixsyncstate'
+        verbose_name = 'État sync Radix Sylva'
+        verbose_name_plural = 'États sync Radix Sylva'
+
+    def __str__(self):
+        return f'RadixSyncState({self.key})'

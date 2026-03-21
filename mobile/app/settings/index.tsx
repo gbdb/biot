@@ -2,10 +2,18 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import * as Clipboard from 'expo-clipboard';
-import * as DocumentPicker from 'expo-document-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useApiConfig } from '@/contexts/ApiConfigContext';
-import { getGardens, getUserPreferences, updateUserPreferences, runAdminCommand, getMe, getSpeciesStats, uploadVascanFile } from '@/api/client';
+import {
+  getGardens,
+  getUserPreferences,
+  updateUserPreferences,
+  runAdminCommand,
+  getMe,
+  getSpeciesStats,
+  pingBackendReachable,
+  getAccessToken,
+} from '@/api/client';
 
 function normalizeApiUrl(input: string): string {
   const trimmed = input.trim().replace(/\/+$/, '');
@@ -28,7 +36,6 @@ export default function SettingsScreen() {
   const [saving, setSaving] = useState(false);
   const [me, setMe] = useState<{ username: string; email: string; first_name: string; last_name: string; is_staff?: boolean; is_superuser?: boolean } | null>(null);
   const [organismCount, setOrganismCount] = useState<number | null>(null);
-  const [globalEnrichmentScorePct, setGlobalEnrichmentScorePct] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -47,16 +54,13 @@ export default function SettingsScreen() {
       );
       setMe(profile);
       setOrganismCount(null);
-      setGlobalEnrichmentScorePct(null);
       if (profile?.is_staff) {
         getSpeciesStats()
           .then((s) => {
             setOrganismCount(s.organism_count);
-            setGlobalEnrichmentScorePct(s.global_enrichment_score_pct ?? null);
           })
           .catch(() => {
             setOrganismCount(null);
-            setGlobalEnrichmentScorePct(null);
           });
       }
     } catch {
@@ -65,7 +69,6 @@ export default function SettingsScreen() {
       setPollinationDistanceM('');
       setMe(null);
       setOrganismCount(null);
-      setGlobalEnrichmentScorePct(null);
     } finally {
       setLoading(false);
     }
@@ -105,80 +108,20 @@ export default function SettingsScreen() {
   };
 
   const [runningCommand, setRunningCommand] = useState<string | null>(null);
-  const [uploadingVascan, setUploadingVascan] = useState(false);
-
-  const LIMIT_PRESETS = [50, 100, 200, 500];
-
-  type BaseOptions = { enrich?: boolean; limit?: number; dry_run?: boolean; no_input?: boolean; curl?: boolean; delay?: number };
-
-  const showLimitPrompt = (
-    command: string,
-    label: string,
-    baseOptions: BaseOptions
-  ) => {
-    Alert.alert(
-      'Limite',
-      'Établir une limite pour cet import ?',
-      [
-        {
-          text: 'Sans limite',
-          onPress: () => runCommand(command, label, { ...baseOptions, limit: 0 }),
-        },
-        {
-          text: 'Avec limite',
-          onPress: () => {
-            Alert.alert(
-              'Nombre max',
-              'Nombre d\'éléments à traiter :',
-              [
-                ...LIMIT_PRESETS.map((n) => ({
-                  text: String(n),
-                  onPress: () => runCommand(command, label, { ...baseOptions, limit: n }),
-                })),
-                { text: 'Annuler', style: 'cancel' },
-              ]
-            );
-          },
-        },
-        { text: 'Annuler', style: 'cancel' },
-      ]
-    );
-  };
-
-  const runCommandWithLimitPrompt = (
-    command: string,
-    label: string,
-    baseOptions: BaseOptions = {}
-  ) => {
-    showLimitPrompt(command, label, baseOptions);
-  };
-
-  const runCommandWithEnrichAndLimitPrompt = (
-    command: string,
-    label: string,
-    baseOptions: BaseOptions = {}
-  ) => {
-    Alert.alert(
-      'Mode',
-      'Enrichir : uniquement les organismes sans cette source. Peupler : tous les organismes.',
-      [
-        {
-          text: 'Enrichir',
-          onPress: () => showLimitPrompt(command, label, { ...baseOptions, enrich: true }),
-        },
-        {
-          text: 'Peupler',
-          onPress: () => showLimitPrompt(command, label, { ...baseOptions, enrich: false }),
-        },
-        { text: 'Annuler', style: 'cancel' },
-      ]
-    );
-  };
 
   const runCommand = async (
     command: string,
     label: string,
-    options: { enrich?: boolean; limit?: number; dry_run?: boolean; no_input?: boolean; curl?: boolean; delay?: number } = {}
+    options: {
+      enrich?: boolean;
+      limit?: number;
+      dry_run?: boolean;
+      no_input?: boolean;
+      curl?: boolean;
+      delay?: number;
+      full?: boolean;
+      no_rebuild_search?: boolean;
+    } = {}
   ) => {
     setRunningCommand(command);
     try {
@@ -205,43 +148,6 @@ export default function SettingsScreen() {
       ]);
     } finally {
       setRunningCommand(null);
-    }
-  };
-
-  const pickAndUploadVascan = async () => {
-    try {
-      const doc = await DocumentPicker.getDocumentAsync({
-        type: ['text/plain', 'text/csv', 'application/octet-stream', '*/*'],
-        copyToCacheDirectory: true,
-      });
-      if (doc.canceled) return;
-      const file = doc.assets[0];
-      setUploadingVascan(true);
-      const result = await uploadVascanFile({
-        uri: file.uri,
-        name: file.name ?? 'vascan.txt',
-        type: file.mimeType ?? 'text/plain',
-      });
-      const outputText = result.output || result.detail || (result.success ? 'Import terminé.' : 'Échec.');
-      const copyToClipboard = () => {
-        Clipboard.setStringAsync(outputText).then(() => Alert.alert('Copié', 'Sortie copiée dans le presse-papiers.'));
-      };
-      Alert.alert(
-        result.success ? 'Import VASCAN (fichier)' : 'Erreur',
-        outputText,
-        [{ text: 'Copier', onPress: copyToClipboard }, { text: 'OK' }]
-      );
-      if (result.success && organismCount !== null) {
-        getSpeciesStats().then((s) => setOrganismCount(s.organism_count)).catch(() => {});
-      }
-    } catch (e) {
-      const errMsg = e instanceof Error ? e.message : "Impossible d'importer le fichier.";
-      Alert.alert('Erreur', errMsg, [
-        { text: 'Copier', onPress: () => Clipboard.setStringAsync(errMsg).then(() => Alert.alert('Copié', 'Message copié.')) },
-        { text: 'OK' },
-      ]);
-    } finally {
-      setUploadingVascan(false);
     }
   };
 
@@ -283,8 +189,29 @@ export default function SettingsScreen() {
   const testConnection = async () => {
     setTestingConnection(true);
     try {
-      await getMe();
-      Alert.alert('Connexion réussie', 'Le serveur répond correctement.');
+      const candidate = normalizeApiUrl(serverUrlInput);
+      const baseToPing = candidate || apiBaseUrl;
+      await pingBackendReachable(baseToPing);
+      const token = await getAccessToken();
+      if (token) {
+        try {
+          await getMe();
+          Alert.alert(
+            'Connexion réussie',
+            'Le serveur répond et votre session (JWT) est valide.'
+          );
+        } catch {
+          Alert.alert(
+            'Serveur joignable',
+            'L’API répond, mais la session a expiré ou le token est invalide. Reconnectez-vous.'
+          );
+        }
+      } else {
+        Alert.alert(
+          'Serveur joignable',
+          'L’API Jardin Biot répond à cette adresse. Connectez-vous pour tester votre compte.'
+        );
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Le serveur ne répond pas. Vérifiez l’adresse et que le backend tourne.';
       Alert.alert('Échec', msg);
@@ -459,127 +386,90 @@ export default function SettingsScreen() {
 
       <Text style={[styles.sectionTitle, styles.sectionTitleAdvanced]}>Avancé</Text>
       <Text style={styles.hint}>
-        Importations et maintenance des données espèces (réservé aux comptes administrateurs). VASCAN et USDA enrichissent les organismes existants ; Hydro-Québec en crée (~1700). Pour plus d'espèces : importer un fichier VASCAN ci-dessous (noms scientifiques, tab ou texte).
+        Réservé aux administrateurs. Les données botaniques sont maintenues sur <Text style={{ fontWeight: 'bold' }}>Radix Sylva</Text> ; ce serveur reçoit une copie via <Text style={{ fontWeight: 'bold' }}>sync_radixsylva</Text>. Les imports VASCAN/USDA/Hydro en masse ne sont plus lancés depuis l’app.
       </Text>
       {me?.is_staff && organismCount !== null && (
-        <>
-          <Text style={styles.speciesCount}>Total : {organismCount} espèce{organismCount !== 1 ? 's' : ''} dans la base</Text>
-          {globalEnrichmentScorePct !== null && globalEnrichmentScorePct !== undefined && (
-            <Text style={styles.speciesCount}>Enrichissement de la base : {globalEnrichmentScorePct} %</Text>
-          )}
-        </>
+        <Text style={styles.speciesCount}>Total : {organismCount} espèce{organismCount !== 1 ? 's' : ''} dans la base (cache)</Text>
       )}
       <View style={styles.advancedGrid}>
         <TouchableOpacity
           style={styles.advancedBtn}
-          onPress={() => runCommandWithEnrichAndLimitPrompt('import_vascan', 'Import VASCAN', {})}
+          onPress={() => runCommand('sync_radixsylva', 'Sync Radix (delta)', {})}
           disabled={!!runningCommand}
         >
-          {runningCommand === 'import_vascan' ? (
+          {runningCommand === 'sync_radixsylva' ? (
             <ActivityIndicator size="small" color="#1a3c27" />
           ) : (
-            <Text style={styles.advancedBtnLabel}>Import VASCAN</Text>
+            <Text style={styles.advancedBtnLabel}>Sync Radix (delta)</Text>
           )}
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.advancedBtn}
-          onPress={pickAndUploadVascan}
-          disabled={!!runningCommand || uploadingVascan}
-        >
-          {uploadingVascan ? (
-            <ActivityIndicator size="small" color="#1a3c27" />
-          ) : (
-            <Text style={styles.advancedBtnLabel}>Importer fichier VASCAN</Text>
-          )}
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.advancedBtn}
-          onPress={() => runCommandWithEnrichAndLimitPrompt('import_usda', 'Import USDA', {})}
-          disabled={!!runningCommand}
-        >
-          {runningCommand === 'import_usda' ? (
-            <ActivityIndicator size="small" color="#1a3c27" />
-          ) : (
-            <Text style={styles.advancedBtnLabel}>Import USDA</Text>
-          )}
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.advancedBtn}
-          onPress={() => runCommandWithLimitPrompt('import_hydroquebec', 'Import Hydro-Québec', { curl: true })}
-          disabled={!!runningCommand}
-        >
-          {runningCommand === 'import_hydroquebec' ? (
-            <ActivityIndicator size="small" color="#1a3c27" />
-          ) : (
-            <Text style={styles.advancedBtnLabel}>Import Hydro-Québec</Text>
-          )}
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.advancedBtn}
-          onPress={() => runCommandWithEnrichAndLimitPrompt('import_botanipedia', 'Import Botanipedia', { delay: 1 })}
-          disabled={!!runningCommand}
-        >
-          {runningCommand === 'import_botanipedia' ? (
-            <ActivityIndicator size="small" color="#1a3c27" />
-          ) : (
-            <Text style={styles.advancedBtnLabel}>Import Botanipedia</Text>
-          )}
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.advancedBtn}
-          onPress={() => runCommandWithLimitPrompt('populate_proprietes_usage_calendrier', 'Peupler propriétés, usages, calendrier', {})}
-          disabled={!!runningCommand}
-        >
-          {runningCommand === 'populate_proprietes_usage_calendrier' ? (
-            <ActivityIndicator size="small" color="#1a3c27" />
-          ) : (
-            <Text style={styles.advancedBtnLabel}>Peupler propriétés, usages, calendrier</Text>
-          )}
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.advancedBtn}
-          onPress={() => runCommand('merge_organism_duplicates', 'Fusionner doublons (simulation)', { dry_run: true, no_input: true })}
-          disabled={!!runningCommand}
-        >
-          {runningCommand === 'merge_organism_duplicates' ? (
-            <ActivityIndicator size="small" color="#1a3c27" />
-          ) : (
-            <Text style={styles.advancedBtnLabel}>Merge doublons (simulation)</Text>
-          )}
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.advancedBtn, styles.advancedBtnMerge]}
-          onPress={() => runCommand('merge_organism_duplicates', 'Fusionner doublons', { dry_run: false, no_input: true })}
-          disabled={!!runningCommand}
-        >
-          {runningCommand === 'merge_organism_duplicates' ? (
-            <ActivityIndicator size="small" color="#1a3c27" />
-          ) : (
-            <Text style={styles.advancedBtnLabel}>Fusionner doublons</Text>
-          )}
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.advancedBtn, styles.advancedBtnDanger]}
           onPress={() => {
             Alert.alert(
-              'Vider les espèces (dev)',
-              'Cela supprimera toutes les espèces (organismes), spécimens, événements, rappels, semences, favoris espèces, etc. Les utilisateurs et jardins sont conservés. Irréversible.',
+              'Sync complet',
+              'Retélécharger tout le cache depuis Radix (plus long). Continuer ?',
               [
                 { text: 'Annuler', style: 'cancel' },
                 {
-                  text: 'Vider',
-                  style: 'destructive',
-                  onPress: () => runCommand('wipe_species', 'Vider les espèces', { no_input: true }),
+                  text: 'Lancer',
+                  onPress: () => runCommand('sync_radixsylva', 'Sync Radix (complet)', { full: true }),
                 },
               ]
             );
           }}
           disabled={!!runningCommand}
         >
-          {runningCommand === 'wipe_species' ? (
+          {runningCommand === 'sync_radixsylva' ? (
+            <ActivityIndicator size="small" color="#1a3c27" />
+          ) : (
+            <Text style={styles.advancedBtnLabel}>Sync Radix (complet)</Text>
+          )}
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.advancedBtn}
+          onPress={() => runCommand('sync_radixsylva', 'Sync Radix (simulation)', { dry_run: true })}
+          disabled={!!runningCommand}
+        >
+          {runningCommand === 'sync_radixsylva' ? (
+            <ActivityIndicator size="small" color="#1a3c27" />
+          ) : (
+            <Text style={styles.advancedBtnLabel}>Sync Radix (simulation)</Text>
+          )}
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.advancedBtn}
+          onPress={() => runCommand('rebuild_search_vectors', 'Rebuild index recherche', {})}
+          disabled={!!runningCommand}
+        >
+          {runningCommand === 'rebuild_search_vectors' ? (
+            <ActivityIndicator size="small" color="#1a3c27" />
+          ) : (
+            <Text style={styles.advancedBtnLabel}>Rebuild index recherche (PostgreSQL)</Text>
+          )}
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.advancedBtn, styles.advancedBtnDanger]}
+          onPress={() => {
+            Alert.alert(
+              'Vider base + médias',
+              'Commande wipe_db_and_media : destruction massive. Réservé au dev.',
+              [
+                { text: 'Annuler', style: 'cancel' },
+                {
+                  text: 'Exécuter',
+                  style: 'destructive',
+                  onPress: () => runCommand('wipe_db_and_media', 'Wipe DB', { no_input: true }),
+                },
+              ]
+            );
+          }}
+          disabled={!!runningCommand}
+        >
+          {runningCommand === 'wipe_db_and_media' ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
-            <Text style={styles.advancedBtnLabelDanger}>Vider les espèces (dev)</Text>
+            <Text style={styles.advancedBtnLabelDanger}>Wipe DB + médias (dev)</Text>
           )}
         </TouchableOpacity>
       </View>

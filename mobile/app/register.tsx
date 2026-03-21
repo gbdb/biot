@@ -150,6 +150,14 @@ export default function RegisterScreen() {
           />
 
           <TouchableOpacity
+            style={styles.serverLink}
+            onPress={() => router.push('/settings')}
+            disabled={loading}
+          >
+            <Text style={styles.serverLinkText}>URL du serveur (Paramètres réseau)</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
             style={styles.backLink}
             onPress={() => router.back()}
             disabled={loading}
@@ -212,8 +220,18 @@ const styles = StyleSheet.create({
   submitFAB: {
     marginTop: 24,
   },
+  serverLink: {
+    marginTop: 16,
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  serverLinkText: {
+    fontSize: 15,
+    color: '#2d5a3d',
+    textDecorationLine: 'underline',
+  },
   backLink: {
-    marginTop: 20,
+    marginTop: 12,
     alignItems: 'center',
   },
   backLinkText: {

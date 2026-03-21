@@ -688,6 +688,8 @@ class DataImportRun(models.Model):
         ('clean_organisms_keep_hq', 'Clean (garde Hydro-Québec)'),
         ('wipe_species', 'Wipe species'),
         ('wipe_db_and_media', 'Wipe DB and media'),
+        ('sync_radixsylva', 'Sync Radix Sylva'),
+        ('rebuild_search_vectors', 'Rebuild search vectors'),
     ]
     STATUS_CHOICES = [
         ('running', 'En cours'),
