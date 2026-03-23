@@ -8,7 +8,7 @@ Ce document décrit chaque application du projet avec une courte description et 
 
 **Rôle** : Projet Django principal — configuration, routage, point d’entrée du backend.
 
-- **Settings** (`jardinbiot/settings.py`) : `INSTALLED_APPS`, base de données (SQLite ou PostgreSQL via `DATABASE_URL`), REST framework, JWT, CORS, `django.contrib.gis` pour PostGIS.
+- **Settings** (`jardinbiot/settings.py`) : `INSTALLED_APPS`, base de données **PostgreSQL** via `DATABASE_URL`, REST framework, JWT, CORS, `django.contrib.gis` pour PostGIS.
 - **URLs** (`jardinbiot/urls.py`) : préfixe `/api/` → `species.api_urls`, auth (token, refresh, register), vues admin (Cesium, météo, géocodage, gestion des données).
 - **WSGI** : point d’entrée pour le déploiement.
 

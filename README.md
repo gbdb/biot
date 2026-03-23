@@ -11,7 +11,7 @@
 
 De la gestion de votre potager urbain à la conception de forêts comestibles multi-strates, Jardin bIOT vous accompagne dans la création d'écosystèmes nourriciers résilients et autonomes.
 
-**Radix Sylva** (base botanique publique, séparation en cours — *Pass A/B*) : projet Django dans le dossier [`radixsylva/`](radixsylva/README.md). API `/api/v1/sync/*` pour alimenter le cache BIOT ; côté Jardin bIOT : `python manage.py sync_radixsylva` (voir `.env.example`). URL publique prévue sous un **sous-domaine de `jardinbiot.ca`** (ex. `radix.jardinbiot.ca`) — pas `radixsylva.org` pour l’instant. **Plan des phases** (dont infra DigitalOcean avant prod données) : [`docs/plan-radix-biot-phases.md`](docs/plan-radix-biot-phases.md).
+**Radix Sylva** (source de vérité botanique) : dépôt séparé [`radixsylva/`](radixsylva/README.md) — imports de masse (Hydro, VASCAN, PFAF, etc.), enrichissement, API publique **`https://radix.jardinbiot.ca/api/v1`**. **Jardin bIOT** garde une **copie locale** des tables `species_*` (jardins, spécimens, semences, etc.) mise à jour par **`python manage.py sync_radixsylva`** selon `RADIX_SYLVA_API_URL` dans `.env` (voir `.env.example`). Ce n’est pas une deuxième base « maîtresse » pour le catalogue espèces. **Plan des phases** : [`docs/plan-radix-biot-phases.md`](docs/plan-radix-biot-phases.md) · flux détaillé : [`docs/radix-biot-pass-c.md`](docs/radix-biot-pass-c.md).
 
 ---
 
@@ -509,6 +509,7 @@ pip install -r requirements.txt
 docker compose up -d
 cp .env.example .env
 # .env.example définit DATABASE_URL=postgres://jardinbiot:jardinbiot@127.0.0.1:5434/jardinbiot
+# Deux repos (BIOT + Radix) : voir docs/dev-env-local-biot-radix.md
 
 # Migrations
 python manage.py migrate
@@ -522,7 +523,7 @@ python manage.py runserver
 
 Accédez à l'application : `http://localhost:8000`
 
-**Données botaniques (Radix Sylva + cache BIOT) :** les imports en masse (Hydro-Québec, VASCAN, PFAF, etc.) se font sur le projet **`radixsylva/`** ; sur Jardin bIOT : `python manage.py sync_radixsylva`. Voir **`docs/dev-postgres-etapes-3-4.md`** et **`docs/radix-biot-pass-c.md`**.
+**Données botaniques (Radix Sylva + cache BIOT) :** les imports en masse (Hydro-Québec, VASCAN, PFAF, etc.) se font sur le projet **`radixsylva/`** ; sur Jardin bIOT : `python manage.py sync_radixsylva` (voir **`docs/radix-biot-pass-c.md`**). Production Radix : définir **`RADIX_SYLVA_API_URL=https://radix.jardinbiot.ca/api/v1`** dans `.env`. Si `manage.py` / `runserver` démarre lentement : **`docs/performance-django-startup.md`**.
 
 **Autres imports (BIOT) :**
 ```bash

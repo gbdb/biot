@@ -27,7 +27,7 @@ python manage.py runserver 0.0.0.0:8000
 ```
 
 - **Port 5434** : évite le conflit avec **Radix** (`radixsylva/docker-compose.yml` utilise souvent **5433**).
-- **SQLite** : possible sans `DATABASE_URL`, mais `rebuild_search_vectors` restera ignoré (comme avant).
+- **`DATABASE_URL` obligatoire** : sans lui, Django refuse de démarrer (PostgreSQL uniquement).
 
 ### Sans Docker
 
@@ -37,8 +37,8 @@ Créer une base PostgreSQL locale et renseigner `DATABASE_URL` au même format.
 
 ## 2. Étape 2 (rappel) — Données botaniques
 
-- **Radix** : imports (`import_hydroquebec`, etc.) + API sur `:8001`.
-- **BIOT** : `python manage.py sync_radixsylva --full` puis syncs incrémentaux.
+- **Radix** : imports (`import_hydroquebec`, etc.) + API. En **local** : souvent `http://127.0.0.1:8001/api/v1`. En **production** : **`https://radix.jardinbiot.ca/api/v1`**.
+- **BIOT** : dans `.env`, **`RADIX_SYLVA_API_URL`** aligné sur l’API que tu cibles (HTTPS en prod). Puis `python manage.py sync_radixsylva --full` puis syncs incrémentaux.
 
 ---
 

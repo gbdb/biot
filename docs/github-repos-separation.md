@@ -212,3 +212,23 @@ git clone git@github.com:gbdb/Radix-Sylva.git radixsylva
 *(Le dossier local s’appelle souvent `radixsylva` pour coller au code ; le repo GitHub reste `Radix-Sylva`.)*
 
 **Si l’étape 4 échoue** (« failed to push » / non-fast-forward) : le repo GitHub n’est pas vide (README créé à la création). Soit tu le vides / recrées le repo vide, soit : `git pull radix-origin main --allow-unrelated-histories` dans un clone dédié — le plus simple est un **dépôt `radixsylva` vide** sans commit initial.
+
+---
+
+## 11. Dépannage — « rien ne se passe », push ou `git add` très long
+
+Le code Radix seul est **léger** (~quelques dizaines de fichiers). En revanche, le dossier **`radixsylva/.venv`** peut contenir **des milliers** de fichiers : même ignoré par `.gitignore`, un mauvais contexte (copie, iCloud) peut rendre Git **très lent** ou donner l’impression que ça bloque.
+
+**À faire avant `git add` / `git push` (méthode copie §4 ou radix-push-tmp) :**
+
+1. **Supprimer le venv** dans la copie de travail (il ne doit jamais être versionné) :
+   ```bash
+   rm -rf radix-push-tmp/.venv radix-push-tmp/**/__pycache__
+   ```
+2. **Travailler hors iCloud** : copier le dossier sous **`/tmp/radix-push`** ou **`~/Dev/radix-push`** plutôt que sous `Documents/` si ce dossier est synchronisé (iCloud Drive ralentit énormément Git).
+3. **Vérifier le nombre de fichiers suivis** après `git add` : `git status --short | wc -l` — de l’ordre de **< 200** est normal ; des **milliers** indiquent un venv ou `node_modules` par erreur.
+4. **Push avec progression** : `git push -u origin main --progress`
+5. **Connexion** : si HTTPS reste muet, Git attend peut‑être **identifiant + token** (fenêtre ou Trousseau) — regarde s’il y a une fenêtre macOS cachée derrière Cursor.
+6. **Test réseau** : `curl -I --max-time 10 https://github.com`
+
+En dernier recours : installer **[GitHub CLI](https://cli.github.com/)** (`brew install gh`), `gh auth login`, puis pousser depuis le dossier ou utiliser l’interface GitHub Desktop.

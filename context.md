@@ -1,7 +1,12 @@
 # Contexte technique bIOT
 
+## Radix Sylva ↔ catalogue espèces (BIOT)
+
+- **Radix Sylva** (dépôt séparé) : source de vérité botanique, API **`https://radix.jardinbiot.ca/api/v1`** en prod.
+- **Jardin bIOT** : copie locale des tables `species_*` + jardins / spécimens / semences ; mise à jour botanique via **`python manage.py sync_radixsylva`** et `RADIX_SYLVA_API_URL` dans `.env`. Les imports de masse ne se font **pas** sur BIOT — voir **`docs/radix-biot-pass-c.md`**.
+
 ## Base de données
-- **PostgreSQL** (en prod/si `DATABASE_URL` est defini) ; **fallback SQLite en dev** si `DATABASE_URL` n'est pas present. (`jardinbiot/settings.py`)
+- **PostgreSQL obligatoire** : `DATABASE_URL` requis dans `.env` (plus de SQLite pour Django). (`jardinbiot/settings.py`)
 - **Connexion via `DATABASE_URL` dans `.env`** via `django-environ` (`jardinbiot/settings.py` lit `.env` et applique `env.db()`).
 - **Extensions** : **pas de GeoDjango** (pas de `django.contrib.gis` dans `INSTALLED_APPS`) et pas de GDAL dans les deps. Les calculs geographiques passent par `shapely` + `pyproj`. (`jardinbiot/settings.py`, `requirements.txt`, `gardens/models.py`)
 - **Geometries stockees en `JSONField`** (GeoJSON) : `Garden.boundary/contours_geojson/terrain_stats` et `Zone.boundary` sont des `models.JSONField`. Les **surfaces** sont calculees via `shapely` + `pyproj` dans `Zone.save()`. (`gardens/models.py`)

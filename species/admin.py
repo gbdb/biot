@@ -514,6 +514,10 @@ class GardenAdmin(admin.ModelAdmin):
             'fields': ('latitude', 'longitude', 'timezone', 'pluie_semaine_display'),
             'description': 'Coordonnées pour la météo (Open-Meteo). Option 1 : remplir adresse/ville/code postal ci-dessus, enregistrer, puis cliquer "Remplir lat/long depuis l\'adresse" dans la barre d\'outils. Option 2 : saisir lat/long manuellement.'
         }),
+        ('Limites de la propriété', {
+            'fields': ('boundary',),
+            'description': 'Polygone GeoJSON (type Polygon, WGS84) : périmètre du terrain. Éditable en JSON brut.',
+        }),
         ('Seuils alerte arrosage', {
             'fields': ('seuil_temp_chaud_c', 'seuil_pluie_faible_mm', 'jours_periode_analyse'),
             'classes': ('collapse',)

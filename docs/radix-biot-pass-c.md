@@ -20,7 +20,8 @@ Ne pas activer le venv Radix pour lancer le `manage.py` à la racine (il manquer
 
 1. Sur **Radix** : migrations, imports, commandes de maintenance.
 2. Sur **BIOT** : `.env` avec `RADIX_SYLVA_API_URL` (ex. `http://127.0.0.1:8001/api/v1`) et optionnellement `RADIX_SYLVA_SYNC_API_KEY` si les clés sont définies sur Radix.
-3. `python manage.py sync_radixsylva --full` (première fois), puis `sync_radixsylva` sans `--full` pour les deltas.
+3. `python manage.py sync_radixsylva --full` (première fois), puis `sync_radixsylva` sans `--full` pour les deltas.  
+   Implémentation : `species/management/commands/sync_radixsylva.py` (consomme `RADIX_SYLVA_API_URL` + `/api/v1/sync/*`).
 
 Filigrane stocké dans **`catalog.RadixSyncState`**.
 

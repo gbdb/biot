@@ -1,5 +1,7 @@
 # Hébergement Radix — DigitalOcean (phase 0)
 
+**Runbook pas à pas (checklist, Nginx, Gunicorn, Certbot)** : **[deploy-radix-digitalocean-runbook.md](deploy-radix-digitalocean-runbook.md)**.
+
 Guide pour préparer **PostgreSQL Radix en ligne** et un **droplet** sur DigitalOcean, *avant* de finaliser la migration des données et le déploiement public de l’API.  
 URL visée : un **sous-domaine de `jardinbiot.ca`** (ex. `radix.jardinbiot.ca`), pas `radixsylva.org` pour le moment.
 

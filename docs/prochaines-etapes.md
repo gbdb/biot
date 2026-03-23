@@ -1,5 +1,7 @@
 # Prochaines étapes possibles
 
+> **Données botaniques** : les imports de masse se font sur **Radix Sylva** ; BIOT synchronise avec **`sync_radixsylva`** — pas de contradiction avec les pistes ci‑dessous (qualité des fiches, champs, etc.), qui concernent surtout le **contenu** après sync.
+
 Liste optionnelle d’enrichissements et d’évolutions, dérivée du doc [Import des espèces](import-especes-et-fusion-sources.md) (§8.4 et §9). Aucune n’est obligatoire ; à prioriser selon les besoins et la disponibilité des données.
 
 ---

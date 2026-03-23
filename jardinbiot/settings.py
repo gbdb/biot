@@ -14,6 +14,7 @@ from datetime import timedelta
 from pathlib import Path
 
 import environ
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -113,18 +114,15 @@ WSGI_APPLICATION = 'jardinbiot.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-# En dev sans .env ou sans DATABASE_URL : SQLite par défaut.
-# Avec DATABASE_URL (PostgreSQL) : utilise PostgreSQL.
+# PostgreSQL uniquement — définir DATABASE_URL dans .env (voir .env.example).
 
-if env("DATABASE_URL", default=None):
-    DATABASES = {"default": env.db()}
-else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
-        }
-    }
+if not env("DATABASE_URL", default=None):
+    raise ImproperlyConfigured(
+        "Jardin bIOT utilise uniquement PostgreSQL. "
+        "Définissez DATABASE_URL dans .env "
+        "(ex. postgres://jardinbiot:jardinbiot@127.0.0.1:5434/jardinbiot avec docker compose)."
+    )
+DATABASES = {"default": env.db()}
 
 # django.contrib.postgres (SearchVectorField, GinIndex) uniquement avec PostgreSQL
 if DATABASES["default"]["ENGINE"] == "django.db.backends.postgresql":

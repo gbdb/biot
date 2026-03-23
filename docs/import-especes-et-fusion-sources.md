@@ -1,6 +1,8 @@
 # Import des espèces : purification, spécialisation et enrichissement
 
-Ce document décrit comment le système transforme les données brutes des sources (Hydro-Québec, PFAF, VASCAN, etc.) en une base d’espèces et de cultivars exploitable. Il peut servir de **référence technique** (décisions, onboarding) ou de **support pour expliquer à un pépiniériste** comment la base est construite et enrichie.
+> **Où vivent les imports de masse (2025–2026)** — Les **imports botaniques lourds** (Hydro-Québec, PFAF, VASCAN, etc.) s’exécutent sur le projet **Radix Sylva** (API **`https://radix.jardinbiot.ca/api/v1`** en production). **Jardin bIOT** synchronise une copie locale via **`sync_radixsylva`** (`RADIX_SYLVA_API_URL` dans `.env`). Ne pas lancer ces imports en masse depuis BIOT ; voir **`docs/radix-biot-pass-c.md`**.
+
+Ce document décrit comment le système transforme les données brutes des sources en une base d’espèces et de cultivars **exploitable** (logique métier, fusion multi-sources). Il sert de **référence technique** ou pour expliquer la construction de la base. L’**interface** « Gestion des données » sur BIOT est décrite au §1.1 dans sa forme **actuelle** (Pass C).
 
 ---
 
@@ -18,25 +20,21 @@ Source (fichier / API)  →  Purifier  →  Spécialiser  →  Enrichir  →  Ba
 
 En sortie, une **espèce** = un enregistrement `Organism` (nom latin de base, nom commun, famille, type, rusticité, etc.) ; les **cultivars** sont dans la table `Cultivar` rattachée à l’espèce. Les données brutes de chaque source sont conservées dans `Organism.data_sources[source_id]`.
 
-### 1.1 Page « Gestion des données » (interface d’importation)
+### 1.1 Page « Gestion des données » (Jardin bIOT — Pass C)
 
-L’interface web **Gestion des données** centralise les imports et le suivi de la base espèces. Elle est réservée aux utilisateurs **staff** et accessible à l’URL **`/admin/gestion-donnees/`** (nom de vue Django : `gestion_donnees`). Implémentation : `species/views.py` (`gestion_donnees_view`), template `species/templates/species/gestion_donnees.html`.
+URL **`/admin/gestion-donnees/`** (staff uniquement) — `species/views.py` (`gestion_donnees_view`), template `gestion_donnees.html`.
 
-**Contenu de la page :**
+**Comportement actuel** :
 
-- **Vue d’ensemble de la base** : nombre d’organismes, nombre de spécimens, note d’enrichissement globale (singleton `BaseEnrichmentStats`), nombre de genres distincts, nombre de cultivars. Un tableau de **couverture par champ** (famille, zone rusticité, description, sol, usages, propriétés, calendrier, photos, etc.) indique combien d’espèces ont chaque champ rempli (en %), pour repérer les lacunes ou les champs les mieux documentés.
-- **Couverture par source** : nombre d’organismes ayant une entrée dans `data_sources` pour chaque clé (hydroquebec, pfaf, vascan, usda, botanipedia), plus **arbres_en_ligne** (organismes avec au moins un `OrganismNom` source « arbres_en_ligne ») et **ancestrale** (organismes ayant au moins un cultivar avec un `CultivarPorteGreffe` dont `disponible_chez` contient la source « ancestrale »). Filtre optionnel pour ne compter que les espèces issues d’une source donnée.
-- **Couverture cultivars** : nombre d’espèces avec au moins un cultivar, nombre total de cultivars, nombre de cultivars avec au moins un porte-greffe.
-- **Actions dédiées** :
-  - **Upload fichier VASCAN** : envoi d’un fichier (export VASCAN) → exécution de `import_vascan --file …` et enregistrement d’un `DataImportRun` (trigger `gestion_donnees`).
-  - **Téléchargement complet Hydro-Québec** : appel à `import_hydroquebec` sans limite, avec sortie vers un fichier JSON daté dans `data/hydroquebec/` (ex. `arbres_hq_2026-03-07.json`). Option « Utiliser curl » en cas de souci SSL.
-  - **Import Hydro-Québec depuis fichier local** : liste déroulante des fichiers JSON présents dans le répertoire configuré (`IMPORT_HYDROQUEBEC_DIR`, par défaut `data/hydroquebec/`) → exécution de `import_hydroquebec --file <fichier>`.
-- **Commandes d’administration** : formulaire par commande autorisée, avec options (limite, mode enrich, dry_run, fichier, etc.). Les commandes exposées sont notamment : `import_vascan`, `import_usda`, `import_hydroquebec`, `import_botanipedia`, **`import_arbres_en_ligne`**, **`import_ancestrale`**, `merge_organism_duplicates`, `populate_proprietes_usage_calendrier`, `wipe_species`, `wipe_db_and_media`. Chaque exécution crée un enregistrement **DataImportRun** (source, statut, trigger `gestion_donnees`, sortie tronquée, score d’enrichissement avant/après si pertinent).
-- **Dernières exécutions par source** : pour chaque type d’import ou de commande, affichage de la dernière run (date, statut, extrait de sortie).
-- **Historique des imports** : liste des 50 derniers `DataImportRun` (date, source, statut, utilisateur).
-- **Journal (log)** : sortie type terminal des dernières actions lancées depuis la page, conservée en session (`SESSION_LOG_KEY`), pour débogage rapide sans quitter l’interface.
+- **Bandeau Radix** : rappel que les imports de masse vivent sur **Radix Sylva** ; sur BIOT on synchronise avec **`sync_radixsylva`** (API configurée par `RADIX_SYLVA_API_URL`, ex. `https://radix.jardinbiot.ca/api/v1`).
+- **Statistiques** : vue d’ensemble (organismes, spécimens, cultivars, couverture par champ, par source dans `data_sources`, etc.) — inchangé pour le suivi du **cache** local.
+- **Import VASCAN (fichier)** : **désactivé** — message pour utiliser Radix puis `sync_radixsylva`.
+- **Hydro-Québec** : blocs « téléchargement / import JSON local » **conservés en transition** (préparation de fichiers) ; le flux recommandé reste Radix + sync.
+- **Commandes exposées** (formulaires) : uniquement **`sync_radixsylva`**, **`rebuild_search_vectors`**, **`wipe_db_and_media`** — voir `species/api_views.ALLOWED_ADMIN_COMMANDS`.
+- **Backup / restore** espèces (`pg_dump` / fichier) : toujours disponibles pour la base BIOT locale.
+- **Historique** `DataImportRun` et **journal** session : pour tracer les exécutions encore pertinentes.
 
-En résumé, la page **Gestion des données** est le point d’entrée opérationnel pour lancer les étapes décrites au §6 (ordre recommandé) : catalogue, enrichissement, merge doublons, migration cultivars, peuplement propriétés/usages/calendrier, et pour suivre l’état de la base (couverture, note d’enrichissement).
+*Ancienne description* (upload VASCAN web, longue liste de commandes d’import sur BIOT) : obsolète après Pass C ; le pipeline conceptuel des § suivants s’applique surtout au travail **sur Radix** ou à l’historique des données.
 
 ---
 
