@@ -10,9 +10,9 @@ import csv
 import io
 
 import requests
+from django.conf import settings
 from django.core.files.base import ContentFile
-from django.db import connection
-from django.db.models import Exists, F, OuterRef, Q
+from django.db.models import Exists, OuterRef, Q
 from django.http import HttpResponse
 from rest_framework import status, viewsets, mixins
 from rest_framework.pagination import PageNumberPagination
@@ -21,6 +21,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
 
+from catalog.models import MissingSpeciesRequest
 from gardens.models import GardenGCP, Partner, Zone
 from .models import (
     Cultivar,
@@ -47,6 +48,7 @@ from .serializers import (
     OrganismDetailSerializer,
     OrganismCreateSerializer,
     OrganismUpdateSerializer,
+    MissingSpeciesRequestCreateSerializer,
     GardenMinimalSerializer,
     GardenCreateSerializer,
     GardenUpdateSerializer,
@@ -572,6 +574,42 @@ class OrganismPagination(PageNumberPagination):
     max_page_size = 100
 
 
+def filter_organisms_queryset_by_search(qs, search):
+    """
+    Recherche sur nom commun, latin, genre et noms alternatifs.
+
+    Une requête multi-mots (ex. « Viorne juddii ») impose que chaque mot
+    apparaisse dans au moins un de ces champs — ce qui évite l’échec quand
+    le nom français et le binôme latin ne sont pas concaténés dans un seul champ.
+    L’ancienne logique full-text PostgreSQL exigeait la phrase entière dans le
+    document indexé, et un seul icontains sur la phrase entière échouait dans le
+    même cas.
+    """
+    search = (search or '').strip()
+    if not search:
+        return qs
+    words = [w for w in search.split() if len(w) >= 2]
+    if len(words) >= 2:
+        q = Q()
+        for w in words:
+            q &= (
+                Q(nom_commun__icontains=w)
+                | Q(nom_latin__icontains=w)
+                | Q(genus__icontains=w)
+                | Q(noms__nom__icontains=w)
+            )
+        return qs.filter(q).distinct()
+    term = words[0] if words else search
+    return qs.filter(
+        Q(nom_commun__icontains=search)
+        | Q(nom_latin__icontains=search)
+        | Q(nom_commun__icontains=term)
+        | Q(nom_latin__icontains=term)
+        | Q(genus__icontains=term)
+        | Q(noms__nom__icontains=term)
+    ).distinct()
+
+
 # --- Organism ViewSet (lecture + création + mise à jour) ---
 class OrganismViewSet(
     mixins.ListModelMixin,
@@ -603,20 +641,10 @@ class OrganismViewSet(
     def get_queryset(self):
         qs = super().get_queryset().prefetch_related('photos', 'noms')
         search = self.request.query_params.get('search')
-        use_search_rank = False
         if search:
             search = search.strip()
         if search:
-            if connection.vendor == 'postgresql' and hasattr(Organism, 'search_vector'):
-                from django.contrib.postgres.search import SearchQuery, SearchRank
-                sq = SearchQuery(search, config='simple')
-                qs = qs.filter(search_vector__isnull=False).filter(search_vector=sq)
-                qs = qs.annotate(rank=SearchRank(F('search_vector'), sq))
-                use_search_rank = True
-            else:
-                qs = qs.filter(
-                    Q(nom_commun__icontains=search) | Q(nom_latin__icontains=search)
-                )
+            qs = filter_organisms_queryset_by_search(qs, search)
         type_org = self.request.query_params.get('type')
         if type_org:
             qs = qs.filter(type_organisme=type_org)
@@ -671,10 +699,7 @@ class OrganismViewSet(
                 )
             )
         if self.action == 'list':
-            if use_search_rank:
-                qs = qs.order_by('-rank', 'genus', 'nom_commun')
-            else:
-                qs = qs.order_by('genus', 'nom_commun')
+            qs = qs.order_by('genus', 'nom_commun')
         if self.action == 'retrieve':
             from .models import CompanionRelation, Cultivar, CultivarPollinator
             qs = qs.prefetch_related(
@@ -1492,3 +1517,134 @@ class RunAdminCommandView(APIView):
         except Exception as e:
             output = (out.getvalue() + '\n' + err.getvalue()).strip() or str(e)
             return Response({'success': False, 'output': output, 'detail': 'Erreur lors de l\'exécution'})
+
+
+MISSING_SPECIES_USER_MESSAGE = (
+    "La fiche sera disponible dans le catalogue après la prochaine synchronisation "
+    "avec la base botanique (Radix Sylva)."
+)
+
+
+class MissingSpeciesRequestView(APIView):
+    """
+    POST /api/organisms/missing-species-request/
+    Soumet une espèce absente du catalogue vers Radix et enregistre la demande localement.
+    """
+
+    def post(self, request):
+        if not request.user.is_authenticated:
+            return Response({'detail': 'Authentification requise'}, status=status.HTTP_401_UNAUTHORIZED)
+        ser = MissingSpeciesRequestCreateSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        nom_latin = (ser.validated_data['nom_latin'] or '').strip()
+        nom_commun = (ser.validated_data.get('nom_commun') or '').strip()
+        search_query = (ser.validated_data.get('search_query') or '').strip()
+
+        base = (getattr(settings, 'RADIX_SYLVA_API_URL', '') or '').rstrip('/')
+        url = f'{base}/organism-request/'
+        key = getattr(settings, 'RADIX_SYLVA_SYNC_API_KEY', '') or ''
+        headers = {'Content-Type': 'application/json', 'User-Agent': 'JardinBiot/1.0 (missing-species)'}
+        if key:
+            headers['X-Radix-Sync-Key'] = key
+
+        payload = {'nom_latin': nom_latin}
+        if nom_commun:
+            payload['nom_commun'] = nom_commun
+
+        try:
+            r = requests.post(url, json=payload, headers=headers, timeout=60)
+        except requests.RequestException as e:
+            MissingSpeciesRequest.objects.create(
+                user=request.user,
+                nom_latin=nom_latin,
+                nom_commun=nom_commun,
+                search_query=search_query,
+                status='erreur_reseau',
+                error_message=str(e)[:2000],
+            )
+            return Response(
+                {'detail': 'Impossible de joindre le serveur botanique.', 'error': str(e)[:500]},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        try:
+            radix_json = r.json()
+        except ValueError:
+            radix_json = {}
+
+        if r.status_code != 200:
+            MissingSpeciesRequest.objects.create(
+                user=request.user,
+                nom_latin=nom_latin,
+                nom_commun=nom_commun,
+                search_query=search_query,
+                status='erreur_radix',
+                radix_response=radix_json if isinstance(radix_json, dict) else {'raw': str(radix_json)},
+                error_message=(r.text or '')[:2000],
+            )
+            radix_detail = None
+            if isinstance(radix_json, dict):
+                radix_detail = radix_json.get('detail')
+                if isinstance(radix_detail, list):
+                    radix_detail = radix_detail
+                elif radix_detail is not None:
+                    radix_detail = str(radix_detail)
+            if not radix_detail and (r.text or '').strip():
+                radix_detail = (r.text or '')[:500]
+            hint = None
+            if r.status_code == 403:
+                hint = (
+                    'Côté Radix, vérifiez RADIX_SYLVA_SYNC_API_KEYS ; côté BIOT, la même valeur dans '
+                    'RADIX_SYLVA_SYNC_API_KEY (en-tête X-Radix-Sync-Key).'
+                )
+            elif r.status_code == 404:
+                hint = (
+                    'Vérifiez RADIX_SYLVA_API_URL : il doit se terminer par /api/v1 '
+                    '(ex. http://127.0.0.1:8001/api/v1).'
+                )
+            elif r.status_code >= 500:
+                hint = 'Erreur serveur sur Radix Sylva — consulter les logs du serveur botanique.'
+            payload = {
+                'detail': 'La demande a été enregistrée mais le serveur botanique a refusé ou a échoué.',
+                'http_status': r.status_code,
+            }
+            if radix_detail is not None:
+                payload['radix_detail'] = radix_detail
+            if hint:
+                payload['hint'] = hint
+            return Response(payload, status=status.HTTP_502_BAD_GATEWAY)
+
+        oid = radix_json.get('organism_id')
+        if oid is None:
+            MissingSpeciesRequest.objects.create(
+                user=request.user,
+                nom_latin=nom_latin,
+                nom_commun=nom_commun,
+                search_query=search_query,
+                status='erreur_radix',
+                radix_response=radix_json if isinstance(radix_json, dict) else {},
+                error_message='Réponse Radix sans organism_id.',
+            )
+            return Response(
+                {'detail': 'Réponse inattendue du serveur botanique.'},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        rec = MissingSpeciesRequest.objects.create(
+            user=request.user,
+            nom_latin=nom_latin,
+            nom_commun=nom_commun,
+            search_query=search_query,
+            radix_organism_id=oid,
+            status='ok',
+            radix_response=radix_json if isinstance(radix_json, dict) else {},
+        )
+        return Response(
+            {
+                'id': rec.pk,
+                'radix_organism_id': oid,
+                'message': MISSING_SPECIES_USER_MESSAGE,
+                'radix': radix_json,
+            },
+            status=status.HTTP_201_CREATED,
+        )

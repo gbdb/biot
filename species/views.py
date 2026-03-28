@@ -989,5 +989,6 @@ def cesium_terrain_view(request):
             "cesium_lidar_asset_id": lidar_asset_id,
             "garden_json": garden_json,
             "specimens_json": specimens_json,
+            "terrain_user_is_staff": request.user.is_staff,
         },
     )

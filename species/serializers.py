@@ -854,3 +854,11 @@ class UserTagSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserTag
         fields = ['id', 'nom', 'couleur', 'description']
+
+
+class MissingSpeciesRequestCreateSerializer(serializers.Serializer):
+    """Demande d'espèce manquante (proxy Radix)."""
+
+    nom_latin = serializers.CharField(max_length=200)
+    nom_commun = serializers.CharField(max_length=200, required=False, allow_blank=True)
+    search_query = serializers.CharField(max_length=300, required=False, allow_blank=True)

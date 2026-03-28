@@ -5,6 +5,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from .api_views import (
+    MissingSpeciesRequestView,
     SpecimenByNfcView,
     SpecimenViewSet,
     SpecimenGroupViewSet,
@@ -50,6 +51,11 @@ urlpatterns = [
     path('admin/run-command/', RunAdminCommandView.as_view(), name='admin-run-command'),
     path('admin/species-stats/', SpeciesStatsView.as_view(), name='admin-species-stats'),
     path('admin/import-vascan-file/', ImportVascanFileView.as_view(), name='admin-import-vascan-file'),
+    path(
+        'organisms/missing-species-request/',
+        MissingSpeciesRequestView.as_view(),
+        name='missing-species-request',
+    ),
     # GCP (points de contrôle) — avant le router pour prendre en charge gardens/<pk>/gcps/
     path('gardens/<int:garden_pk>/gcps/', GardenGCPViewSet.as_view({'get': 'list', 'post': 'create'}), name='garden-gcps'),
     path('gardens/<int:garden_pk>/gcps/export/', export_garden_gcps_csv, name='garden-gcps-export'),

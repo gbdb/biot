@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.111/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.111/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
-  <link href="{% static 'cesium/terrain_view.css' %}?v=6" rel="stylesheet">
+  <link href="{% static 'cesium/terrain_view.css' %}?v=16" rel="stylesheet">
 </head>
 <body>
 <div id="cesiumContainer"></div>
@@ -16,11 +16,12 @@
   window.LIDAR_ASSET_ID = {{ cesium_lidar_asset_id|default:"null" }};
   window.GARDEN_DATA = {{ garden_json|safe }};
   window.INITIAL_SPECIMENS = {{ specimens_json|default:"[]"|safe }};
+  window.TERRAIN_USER_IS_STAFF = {% if terrain_user_is_staff %}true{% else %}false{% endif %};
 </script>
 <script src="https://unpkg.com/suncalc@1.9.0/suncalc.js"></script>
 <script src="{% static 'cesium/terrain_bridge.js' %}"></script>
 {# Bumper la version (ex. ?v=3) après chaque modif des scripts pour forcer le rechargement en dev #}
-<script src="{% static 'cesium/terrain_cesium.js' %}?v=6"></script>
-<script src="{% static 'cesium/terrain_ui.js' %}?v=6"></script>
+<script src="{% static 'cesium/terrain_cesium.js' %}?v=16"></script>
+<script src="{% static 'cesium/terrain_ui.js' %}?v=16"></script>
 </body>
 </html>

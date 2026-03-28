@@ -2,6 +2,7 @@
 Catalogue: espèces (Organism), cultivars, compagnonnage, semences, amendements, tags.
 Models moved from species app; tables unchanged (db_table preserved).
 """
+from django.conf import settings
 from django.db import models
 
 # PostgreSQL full-text search (optional on SQLite)
@@ -538,3 +539,42 @@ class RadixSyncState(models.Model):
 
     def __str__(self):
         return f'RadixSyncState({self.key})'
+
+
+class MissingSpeciesRequest(models.Model):
+    """Demande d'ajout d'espèce (catalogue vide) : proxy vers Radix + trace locale."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='missing_species_requests',
+    )
+    nom_latin = models.CharField(max_length=200)
+    nom_commun = models.CharField(max_length=200, blank=True)
+    search_query = models.CharField(
+        max_length=300,
+        blank=True,
+        help_text="Texte saisi dans la recherche catalogue (peut différer du nom latin).",
+    )
+    radix_organism_id = models.PositiveIntegerField(null=True, blank=True)
+    STATUS_CHOICES = [
+        ('ok', 'OK'),
+        ('erreur_reseau', 'Erreur réseau'),
+        ('erreur_radix', 'Erreur Radix'),
+    ]
+    status = models.CharField(max_length=32, choices=STATUS_CHOICES)
+    radix_response = models.JSONField(default=dict, blank=True)
+    error_message = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'catalog_missingspeciesrequest'
+        ordering = ['-created_at']
+        verbose_name = "Demande d'espèce manquante"
+        verbose_name_plural = "Demandes d'espèces manquantes"
+        indexes = [
+            models.Index(fields=['user', 'created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.nom_latin} ({self.get_status_display()}) — {self.user_id}"

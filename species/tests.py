@@ -2,12 +2,14 @@
 Tests pour l'app species - API REST (mobile) et serializers critiques.
 """
 from datetime import date
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
 
+from catalog.models import MissingSpeciesRequest
 from .models import Garden, Organism, Specimen
 
 User = get_user_model()
@@ -169,3 +171,63 @@ class SpecimenByNfcAPITestCase(TestCase):
         """Lookup avec UID inexistant."""
         resp = self.client.get("/api/specimens/by-nfc/UNKNOWN_UID/")
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class MissingSpeciesRequestAPITestCase(TestCase):
+    """POST /api/organisms/missing-species-request/ — proxy Radix."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(username="requser", password="pass12345")
+
+    def test_requires_auth(self):
+        resp = self.client.post(
+            "/api/organisms/missing-species-request/",
+            {"nom_latin": "Abies sp."},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    @patch("species.api_views.requests.post")
+    def test_success_returns_message_and_saves(self, mock_post):
+        mock_post.return_value.status_code = 200
+        mock_post.return_value.json.return_value = {
+            "organism_id": 4242,
+            "created": True,
+            "matched_existing": False,
+            "enrichment": {"vascan": {"ok": True, "message": "ok"}},
+            "organism": {"id": 4242, "nom_latin": "Abies sp."},
+        }
+        self.client.force_authenticate(user=self.user)
+        resp = self.client.post(
+            "/api/organisms/missing-species-request/",
+            {
+                "nom_latin": "Abies balsamea",
+                "nom_commun": "Sapin baumier",
+                "search_query": "sapin",
+            },
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(resp.data["radix_organism_id"], 4242)
+        self.assertIn("prochaine synchronisation", resp.data["message"])
+        self.assertIn("Radix Sylva", resp.data["message"])
+        rec = MissingSpeciesRequest.objects.get(pk=resp.data["id"])
+        self.assertEqual(rec.status, "ok")
+        self.assertEqual(rec.radix_organism_id, 4242)
+        self.assertEqual(rec.search_query, "sapin")
+
+    @patch("species.api_views.requests.post")
+    def test_radix_error_saves_erreur_radix(self, mock_post):
+        mock_post.return_value.status_code = 403
+        mock_post.return_value.text = "forbidden"
+        mock_post.return_value.json.side_effect = ValueError
+        self.client.force_authenticate(user=self.user)
+        resp = self.client.post(
+            "/api/organisms/missing-species-request/",
+            {"nom_latin": "Xyzzy plantae"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_502_BAD_GATEWAY)
+        rec = MissingSpeciesRequest.objects.get()
+        self.assertEqual(rec.status, "erreur_radix")

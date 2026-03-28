@@ -224,7 +224,10 @@
     specimenEntities = {};
     specimenCircleEntities = {};
     var valid = specimens.filter(function (s) { return s.latitude != null && s.longitude != null; });
-    if (valid.length === 0) return;
+    if (valid.length === 0) {
+      applySpecimenLayerVisibility();
+      return;
+    }
 
     var terrainProvider = viewer.terrainProvider;
     var cartographics = valid.map(function (s) {
@@ -278,6 +281,10 @@
       addEntitiesAtHeights(valid.map(function () { return 0; }));
     }
   }
+
+  window.terrainCesiumRefreshSpecimens = function (specList) {
+    addSpecimenMarkers(specList || []);
+  };
 
   window.terrainCesiumSetVisibleSpecimens = function (ids) {
     visibleSpecimenFilterIds = ids;
@@ -1384,7 +1391,7 @@
       loadZones();
     }
 
-    if (window.INITIAL_SPECIMENS && Array.isArray(window.INITIAL_SPECIMENS) && window.INITIAL_SPECIMENS.length > 0) {
+    if (window.INITIAL_SPECIMENS && Array.isArray(window.INITIAL_SPECIMENS)) {
       addSpecimenMarkers(window.INITIAL_SPECIMENS);
     }
 

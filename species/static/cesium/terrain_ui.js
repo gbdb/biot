@@ -14,13 +14,17 @@
     calendar: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>',
     settings: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>',
     cloudSun: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="M20 12h2"/><path d="m19.07 4.93-1.41 1.41"/><path d="M15.947 15.948a6 6 0 1 1-7.799-7.8"/><path d="M19.364 18.364a9 9 0 0 0-12.728-12.728"/></svg>',
+    leaf: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 3.5 2 5.5a7 7 0 1 1-10 12.5Z"/></svg>',
     bookOpen: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>',
     user: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
     mapPinned: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8c0 4.5-6 9-6 9s-6-4.5-6-9a6 6 0 0 1 12 0"/><circle cx="12" cy="8" r="2"/></svg>',
     circleDot: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="1"/></svg>',
     pentagon: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/></svg>',
     plus: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>',
-    minus: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></svg>'
+    minus: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></svg>',
+    chevronLeft: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>',
+    chevronRight: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>',
+    xIcon: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>'
   };
 
   function initTheme() {
@@ -48,10 +52,15 @@
   var warnings = { overdue_reminders: [], missing_pollinators: [], phenology_alerts: [] };
   var selectedSpecimenId = null;
   var panelRoot, panelContentRoot, panelDetailEl, popupEl, toolbarEl, legendEl, windRoseEl, overlayEl;
-  var panelMode = 'closed'; /* 'closed' | 'open' | 'detail' */
+  var panelMode = 'closed'; /* 'closed' | 'open' | 'detail' — contenu du panneau principal */
+  var radixSyncRunning = false;
+  var sidebarExpanded = false; /* rail icônes : false = 44px, true = 180px */
   var currentTab = 'jardin';
   var RECENTS_KEY = 'terrain_recents';
   var RECENTS_MAX = 10;
+  var especesWired = false;
+  var especesScrollRaf = null;
+  var especesState = { page: 1, hasMore: true, loading: false, loadingMore: false, organisms: [] };
 
   function byId(id) { return document.getElementById(id); }
 
@@ -318,37 +327,66 @@
     }
     if (tabId === 'vue') loadVueZonesContent();
     if (tabId === 'partenaires') loadPartnersContent();
+    if (tabId === 'especes') loadEspecesContent();
     if (tabId === 'rappels') loadRappelsContent();
     if (tabId === 'admin') loadAdminContent();
     if (tabId === 'meteo') loadMeteoContent();
   }
 
+  function syncLayoutMetrics() {
+    var sidebarW = sidebarExpanded ? 180 : 44;
+    var panelW = (panelMode === 'open' || panelMode === 'detail') ? 320 : 0;
+    var detailExtra = (panelMode === 'detail') ? Math.min(360, Math.max(0, window.innerWidth * 0.4)) : 0;
+    var total = 8 + sidebarW + panelW + detailExtra;
+    document.documentElement.style.setProperty('--terrain-ui-offset', total + 'px');
+  }
+
+  function syncLayoutClasses() {
+    if (!panelRoot) return;
+    panelRoot.classList.remove('terrain-sidebar-collapsed', 'terrain-sidebar-expanded', 'terrain-panel-content-open', 'terrain-panel-content-hidden', 'terrain-panel-detail-visible');
+    panelRoot.classList.add(sidebarExpanded ? 'terrain-sidebar-expanded' : 'terrain-sidebar-collapsed');
+    if (panelMode === 'closed') {
+      panelRoot.classList.add('terrain-panel-content-hidden');
+    } else {
+      panelRoot.classList.add('terrain-panel-content-open');
+    }
+    if (panelMode === 'detail') panelRoot.classList.add('terrain-panel-detail-visible');
+
+    document.body.classList.remove('terrain-sidebar-collapsed', 'terrain-sidebar-expanded', 'terrain-panel-content-open', 'terrain-panel-content-hidden');
+    document.body.classList.add(sidebarExpanded ? 'terrain-sidebar-expanded' : 'terrain-sidebar-collapsed');
+    document.body.classList.toggle('terrain-panel-content-open', panelMode !== 'closed');
+    document.body.classList.toggle('terrain-panel-content-hidden', panelMode === 'closed');
+    document.body.classList.toggle('terrain-panel-detail-visible', panelMode === 'detail');
+
+    syncLayoutMetrics();
+  }
+
+  function updateSidebarChevron() {
+    var btn = byId('terrain-sidebar-toggle');
+    if (!btn) return;
+    btn.innerHTML = sidebarExpanded ? IC.chevronLeft : IC.chevronRight;
+    btn.title = sidebarExpanded ? 'Replier la barre latérale' : 'Développer la barre latérale';
+    btn.setAttribute('aria-expanded', sidebarExpanded ? 'true' : 'false');
+  }
+
   function setPanelMode(mode) {
     panelMode = mode;
     if (!panelRoot) return;
-    panelRoot.classList.remove('terrain-panel-closed', 'terrain-panel-open', 'terrain-panel-detail-visible');
-    panelRoot.classList.add('terrain-panel-' + (mode === 'closed' ? 'closed' : 'open'));
-    if (mode === 'detail') panelRoot.classList.add('terrain-panel-detail-visible');
-    document.body.classList.toggle('terrain-panel-collapsed', mode === 'closed');
-    document.body.classList.toggle('terrain-panel-detail-visible', mode === 'detail');
-    var toggleBtn = byId('terrain-panel-toggle');
-    if (toggleBtn) {
-      toggleBtn.textContent = mode === 'closed' ? '›' : '‹';
-      toggleBtn.title = mode === 'closed' ? 'Développer le panneau' : 'Replier le panneau';
-    }
+    syncLayoutClasses();
   }
 
   function renderPanel() {
-    panelRoot = el('div', 'terrain-panel terrain-panel-closed');
+    panelRoot = el('div', 'terrain-panel terrain-sidebar-collapsed terrain-panel-content-hidden');
     panelRoot.innerHTML =
       '<div class="terrain-panel-icons">' +
       '<div class="terrain-panel-header">' +
-      '<span class="terrain-panel-logo" aria-hidden="true">Jardin <strong>bIOT</strong></span>' +
-      '<button type="button" class="terrain-panel-toggle" id="terrain-panel-toggle" title="Replier le panneau">‹</button>' +
+      '<button type="button" class="terrain-sidebar-toggle" id="terrain-sidebar-toggle" title="Développer la barre latérale" aria-expanded="false">' + IC.chevronRight + '</button>' +
       '</div>' +
+      '<span class="terrain-panel-logo" aria-hidden="true">Jardin <strong>bIOT</strong></span>' +
       '<nav class="terrain-panel-tabs" role="tablist">' +
       '<button type="button" class="terrain-panel-tab" data-tab="accueil" title="Accueil"><span class="terrain-panel-tab-icon">' + IC.home + '</span><span class="terrain-panel-tab-label">Home</span></button>' +
       '<button type="button" class="terrain-panel-tab" data-tab="recherche" title="Recherche"><span class="terrain-panel-tab-icon">' + IC.search + '</span><span class="terrain-panel-tab-label">Recherche</span></button>' +
+      '<button type="button" class="terrain-panel-tab" data-tab="especes" title="Bibliothèque d’espèces (Radix)"><span class="terrain-panel-tab-icon">' + IC.leaf + '</span><span class="terrain-panel-tab-label">Espèces</span></button>' +
       '<button type="button" class="terrain-panel-tab" data-tab="vue" title="Calques, dessin, soleil"><span class="terrain-panel-tab-icon">' + IC.layers + '</span><span class="terrain-panel-tab-label">Vue</span></button>' +
       '<button type="button" class="terrain-panel-tab active" data-tab="jardin" title="Spécimens"><span class="terrain-panel-tab-icon">' + IC.sprout + '</span><span class="terrain-panel-tab-label">Spécimens</span></button>' +
       '<div class="terrain-panel-nav-sep" role="presentation"></div>' +
@@ -363,6 +401,9 @@
       '</div>' +
       '</div>' +
       '<div class="terrain-panel-body">' +
+      '<div class="terrain-panel-main-header">' +
+      '<button type="button" class="terrain-panel-close" id="terrain-panel-close" title="Fermer le panneau">' + IC.xIcon + '</button>' +
+      '</div>' +
       '<div class="terrain-panel-content" id="terrain-panel-content"></div>' +
       '</div>' +
       '<div class="terrain-panel-detail" id="terrain-panel-detail">' +
@@ -375,6 +416,8 @@
     document.body.appendChild(panelRoot);
     panelDetailEl = byId('terrain-panel-detail-body');
     setPanelMode('closed');
+    updateSidebarChevron();
+    window.addEventListener('resize', function () { syncLayoutMetrics(); });
 
     panelContentRoot = byId('terrain-panel-content');
     if (!panelContentRoot) return;
@@ -430,9 +473,63 @@
       '<div class="terrain-vue-zones-list" id="terrain-vue-zones-list">Chargement…</div></div>' +
       '</div>';
 
+    var contentEspeces =
+      '<div id="terrain-content-especes" class="terrain-panel-tab-content" style="display:none">' +
+      '<label class="terrain-search-label" for="terrain-especes-search">Rechercher</label>' +
+      '<div class="terrain-search-wrap">' +
+      '<span class="terrain-search-icon" aria-hidden="true">' + IC.search + '</span>' +
+      '<input type="search" class="terrain-search-input" id="terrain-especes-search" placeholder="Nom commun ou latin…" autocomplete="off"/>' +
+      '</div>' +
+      '<button type="button" class="terrain-panel-btn terrain-especes-filter-toggle" id="terrain-especes-filter-toggle">Filtres</button>' +
+      '<div class="terrain-especes-filters" id="terrain-especes-filters" hidden>' +
+      '<div class="terrain-especes-filter-row"><label for="terrain-especes-type">Type</label>' +
+      '<select id="terrain-especes-type" class="terrain-especes-select">' +
+      '<option value="">Tous</option>' +
+      '<option value="arbre_fruitier">Arbre fruitier</option><option value="arbre_noix">Arbre à noix</option>' +
+      '<option value="arbre_ornement">Arbre d’ornement</option><option value="arbuste_fruitier">Arbuste fruitier</option>' +
+      '<option value="arbuste_baies">Arbuste à baies</option><option value="arbuste">Arbuste</option>' +
+      '<option value="vivace">Vivace</option><option value="annuelle">Annuelle</option>' +
+      '<option value="legume">Légume</option><option value="herbe_aromatique">Herbe aromatique</option>' +
+      '<option value="grimpante">Grimpante</option><option value="couvre_sol">Couvre-sol</option>' +
+      '</select></div>' +
+      '<div class="terrain-especes-filter-row"><label for="terrain-especes-soleil">Soleil</label>' +
+      '<select id="terrain-especes-soleil" class="terrain-especes-select">' +
+      '<option value="">Indifférent</option>' +
+      '<option value="plein_soleil">Plein soleil</option><option value="soleil_partiel">Soleil partiel</option>' +
+      '<option value="mi_ombre">Mi-ombre</option><option value="ombre">Ombre</option><option value="ombre_complete">Ombre complète</option>' +
+      '</select></div>' +
+      '<div class="terrain-especes-filter-row"><label for="terrain-especes-zone">Zone USDA max</label>' +
+      '<select id="terrain-especes-zone" class="terrain-especes-select">' +
+      '<option value="">Indifférent</option>' +
+      '<option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>' +
+      '<option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option>' +
+      '<option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option>' +
+      '</select></div>' +
+      '<div class="terrain-especes-filter-row"><label for="terrain-especes-vigueur">Vigueur (porte-greffe)</label>' +
+      '<select id="terrain-especes-vigueur" class="terrain-especes-select">' +
+      '<option value="">Indifférent</option>' +
+      '<option value="nain">Nain</option><option value="semi_nain">Semi-nain</option><option value="semi_vigoureux">Semi-vigoureux</option>' +
+      '<option value="vigoureux">Vigoureux</option><option value="standard">Standard</option>' +
+      '</select></div>' +
+      '<div class="terrain-especes-filter-checks">' +
+      '<label class="terrain-especes-check"><input type="checkbox" id="terrain-especes-favoris"/> Favoris seulement</label>' +
+      '<label class="terrain-especes-check"><input type="checkbox" id="terrain-especes-fruits"/> Fruitiers / baies</label>' +
+      '<label class="terrain-especes-check"><input type="checkbox" id="terrain-especes-noix"/> Noix</label>' +
+      '<label class="terrain-especes-check"><input type="checkbox" id="terrain-especes-has-specimen"/> Déjà un spécimen dans ce jardin</label>' +
+      '</div>' +
+      '<button type="button" class="terrain-panel-btn terrain-especes-clear" id="terrain-especes-clear">Réinitialiser les filtres</button>' +
+      '</div>' +
+      '<p class="terrain-especes-meta" id="terrain-especes-meta"></p>' +
+      '<div class="terrain-especes-list terrain-panel-list" id="terrain-especes-list"></div>' +
+      '<p class="terrain-especes-loading-more" id="terrain-especes-loading-more" style="display:none" aria-live="polite">Chargement…</p>' +
+      '</div>';
+
     var contentJardin =
       '<div id="terrain-content-jardin" class="terrain-panel-tab-content">' +
       '<div class="terrain-panel-filters" id="terrain-filters"></div>' +
+      '<div class="terrain-jardin-toolbar">' +
+      '<button type="button" class="terrain-panel-btn terrain-jardin-add-specimen" id="terrain-jardin-add-specimen">+ Ajouter un spécimen</button>' +
+      '</div>' +
       '<div class="terrain-panel-list" id="terrain-specimen-list"></div>' +
       '<div class="terrain-panel-footer" id="terrain-panel-footer">Total: 0 · Établis: 0 · Planifiés: 0</div>' +
       '</div>';
@@ -442,6 +539,25 @@
       '<div class="terrain-rappels-list" id="terrain-rappels-list">Chargement…</div>' +
       '<button type="button" class="terrain-panel-btn" id="terrain-rappels-gantt">Vue Gantt</button>' +
       '</div>';
+
+    var terrainStaff = window.TERRAIN_USER_IS_STAFF === true;
+    var radixAdminHtml = terrainStaff
+      ? (
+        '<div class="terrain-admin-field" id="terrain-admin-radix-block">' +
+        '<label>Catalogue espèces (Radix)</label>' +
+        '<p class="terrain-admin-hint">Met à jour le cache local depuis l’API Radix Sylva (même commande que la gestion des données).</p>' +
+        '<div class="terrain-admin-buttons-row terrain-admin-radix-row">' +
+        '<button type="button" class="terrain-panel-btn terrain-admin-radix-btn" id="terrain-admin-radix-delta">Sync Radix (delta)</button>' +
+        '<button type="button" class="terrain-panel-btn terrain-admin-radix-btn" id="terrain-admin-radix-full">Sync complet</button>' +
+        '<button type="button" class="terrain-panel-btn terrain-admin-radix-btn" id="terrain-admin-radix-dry">Simulation</button>' +
+        '</div>' +
+        '<pre class="terrain-admin-radix-status" id="terrain-admin-radix-status" aria-live="polite"></pre>' +
+        '</div>'
+      )
+      : (
+        '<div class="terrain-admin-field"><label>Catalogue espèces (Radix)</label>' +
+        '<p class="terrain-admin-hint">Synchronisation réservée aux comptes administrateur.</p></div>'
+      );
 
     var contentAdmin =
       '<div id="terrain-content-admin" class="terrain-panel-tab-content" style="display:none">' +
@@ -461,7 +577,7 @@
       '<div class="terrain-admin-field"><label>Adresse</label><span id="terrain-admin-adresse">' + (GARDEN_DATA.adresse || '—') + '</span></div>' +
       '<div class="terrain-admin-field"><label>Unité</label><span id="terrain-admin-unite">' + (GARDEN_DATA.distance_unit === 'ft' ? 'Pieds' : 'Mètres') + '</span> <em>(défaut jardin)</em></div>' +
       '<div class="terrain-admin-field"><label>Cesium</label><span id="terrain-admin-cesium">Token et asset en lecture seule (config serveur)</span></div>' +
-      '<a href="/admin/" target="_blank" rel="noopener" class="terrain-panel-btn">Ouvrir l’administration</a>' +
+      radixAdminHtml +
       '</div>';
 
     var contentMeteo =
@@ -474,7 +590,7 @@
       '<div class="terrain-partenaires-list" id="terrain-partenaires-list">Chargement…</div>' +
       '</div>';
 
-    panelContentRoot.innerHTML = contentAccueil + contentRecherche + contentVue + contentJardin + contentRappels + contentAdmin + contentMeteo + contentPartenaires;
+    panelContentRoot.innerHTML = contentAccueil + contentRecherche + contentVue + contentEspeces + contentJardin + contentRappels + contentAdmin + contentMeteo + contentPartenaires;
 
     wireGardenDropdown(byId('terrain-home-garden-btn'), byId('terrain-home-garden-dropdown'), gardenIdStr);
     wireGardenerButton(byId('terrain-sidebar-gardener'));
@@ -509,8 +625,40 @@
       });
     }
 
+    var radixDelta = byId('terrain-admin-radix-delta');
+    var radixFull = byId('terrain-admin-radix-full');
+    var radixDry = byId('terrain-admin-radix-dry');
+    if (radixDelta) {
+      radixDelta.addEventListener('click', function () {
+        runTerrainRadixSync({});
+      });
+    }
+    if (radixFull) {
+      radixFull.addEventListener('click', function () {
+        if (window.confirm('Retélécharger tout le cache depuis Radix (plus long). Continuer ?')) {
+          runTerrainRadixSync({ full: true });
+        }
+      });
+    }
+    if (radixDry) {
+      radixDry.addEventListener('click', function () {
+        runTerrainRadixSync({ dry_run: true });
+      });
+    }
+
     var searchInput = byId('terrain-search-input');
     if (searchInput) searchInput.addEventListener('input', debounce(applySearchAndFilters, 300));
+
+    if (panelContentRoot) {
+      panelContentRoot.addEventListener('click', function (e) {
+        var t = e.target;
+        if (!t || !t.closest) return;
+        if (t.closest('#terrain-jardin-add-specimen') || t.closest('#terrain-specimen-add-open')) {
+          e.preventDefault();
+          openSpecimenCreateForm();
+        }
+      });
+    }
 
     panelRoot.querySelectorAll('.terrain-panel-tab').forEach(function (btn) {
       btn.addEventListener('click', function () {
@@ -519,16 +667,26 @@
       });
     });
 
-    byId('terrain-panel-toggle').addEventListener('click', function () {
-      if (panelMode === 'closed') {
-        setPanelMode('open');
-      } else if (panelMode === 'detail') {
-        setPanelMode('open');
-        if (panelDetailEl) panelDetailEl.innerHTML = '';
-      } else {
+    var sidebarToggle = byId('terrain-sidebar-toggle');
+    if (sidebarToggle) {
+      sidebarToggle.addEventListener('click', function () {
+        sidebarExpanded = !sidebarExpanded;
+        updateSidebarChevron();
+        syncLayoutClasses();
+      });
+    }
+
+    var panelCloseBtn = byId('terrain-panel-close');
+    if (panelCloseBtn) {
+      panelCloseBtn.addEventListener('click', function () {
+        if (panelMode === 'detail') {
+          if (panelDetailEl) panelDetailEl.innerHTML = '';
+          var detailTitleEl = panelRoot && panelRoot.querySelector('.terrain-panel-detail-title');
+          if (detailTitleEl) detailTitleEl.textContent = 'Détail';
+        }
         setPanelMode('closed');
-      }
-    });
+      });
+    }
 
     var detailCloseBtn = byId('terrain-panel-detail-close');
     if (detailCloseBtn) {
@@ -1148,6 +1306,28 @@
     if (!listEl) return;
     var toShow = visibleIds ? specimens.filter(function (s) { return visibleIds.indexOf(s.id) >= 0; }) : specimens;
     listEl.innerHTML = '';
+    if (toShow.length === 0) {
+      var isEmptyGarden = specimens.length === 0;
+      var msg = isEmptyGarden
+        ? 'Aucun spécimen dans ce jardin pour l’instant.'
+        : 'Aucun spécimen ne correspond à la vue ou aux filtres actuels.';
+      var hint = isEmptyGarden
+        ? 'Ajoutez un spécimen pour le voir sur la carte et ouvrir sa fiche depuis la liste.'
+        : 'Modifiez les filtres ou ajoutez un nouveau spécimen.';
+      listEl.innerHTML =
+        '<div class="terrain-specimen-empty-state">' +
+        '<p class="terrain-specimen-empty-title">' + esc(msg) + '</p>' +
+        '<p class="terrain-specimen-empty-hint">' + esc(hint) + '</p>' +
+        '<button type="button" class="terrain-panel-btn terrain-specimen-add-first" id="terrain-specimen-add-open">Ajouter un spécimen</button>' +
+        '</div>';
+      var footer = byId('terrain-panel-footer');
+      if (footer) {
+        var etabli = specimens.filter(function (s) { return s.statut === 'etabli' || s.statut === 'mature'; }).length;
+        var planifie = specimens.filter(function (s) { return s.statut === 'planifie'; }).length;
+        footer.textContent = 'Total: ' + specimens.length + ' · Établis: ' + etabli + ' · Planifiés: ' + planifie;
+      }
+      return;
+    }
     toShow.forEach(function (s) {
       var item = el('div', 'terrain-specimen-item' + (selectedSpecimenId === s.id ? ' selected' : ''));
       item.dataset.specimenId = s.id;
@@ -1179,6 +1359,1331 @@
     return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
+  /** Libellés alignés sur mobile/types/api.ts */
+  var SPECIMEN_STATUT_LABELS = {
+    planifie: 'Planifié',
+    commande: 'Commandé',
+    transplanter: 'À transplanter',
+    jeune: 'Jeune plant',
+    etabli: 'Établi',
+    mature: 'Mature/Production',
+    declin: 'En déclin',
+    mort: 'Mort',
+    enleve: 'Enlevé',
+  };
+  var EVENT_TYPE_LABELS = {
+    plantation: 'Plantation',
+    arrosage: 'Arrosage',
+    fertilisation: 'Fertilisation',
+    amendement: 'Amendement sol',
+    taille: 'Taille/Élagage',
+    paillage: 'Paillage',
+    observation: 'Observation',
+    floraison: 'Floraison',
+    fructification: 'Fructification',
+    recolte: 'Récolte',
+    maladie: 'Maladie/Problème',
+    traitement: 'Traitement',
+    transplantation: 'Transplantation',
+    protection: 'Protection (hiver, animaux)',
+    autre: 'Autre',
+    mort: 'Mort',
+    enlever: 'Enlevé',
+  };
+  var REMINDER_TYPE_LABELS = {
+    arrosage: 'Arrosage',
+    suivi_maladie: 'Suivi de maladie',
+    taille: 'Taille',
+    suivi_general: 'Suivi général',
+    cueillette: 'Cueillette',
+  };
+  var REMINDER_ALERTE_LABELS = { email: 'Email', popup: 'Popup', son: 'Son' };
+
+  function apiUrl(path) {
+    var p = String(path || '').replace(/^\//, '');
+    return (window.location.origin || '') + (window.API_BASE_PATH || '/api/') + p;
+  }
+
+  function fetchApi(path, opts) {
+    opts = opts || {};
+    opts.credentials = opts.credentials || 'include';
+    var headers = opts.headers ? Object.assign({}, opts.headers) : {};
+    var m = (opts.method || 'GET').toUpperCase();
+    if (m !== 'GET' && m !== 'HEAD') {
+      var tok = getCsrfToken();
+      if (tok) headers['X-CSRFToken'] = tok;
+    }
+    if (!headers.Authorization) {
+      var jwt = (window.location.search.match(/access_token=([^&]+)/) || [])[1];
+      if (jwt) headers.Authorization = 'Bearer ' + decodeURIComponent(jwt);
+    }
+    if (opts.body instanceof FormData) {
+      delete headers['Content-Type'];
+    } else if (!headers.Accept) {
+      headers.Accept = 'application/json';
+    }
+    opts.headers = headers;
+    return fetch(apiUrl(path), opts);
+  }
+
+  function runTerrainRadixSync(options) {
+    var statusEl = byId('terrain-admin-radix-status');
+    var btns = document.querySelectorAll('.terrain-admin-radix-btn');
+    if (radixSyncRunning) return;
+    radixSyncRunning = true;
+    btns.forEach(function (b) { b.disabled = true; });
+    if (statusEl) statusEl.textContent = 'Synchronisation…';
+    fetchApi('admin/run-command/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ command: 'sync_radixsylva', options: options || {} })
+    })
+      .then(function (r) {
+        return r.text().then(function (text) {
+          var j = {};
+          try {
+            j = text ? JSON.parse(text) : {};
+          } catch (e) {
+            j = { detail: text || 'Réponse invalide' };
+          }
+          return { r: r, j: j };
+        });
+      })
+      .then(function (x) {
+        if (!statusEl) return;
+        if (!x.r.ok) {
+          statusEl.textContent = (x.j.detail || x.j.output || 'Erreur HTTP ' + x.r.status).trim();
+          return;
+        }
+        if (x.j.success === false) {
+          statusEl.textContent = (x.j.output || x.j.detail || 'Échec').trim();
+          return;
+        }
+        statusEl.textContent = (x.j.output || 'Commande exécutée.').trim();
+      })
+      .catch(function () {
+        if (statusEl) statusEl.textContent = 'Erreur réseau.';
+      })
+      .finally(function () {
+        radixSyncRunning = false;
+        btns.forEach(function (b) { b.disabled = false; });
+      });
+  }
+
+  function labelStatut(k) {
+    return SPECIMEN_STATUT_LABELS[k] || k || '';
+  }
+
+  function labelEventType(k) {
+    return EVENT_TYPE_LABELS[k] || k || '';
+  }
+
+  function labelReminderType(k) {
+    return REMINDER_TYPE_LABELS[k] || k || '';
+  }
+
+  function labelAlerte(k) {
+    return REMINDER_ALERTE_LABELS[k] || k || '';
+  }
+
+  function phenoIconForType(t) {
+    if (t === 'floraison') return 'F';
+    if (t === 'fructification') return 'Fr';
+    if (t === 'recolte') return 'R';
+    return '•';
+  }
+
+  function adminSpecimenChange(id) {
+    return '/admin/species/specimen/' + id + '/change/';
+  }
+
+  function adminOrganismChange(id) {
+    return '/admin/species/organism/' + id + '/change/';
+  }
+
+  function adminEventChange(id) {
+    return '/admin/species/event/' + id + '/change/';
+  }
+
+  function fetchSpecimenDetailBundle(specimenId, done) {
+    var base = 'specimens/' + specimenId + '/';
+    function parseJson(r) {
+      return r.json().then(function (j) { return { ok: r.ok, data: j }; }).catch(function () { return { ok: r.ok, data: null }; });
+    }
+    Promise.all([
+      fetchApi(base).then(parseJson),
+      fetchApi(base + 'events/').then(parseJson),
+      fetchApi(base + 'reminders/').then(parseJson),
+      fetchApi(base + 'photos/').then(parseJson),
+      fetchApi(base + 'companions/').then(parseJson),
+    ])
+      .then(function (results) {
+        if (!results[0].ok || !results[0].data) {
+          done(new Error('detail'), null);
+          return;
+        }
+        var detail = results[0].data;
+        var events = results[1].ok && Array.isArray(results[1].data) ? results[1].data : [];
+        var reminders = results[2].ok && Array.isArray(results[2].data) ? results[2].data : [];
+        var photos = results[3].ok && Array.isArray(results[3].data) ? results[3].data : [];
+        var companions = results[4].ok ? results[4].data : null;
+        done(null, { detail: detail, events: events, reminders: reminders, photos: photos, companions: companions });
+      })
+      .catch(function (e) {
+        done(e || new Error('fetch'), null);
+      });
+  }
+
+  function mergeListIntoDetail(listS, detail) {
+    if (!detail) return listS || {};
+    if (!listS) return detail;
+    var out = Object.assign({}, listS, detail);
+    if (!out.organisme_nom && listS.organisme_nom) out.organisme_nom = listS.organisme_nom;
+    if (!out.organisme_nom_latin && listS.organisme_nom_latin) out.organisme_nom_latin = listS.organisme_nom_latin;
+    if (!out.garden_nom && listS.garden_nom) out.garden_nom = listS.garden_nom;
+    return out;
+  }
+
+  function parseSpecimenApiErrorBody(j) {
+    if (!j || typeof j !== 'object') return 'Erreur';
+    if (j.detail) {
+      if (typeof j.detail === 'string') return j.detail;
+      if (Array.isArray(j.detail)) {
+        return j.detail.map(function (x) { return typeof x === 'string' ? x : JSON.stringify(x); }).join(' ');
+      }
+    }
+    if (j.non_field_errors) {
+      var n = j.non_field_errors;
+      return Array.isArray(n) ? n.join(', ') : String(n);
+    }
+    var parts = [];
+    Object.keys(j).forEach(function (k) {
+      var v = j[k];
+      if (Array.isArray(v)) parts.push(k + ': ' + v.join(', '));
+      else if (typeof v === 'string') parts.push(k + ': ' + v);
+    });
+    return parts.length ? parts.join(' ') : 'Erreur';
+  }
+
+  function reloadSpecimensFromApi(done) {
+    var gid = GARDEN_DATA && GARDEN_DATA.id;
+    if (!gid) {
+      if (done) done();
+      return;
+    }
+    fetchApi('specimens/?garden=' + encodeURIComponent(gid) + '&page_size=200')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var list = data.results != null ? data.results : (Array.isArray(data) ? data : []);
+        specimens = list.map(function (row) {
+          var o = Object.assign({}, row);
+          if (row.organisme_nom && !o.organisme_nom_commun) o.organisme_nom_commun = row.organisme_nom;
+          if (o.emoji == null) o.emoji = '🌱';
+          return o;
+        });
+        if (typeof window.terrainCesiumRefreshSpecimens === 'function') {
+          window.terrainCesiumRefreshSpecimens(specimens);
+        }
+        updateSpecimenList(null);
+        if (done) done();
+      })
+      .catch(function () { if (done) done(); });
+  }
+
+  function buildStatutSelectOptionsHtml() {
+    var out = '';
+    Object.keys(SPECIMEN_STATUT_LABELS).forEach(function (k) {
+      out += '<option value="' + esc(k) + '"' + (k === 'planifie' ? ' selected' : '') + '>' + esc(SPECIMEN_STATUT_LABELS[k]) + '</option>';
+    });
+    return out;
+  }
+
+  function buildSpecimenCreateFormHtml() {
+    return '<div class="terrain-specimen-create">' +
+      '<div class="terrain-specimen-create-head">' +
+      '<button type="button" class="terrain-specimen-create-back" id="terrain-specimen-create-cancel" aria-label="Retour">←</button>' +
+      '<span class="terrain-specimen-create-title">Nouveau spécimen</span></div>' +
+      '<p class="terrain-specimen-create-intro">Choisissez l’espèce, donnez un nom au plant : il apparaîtra sur la carte après positionnement GPS.</p>' +
+      '<label class="terrain-specimen-create-label" for="terrain-create-org-search">Espèce *</label>' +
+      '<input type="search" class="terrain-specimen-create-input" id="terrain-create-org-search" placeholder="Rechercher (nom commun ou latin)…" autocomplete="off" />' +
+      '<input type="hidden" id="terrain-create-org-id" value="" />' +
+      '<div class="terrain-specimen-create-picked" id="terrain-create-org-picked" hidden></div>' +
+      '<div class="terrain-specimen-create-results" id="terrain-create-org-results"></div>' +
+      '<label class="terrain-specimen-create-label" for="terrain-create-nom">Nom du spécimen *</label>' +
+      '<input type="text" class="terrain-specimen-create-input" id="terrain-create-nom" placeholder="Ex. Pommier Dolgo #1" maxlength="200" />' +
+      '<label class="terrain-specimen-create-label" for="terrain-create-statut">Statut</label>' +
+      '<select class="terrain-specimen-create-input" id="terrain-create-statut">' + buildStatutSelectOptionsHtml() + '</select>' +
+      '<label class="terrain-specimen-create-label" for="terrain-create-zone">Zone (optionnel)</label>' +
+      '<input type="text" class="terrain-specimen-create-input" id="terrain-create-zone" placeholder="Ex. Verger nord" />' +
+      '<label class="terrain-specimen-create-label" for="terrain-create-date">Date plantation (optionnel)</label>' +
+      '<input type="date" class="terrain-specimen-create-input" id="terrain-create-date" />' +
+      '<p class="terrain-specimen-create-error" id="terrain-create-error" style="display:none"></p>' +
+      '<button type="button" class="terrain-panel-btn terrain-specimen-create-submit" id="terrain-create-submit">Créer le spécimen</button>' +
+      '</div>';
+  }
+
+  var specimenCreateSearchTimer = null;
+
+  function wireSpecimenCreateForm() {
+    var listEl = byId('terrain-specimen-list');
+    if (!listEl) return;
+    var lastOrgResultsById = {};
+    var cancel = byId('terrain-specimen-create-cancel');
+    var sub = byId('terrain-create-submit');
+    var searchIn = byId('terrain-create-org-search');
+    var resultsEl = byId('terrain-create-org-results');
+    var pickedEl = byId('terrain-create-org-picked');
+    var orgIdIn = byId('terrain-create-org-id');
+    var errEl = byId('terrain-create-error');
+
+    function showErr(t) {
+      if (!errEl) return;
+      errEl.style.display = t ? 'block' : 'none';
+      errEl.textContent = t || '';
+    }
+
+    function clearOrg() {
+      if (orgIdIn) orgIdIn.value = '';
+      if (pickedEl) { pickedEl.hidden = true; pickedEl.textContent = ''; }
+      if (searchIn) searchIn.value = '';
+    }
+
+    function pickOrg(org) {
+      if (!org || !org.id) return;
+      if (orgIdIn) orgIdIn.value = String(org.id);
+      if (pickedEl) {
+        pickedEl.hidden = false;
+        pickedEl.innerHTML = '<span class="terrain-create-picked-name">' + esc(org.nom_commun || '') + '</span>' +
+          (org.nom_latin ? '<span class="terrain-create-picked-latin">' + esc(org.nom_latin) + '</span>' : '') +
+          '<button type="button" class="terrain-create-picked-clear" aria-label="Changer d’espèce">✕</button>';
+        var clr = pickedEl.querySelector('.terrain-create-picked-clear');
+        if (clr) {
+          clr.addEventListener('click', function () {
+            clearOrg();
+            if (resultsEl) resultsEl.innerHTML = '';
+          });
+        }
+      }
+      if (searchIn) searchIn.value = '';
+      if (resultsEl) resultsEl.innerHTML = '';
+    }
+
+    if (cancel) cancel.addEventListener('click', function () { closeSpecimenCreateForm(); });
+
+    if (searchIn) {
+      searchIn.addEventListener('input', function () {
+        if (orgIdIn && orgIdIn.value) return;
+        var q = searchIn.value.trim();
+        if (specimenCreateSearchTimer) clearTimeout(specimenCreateSearchTimer);
+        if (!q || q.length < 2) {
+          if (resultsEl) resultsEl.innerHTML = '';
+          return;
+        }
+        specimenCreateSearchTimer = setTimeout(function () {
+          fetchApi('organisms/?search=' + encodeURIComponent(q) + '&page_size=40')
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+              var arr = data.results != null ? data.results : (Array.isArray(data) ? data : []);
+              lastOrgResultsById = {};
+              arr.forEach(function (o) { lastOrgResultsById[o.id] = o; });
+              if (!resultsEl) return;
+              resultsEl.innerHTML = arr.map(function (o) {
+                return '<button type="button" class="terrain-create-org-item" data-org-id="' + esc(String(o.id)) + '">' +
+                  '<span class="terrain-create-org-item-name">' + esc(o.nom_commun || '') + '</span>' +
+                  '<span class="terrain-create-org-item-lat">' + esc(o.nom_latin || '') + '</span></button>';
+              }).join('');
+            });
+        }, 320);
+      });
+    }
+
+    if (resultsEl) {
+      resultsEl.addEventListener('click', function (e) {
+        var btn = e.target && e.target.closest && e.target.closest('.terrain-create-org-item');
+        if (!btn) return;
+        var id = parseInt(btn.getAttribute('data-org-id'), 10);
+        var o = lastOrgResultsById[id];
+        if (o) pickOrg(o);
+      });
+    }
+
+    if (sub) {
+      sub.addEventListener('click', function () {
+        showErr('');
+        var gid = GARDEN_DATA && GARDEN_DATA.id;
+        if (!gid) {
+          showErr('Jardin introuvable.');
+          return;
+        }
+        var oid = orgIdIn && orgIdIn.value ? parseInt(orgIdIn.value, 10) : NaN;
+        if (!oid) {
+          showErr('Choisissez une espèce.');
+          return;
+        }
+        var nom = byId('terrain-create-nom');
+        var nomVal = nom && nom.value ? String(nom.value).trim() : '';
+        if (!nomVal) {
+          showErr('Indiquez un nom pour le spécimen.');
+          return;
+        }
+        var statut = byId('terrain-create-statut');
+        var zone = byId('terrain-create-zone');
+        var dateIn = byId('terrain-create-date');
+        var body = {
+          organisme: oid,
+          garden: gid,
+          nom: nomVal,
+          statut: statut && statut.value ? statut.value : 'planifie',
+        };
+        if (zone && zone.value && String(zone.value).trim()) body.zone_jardin = String(zone.value).trim();
+        if (dateIn && dateIn.value) body.date_plantation = dateIn.value;
+
+        sub.disabled = true;
+        fetchApi('specimens/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+          .then(function (r) {
+            if (!r.ok) {
+              return r.text().then(function (txt) {
+                var j = {};
+                try {
+                  if (txt) j = JSON.parse(txt);
+                } catch (e) {
+                  throw new Error((txt && txt.length < 200) ? txt : 'Erreur serveur');
+                }
+                throw new Error(parseSpecimenApiErrorBody(j));
+              });
+            }
+            return r.json();
+          })
+          .then(function () {
+            sub.disabled = false;
+            reloadSpecimensFromApi(function () {
+              switchTab('jardin');
+            });
+          })
+          .catch(function (e) {
+            sub.disabled = false;
+            showErr(e.message || 'Création impossible.');
+          });
+      });
+    }
+  }
+
+  function applyPresetOrganismToCreateForm(org) {
+    if (!org || !org.id) return;
+    var orgIdIn = byId('terrain-create-org-id');
+    var pickedEl = byId('terrain-create-org-picked');
+    var searchIn = byId('terrain-create-org-search');
+    if (orgIdIn) orgIdIn.value = String(org.id);
+    if (pickedEl) {
+      pickedEl.hidden = false;
+      pickedEl.innerHTML = '<span class="terrain-create-picked-name">' + esc(org.nom_commun || '') + '</span>' +
+        (org.nom_latin ? '<span class="terrain-create-picked-latin">' + esc(org.nom_latin) + '</span>' : '') +
+        '<button type="button" class="terrain-create-picked-clear" aria-label="Changer d’espèce">✕</button>';
+      var clr = pickedEl.querySelector('.terrain-create-picked-clear');
+      if (clr) {
+        clr.addEventListener('click', function () {
+          if (orgIdIn) orgIdIn.value = '';
+          pickedEl.hidden = true;
+          pickedEl.textContent = '';
+          if (searchIn) searchIn.value = '';
+        });
+      }
+    }
+    if (searchIn) searchIn.value = '';
+  }
+
+  function openSpecimenCreateForm(presetOrg) {
+    var listEl = byId('terrain-specimen-list');
+    if (!listEl) return;
+    var gid = GARDEN_DATA && GARDEN_DATA.id;
+    if (!gid) {
+      alert('Aucun jardin associé à cette vue.');
+      return;
+    }
+    setPanelMode('open');
+    switchTab('jardin');
+    listEl.innerHTML = buildSpecimenCreateFormHtml();
+    wireSpecimenCreateForm();
+    if (presetOrg && presetOrg.id) applyPresetOrganismToCreateForm(presetOrg);
+  }
+
+  function closeSpecimenCreateForm() {
+    updateSpecimenList(null);
+  }
+
+  var ORGANISM_TYPE_LABELS = {
+    arbre_fruitier: 'Arbre fruitier',
+    arbre_noix: 'Arbre à noix',
+    arbre_ornement: 'Arbre d’ornement',
+    arbre_bois: 'Arbre forestier',
+    arbuste_fruitier: 'Arbuste fruitier',
+    arbuste_baies: 'Arbuste à baies',
+    arbuste: 'Arbuste',
+    vivace: 'Vivace',
+    annuelle: 'Annuelle',
+    bisannuelle: 'Bisannuelle',
+    herbe_aromatique: 'Herbe aromatique',
+    legume: 'Légume',
+    grimpante: 'Grimpante',
+    couvre_sol: 'Couvre-sol',
+    champignon_comestible: 'Champignon comestible',
+    champignon_mycorhize: 'Champignon mycorhizien',
+    mousse: 'Mousse',
+  };
+
+  var BESOIN_SOLEIL_LABELS = {
+    ombre_complete: 'Ombre complète',
+    ombre: 'Ombre',
+    mi_ombre: 'Mi-ombre',
+    soleil_partiel: 'Soleil partiel',
+    plein_soleil: 'Plein soleil',
+  };
+
+  var BESOIN_EAU_LABELS = {
+    tres_faible: 'Très faible',
+    faible: 'Faible',
+    moyen: 'Moyen',
+    eleve: 'Élevé',
+    tres_eleve: 'Très élevé',
+  };
+
+  function labelOrganismType(k) {
+    return ORGANISM_TYPE_LABELS[k] || k || '—';
+  }
+
+  function formatOrganismZones(z) {
+    if (!z) return '—';
+    if (typeof z === 'string') {
+      try {
+        var parsed = JSON.parse(z);
+        return formatOrganismZones(parsed);
+      } catch (e) {
+        return z;
+      }
+    }
+    if (!Array.isArray(z)) return '—';
+    var parts = z.map(function (item) {
+      if (item && typeof item === 'object' && item.zone) return String(item.zone);
+      return null;
+    }).filter(Boolean);
+    return parts.length ? parts.join(', ') : '—';
+  }
+
+  function getEspecesFilterParams() {
+    var p = new URLSearchParams();
+    var search = byId('terrain-especes-search');
+    if (search && search.value.trim()) p.set('search', search.value.trim());
+    var typeEl = byId('terrain-especes-type');
+    if (typeEl && typeEl.value) p.set('type', typeEl.value);
+    var sol = byId('terrain-especes-soleil');
+    if (sol && sol.value) p.set('soleil', sol.value);
+    var zone = byId('terrain-especes-zone');
+    if (zone && zone.value) p.set('zone_usda', zone.value);
+    var vig = byId('terrain-especes-vigueur');
+    if (vig && vig.value) p.set('vigueur', vig.value);
+    if (byId('terrain-especes-favoris') && byId('terrain-especes-favoris').checked) p.set('favoris', '1');
+    if (byId('terrain-especes-fruits') && byId('terrain-especes-fruits').checked) p.set('fruits', '1');
+    if (byId('terrain-especes-noix') && byId('terrain-especes-noix').checked) p.set('noix', '1');
+    var gid = GARDEN_DATA && GARDEN_DATA.id;
+    if (byId('terrain-especes-has-specimen') && byId('terrain-especes-has-specimen').checked && gid) {
+      p.set('has_specimen', '1');
+      p.set('garden', String(gid));
+    }
+    return p;
+  }
+
+  function tryEspecesFillViewport() {
+    if (currentTab !== 'especes') return;
+    if (especesState.loading || especesState.loadingMore) return;
+    if (!especesState.hasMore) return;
+    var el = byId('terrain-content-especes');
+    if (!el) return;
+    if (el.scrollHeight <= el.clientHeight + 12) {
+      fetchEspecesList(false);
+    }
+  }
+
+  function onEspecesTabScroll() {
+    if (especesScrollRaf) return;
+    especesScrollRaf = requestAnimationFrame(function () {
+      especesScrollRaf = null;
+      if (currentTab !== 'especes') return;
+      if (especesState.loading || especesState.loadingMore) return;
+      if (!especesState.hasMore) return;
+      var el = byId('terrain-content-especes');
+      if (!el) return;
+      var threshold = 100;
+      if (el.scrollHeight - el.scrollTop - el.clientHeight < threshold) {
+        fetchEspecesList(false);
+      }
+    });
+  }
+
+  function buildMissingSpeciesEmptyHtml(searchVal) {
+    return '<div class="terrain-especes-empty terrain-missing-species">' +
+      '<p class="terrain-especes-empty-title">Aucune espèce ne correspond à « ' + esc(searchVal) + ' ».</p>' +
+      '<p class="terrain-missing-species-hint">Proposez une espèce absente du catalogue. Elle sera disponible dans l’app après la prochaine synchronisation avec Radix Sylva.</p>' +
+      '<div class="terrain-missing-species-fields">' +
+      '<label class="terrain-missing-label">Nom latin <span class="req">*</span>' +
+      '<input type="text" id="terrain-missing-nom-latin" class="terrain-missing-input" value="' + esc(searchVal) + '" autocomplete="off"/></label>' +
+      '<label class="terrain-missing-label">Nom commun' +
+      '<input type="text" id="terrain-missing-nom-commun" class="terrain-missing-input" value="" autocomplete="off"/></label>' +
+      '<button type="button" class="terrain-panel-btn terrain-missing-submit" id="terrain-missing-submit">Envoyer la demande</button>' +
+      '</div>' +
+      '<p id="terrain-missing-msg" class="terrain-missing-msg" style="display:none" aria-live="polite"></p>' +
+      '</div>';
+  }
+
+  function wireMissingSpeciesFormOnce() {
+    var btn = byId('terrain-missing-submit');
+    if (!btn || btn.dataset.wired === '1') return;
+    btn.dataset.wired = '1';
+    btn.addEventListener('click', function () {
+      var latin = byId('terrain-missing-nom-latin');
+      var commun = byId('terrain-missing-nom-commun');
+      var searchEl = byId('terrain-especes-search');
+      var msg = byId('terrain-missing-msg');
+      var latinVal = latin && latin.value ? latin.value.trim() : '';
+      if (!latinVal) {
+        if (msg) {
+          msg.style.display = 'block';
+          msg.textContent = 'Le nom latin est requis.';
+          msg.className = 'terrain-missing-msg terrain-missing-msg--err';
+        }
+        return;
+      }
+      btn.disabled = true;
+      fetchApi('organisms/missing-species-request/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nom_latin: latinVal,
+          nom_commun: commun && commun.value ? commun.value.trim() : '',
+          search_query: searchEl && searchEl.value ? searchEl.value.trim() : '',
+        }),
+      })
+        .then(function (r) {
+          return r.text().then(function (txt) {
+            var j = {};
+            try {
+              if (txt) j = JSON.parse(txt);
+            } catch (e) {}
+            if (!r.ok) {
+              var parts = [];
+              if (j.detail) parts.push(String(j.detail));
+              if (j.radix_detail != null && j.radix_detail !== '') {
+                var rd = j.radix_detail;
+                if (typeof rd === 'object') {
+                  try {
+                    rd = JSON.stringify(rd);
+                  } catch (e) {
+                    rd = String(rd);
+                  }
+                }
+                parts.push(String(rd));
+              }
+              if (j.hint) parts.push(String(j.hint));
+              if (j.http_status != null) {
+                parts.push('(réponse Radix HTTP ' + j.http_status + ')');
+              }
+              var errMsg = parts.length
+                ? parts.join(' ')
+                : String(j.error || txt || 'Erreur').slice(0, 800);
+              throw new Error(errMsg.slice(0, 1200));
+            }
+            return j;
+          });
+        })
+        .then(function (j) {
+          if (msg) {
+            msg.style.display = 'block';
+            msg.className = 'terrain-missing-msg terrain-missing-msg--ok';
+            msg.textContent = j.message || 'Demande enregistrée.';
+          }
+        })
+        .catch(function (e) {
+          if (msg) {
+            msg.style.display = 'block';
+            msg.className = 'terrain-missing-msg terrain-missing-msg--err';
+            msg.textContent = e.message || 'Échec.';
+          }
+        })
+        .finally(function () {
+          btn.disabled = false;
+        });
+    });
+  }
+
+  function fetchEspecesList(reset) {
+    if (especesState.loading || especesState.loadingMore) return;
+    if (reset) {
+      especesState.page = 1;
+      especesState.organisms = [];
+      especesState.hasMore = true;
+    }
+    if (!reset && !especesState.hasMore) return;
+
+    var first = especesState.page === 1;
+    if (first) especesState.loading = true;
+    else especesState.loadingMore = true;
+
+    var listEl = byId('terrain-especes-list');
+    var pList = getEspecesFilterParams();
+    pList.set('page', String(especesState.page));
+    var qsList = pList.toString();
+
+    var pCount = getEspecesFilterParams();
+    var qsCount = pCount.toString();
+
+    if (first && listEl) listEl.innerHTML = '<p class="terrain-especes-loading">Chargement…</p>';
+    var loadingMoreEl = byId('terrain-especes-loading-more');
+    if (loadingMoreEl) loadingMoreEl.style.display = first ? 'none' : 'block';
+
+    Promise.all([
+      fetchApi('organisms/?' + qsList).then(function (r) { return r.json(); }),
+      fetchApi('organisms/count/' + (qsCount ? '?' + qsCount : ''))
+        .then(function (r) { return r.json(); })
+        .catch(function () { return { count: null }; }),
+    ])
+      .then(function (results) {
+        var data = results[0];
+        var countPayload = results[1];
+        var rows = data.results != null ? data.results : (Array.isArray(data) ? data : []);
+        var count = typeof countPayload.count === 'number' ? countPayload.count : rows.length;
+        var isFirstPage = especesState.page === 1;
+        var searchInEl = byId('terrain-especes-search');
+        var searchValTrim = searchInEl && searchInEl.value ? searchInEl.value.trim() : '';
+        if (especesState.page === 1) {
+          especesState.organisms = rows;
+        } else {
+          especesState.organisms = especesState.organisms.concat(rows);
+        }
+        especesState.hasMore = !!data.next;
+        especesState.page += 1;
+        var meta = byId('terrain-especes-meta');
+        if (meta) {
+          meta.textContent = especesState.organisms.length + ' affichée(s) · ' + count + ' au total (filtres Radix)';
+        }
+        if (listEl) {
+          if (rows.length === 0 && count === 0 && isFirstPage && searchValTrim.length >= 2) {
+            listEl.innerHTML = buildMissingSpeciesEmptyHtml(searchValTrim);
+            wireMissingSpeciesFormOnce();
+          } else if (rows.length === 0 && count === 0 && isFirstPage) {
+            listEl.innerHTML = '<p class="terrain-especes-empty terrain-especes-empty-title">Aucun résultat.</p>';
+          } else {
+          listEl.innerHTML = especesState.organisms.map(function (o) {
+            var thumb = o.photo_principale_url
+              ? '<img class="terrain-especes-thumb" src="' + esc(o.photo_principale_url) + '" alt=""/>'
+              : '<div class="terrain-especes-thumb terrain-especes-thumb--ph" aria-hidden="true">🌿</div>';
+            var fav = o.is_favori ? '★' : '☆';
+            return '<div class="terrain-especes-card" data-organism-id="' + esc(String(o.id)) + '">' +
+              '<button type="button" class="terrain-especes-card-main">' +
+              thumb +
+              '<span class="terrain-especes-card-text">' +
+              '<span class="terrain-especes-name">' + esc(o.nom_commun || '') + '</span>' +
+              '<span class="terrain-especes-latin">' + esc(o.nom_latin || '') + '</span>' +
+              '<span class="terrain-especes-type">' + esc(labelOrganismType(o.type_organisme)) + '</span>' +
+              '</span></button>' +
+              '<div class="terrain-especes-card-actions">' +
+              '<button type="button" class="terrain-especes-fav" data-organism-id="' + esc(String(o.id)) + '" data-favori="' + (o.is_favori ? '1' : '0') + '" title="Favori">' + fav + '</button>' +
+              '<button type="button" class="terrain-panel-btn terrain-especes-quick-add" data-organism-id="' + esc(String(o.id)) + '" title="Nouveau spécimen">+ Spécimen</button>' +
+              '</div></div>';
+          }).join('');
+          }
+        }
+        var loadingMoreElAfter = byId('terrain-especes-loading-more');
+        if (loadingMoreElAfter) loadingMoreElAfter.style.display = 'none';
+        requestAnimationFrame(function () {
+          tryEspecesFillViewport();
+        });
+      })
+      .catch(function () {
+        if (listEl) listEl.innerHTML = '<p class="terrain-especes-error">Impossible de charger le catalogue. Êtes-vous connecté ?</p>';
+        var loadingMoreErr = byId('terrain-especes-loading-more');
+        if (loadingMoreErr) loadingMoreErr.style.display = 'none';
+      })
+      .finally(function () {
+        especesState.loading = false;
+        especesState.loadingMore = false;
+        var loadingMoreFin = byId('terrain-especes-loading-more');
+        if (loadingMoreFin) loadingMoreFin.style.display = 'none';
+      });
+  }
+
+  function wireEspecesPanelOnce() {
+    var search = byId('terrain-especes-search');
+    var toggle = byId('terrain-especes-filter-toggle');
+    var filters = byId('terrain-especes-filters');
+    var clearBtn = byId('terrain-especes-clear');
+    var listEl = byId('terrain-especes-list');
+    var especesTab = byId('terrain-content-especes');
+    if (especesTab && !especesTab.dataset.especesScrollBound) {
+      especesTab.dataset.especesScrollBound = '1';
+      especesTab.addEventListener('scroll', onEspecesTabScroll, { passive: true });
+    }
+
+    if (toggle && filters) {
+      toggle.addEventListener('click', function () {
+        var open = !filters.hidden;
+        filters.hidden = open;
+        toggle.classList.toggle('active', !open);
+      });
+    }
+
+    if (search) {
+      search.addEventListener('input', debounce(function () {
+        fetchEspecesList(true);
+      }, 350));
+    }
+
+    ['terrain-especes-type', 'terrain-especes-soleil', 'terrain-especes-zone', 'terrain-especes-vigueur'].forEach(function (id) {
+      var el = byId(id);
+      if (el) el.addEventListener('change', function () { fetchEspecesList(true); });
+    });
+    ['terrain-especes-favoris', 'terrain-especes-fruits', 'terrain-especes-noix', 'terrain-especes-has-specimen'].forEach(function (id) {
+      var el = byId(id);
+      if (el) el.addEventListener('change', function () { fetchEspecesList(true); });
+    });
+
+    if (clearBtn) {
+      clearBtn.addEventListener('click', function () {
+        if (search) search.value = '';
+        var t = byId('terrain-especes-type');
+        if (t) t.value = '';
+        var s = byId('terrain-especes-soleil');
+        if (s) s.value = '';
+        var z = byId('terrain-especes-zone');
+        if (z) z.value = '';
+        var v = byId('terrain-especes-vigueur');
+        if (v) v.value = '';
+        ['terrain-especes-favoris', 'terrain-especes-fruits', 'terrain-especes-noix', 'terrain-especes-has-specimen'].forEach(function (cid) {
+          var c = byId(cid);
+          if (c) c.checked = false;
+        });
+        fetchEspecesList(true);
+      });
+    }
+
+    if (listEl) {
+      listEl.addEventListener('click', function (e) {
+        var t = e.target;
+        if (!t || !t.closest) return;
+        var quick = t.closest('.terrain-especes-quick-add');
+        if (quick) {
+          e.preventDefault();
+          e.stopPropagation();
+          var oid = quick.getAttribute('data-organism-id');
+          var row = especesState.organisms.filter(function (x) { return String(x.id) === String(oid); })[0];
+          if (row) openSpecimenCreateForm({ id: row.id, nom_commun: row.nom_commun, nom_latin: row.nom_latin });
+          return;
+        }
+        var favBtn = t.closest('.terrain-especes-fav');
+        if (favBtn) {
+          e.preventDefault();
+          e.stopPropagation();
+          var id = parseInt(favBtn.getAttribute('data-organism-id'), 10);
+          var was = favBtn.getAttribute('data-favori') === '1';
+          var method = was ? 'DELETE' : 'POST';
+          var favOpts = was
+            ? { method: 'DELETE' }
+            : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' };
+          fetchApi('organisms/' + id + '/favoris/', favOpts)
+            .then(function (r) {
+              if (!r.ok) throw new Error();
+              var next = !was;
+              favBtn.setAttribute('data-favori', next ? '1' : '0');
+              favBtn.textContent = next ? '★' : '☆';
+              especesState.organisms.forEach(function (o) {
+                if (o.id === id) o.is_favori = next;
+              });
+            })
+            .catch(function () {});
+          return;
+        }
+        var main = t.closest('.terrain-especes-card-main');
+        if (main) {
+          var card = main.closest('.terrain-especes-card');
+          if (card && card.dataset.organismId) openOrganismDetailDrawer(parseInt(card.dataset.organismId, 10));
+        }
+      });
+    }
+  }
+
+  function loadEspecesContent() {
+    if (!especesWired) {
+      especesWired = true;
+      wireEspecesPanelOnce();
+    }
+    fetchEspecesList(true);
+  }
+
+  function buildOrganismDetailSheetHtml(d) {
+    if (!d || !d.id) return '<div class="terrain-specimen-sheet terrain-specimen-sheet--error"><p>Espèce introuvable.</p></div>';
+    var photo = d.photo_principale_url
+      ? '<img class="terrain-organism-hero" src="' + esc(d.photo_principale_url) + '" alt=""/>'
+      : '';
+    var desc = (d.description && String(d.description).trim()) ? '<div class="terrain-organism-desc">' + esc(String(d.description).slice(0, 1200)) + (String(d.description).length > 1200 ? '…' : '') + '</div>' : '';
+    var favStar = d.is_favori ? '★ Retirer des favoris' : '☆ Ajouter aux favoris';
+    return '<div class="terrain-organism-sheet terrain-specimen-sheet">' +
+      '<div class="terrain-organism-cta-top">' +
+      '<button type="button" class="terrain-panel-btn terrain-organism-new-specimen" id="terrain-organism-new-specimen">+ Nouveau spécimen</button>' +
+      '<button type="button" class="terrain-panel-btn terrain-panel-btn--secondary terrain-organism-fav-toggle" id="terrain-organism-fav-toggle" data-favori="' + (d.is_favori ? '1' : '0') + '">' + esc(favStar) + '</button>' +
+      '</div>' +
+      (photo ? '<div class="terrain-organism-hero-wrap">' + photo + '</div>' : '') +
+      '<header class="terrain-fiche-header terrain-organism-header">' +
+      '<h2 class="terrain-fiche-title">' + esc(d.nom_commun || '') + '</h2>' +
+      '<p class="terrain-fiche-latin">' + esc(d.nom_latin || '') + '</p>' +
+      '<p class="terrain-organism-type-pill">' + esc(labelOrganismType(d.type_organisme)) + '</p>' +
+      '</header>' +
+      desc +
+      '<div class="terrain-fiche-body">' +
+      '<div class="terrain-fiche-card">' +
+      '<div class="terrain-fiche-row"><span class="terrain-fiche-label">Famille</span><span class="terrain-fiche-val">' + esc(d.famille || '—') + '</span></div>' +
+      '<div class="terrain-fiche-row"><span class="terrain-fiche-label">Règne</span><span class="terrain-fiche-val">' + esc(d.regne || '—') + '</span></div>' +
+      '<div class="terrain-fiche-row"><span class="terrain-fiche-label">Soleil</span><span class="terrain-fiche-val">' + esc(BESOIN_SOLEIL_LABELS[d.besoin_soleil] || d.besoin_soleil || '—') + '</span></div>' +
+      '<div class="terrain-fiche-row"><span class="terrain-fiche-label">Eau</span><span class="terrain-fiche-val">' + esc(BESOIN_EAU_LABELS[d.besoin_eau] || d.besoin_eau || '—') + '</span></div>' +
+      '<div class="terrain-fiche-row"><span class="terrain-fiche-label">Rusticité (zones)</span><span class="terrain-fiche-val">' + esc(formatOrganismZones(d.zone_rusticite)) + '</span></div>' +
+      '</div>' +
+      '<div class="terrain-fiche-card" id="terrain-organism-specimens-in-garden"><p class="terrain-especes-loading">Spécimens dans ce jardin…</p></div>' +
+      '</div></div>';
+  }
+
+  function wireOrganismDetailSheet(rootEl, d) {
+    var addBtn = rootEl.querySelector('#terrain-organism-new-specimen');
+    if (addBtn) {
+      addBtn.addEventListener('click', function () {
+        openSpecimenCreateForm({ id: d.id, nom_commun: d.nom_commun, nom_latin: d.nom_latin });
+      });
+    }
+    var favBtn = rootEl.querySelector('#terrain-organism-fav-toggle');
+    if (favBtn) {
+      favBtn.addEventListener('click', function () {
+        var was = favBtn.getAttribute('data-favori') === '1';
+        var favOpts = was
+          ? { method: 'DELETE' }
+          : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' };
+        fetchApi('organisms/' + d.id + '/favoris/', favOpts)
+          .then(function (r) {
+            if (!r.ok) throw new Error();
+            var next = !was;
+            favBtn.setAttribute('data-favori', next ? '1' : '0');
+            favBtn.textContent = next ? '★ Retirer des favoris' : '☆ Ajouter aux favoris';
+            d.is_favori = next;
+          })
+          .catch(function () {});
+      });
+    }
+    var box = rootEl.querySelector('#terrain-organism-specimens-in-garden');
+    var gid = GARDEN_DATA && GARDEN_DATA.id;
+    if (box && gid) {
+      fetchApi('specimens/?organisme=' + d.id + '&garden=' + gid + '&page_size=40')
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          var list = data.results != null ? data.results : [];
+          if (list.length === 0) {
+            box.innerHTML = '<p class="terrain-organism-specimens-empty">Aucun spécimen de cette espèce dans ce jardin pour l’instant.</p>';
+            return;
+          }
+          box.innerHTML = '<div class="terrain-fiche-section-title">Dans ce jardin</div>' +
+            list.map(function (s) {
+              return '<button type="button" class="terrain-organism-specimen-link" data-specimen-id="' + esc(String(s.id)) + '">' +
+                esc(s.nom || 'Spécimen') + ' · ' + esc(s.statut || '') + '</button>';
+            }).join('');
+          box.querySelectorAll('.terrain-organism-specimen-link').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+              var sid = parseInt(btn.getAttribute('data-specimen-id'), 10);
+              if (!sid) return;
+              setPanelMode('open');
+              switchTab('jardin');
+              openSpecimenOverlay({ id: sid });
+            });
+          });
+        })
+        .catch(function () {
+          box.innerHTML = '<p class="terrain-organism-specimens-empty">Impossible de charger les spécimens.</p>';
+        });
+    } else if (box) {
+      box.innerHTML = '<p class="terrain-organism-specimens-empty">Associez un jardin à la vue pour lister les spécimens.</p>';
+    }
+  }
+
+  function openOrganismDetailDrawer(orgId) {
+    if (!panelDetailEl || !orgId) return;
+    setPanelMode('detail');
+    var detailTitleEl = panelRoot && panelRoot.querySelector('.terrain-panel-detail-title');
+    if (detailTitleEl) detailTitleEl.textContent = 'Espèce';
+    panelDetailEl.innerHTML = '<div class="terrain-specimen-sheet terrain-specimen-sheet--loading"><p>Chargement…</p></div>';
+    fetchApi('organisms/' + orgId + '/')
+      .then(function (r) {
+        if (!r.ok) throw new Error();
+        return r.json();
+      })
+      .then(function (d) {
+        if (detailTitleEl) detailTitleEl.textContent = d.nom_commun || 'Espèce';
+        panelDetailEl.innerHTML = buildOrganismDetailSheetHtml(d);
+        wireOrganismDetailSheet(panelDetailEl, d);
+      })
+      .catch(function () {
+        panelDetailEl.innerHTML = '<div class="terrain-specimen-sheet terrain-specimen-sheet--error"><p>Impossible de charger l’espèce.</p></div>';
+      });
+  }
+
+  function buildSpecimenMobileSheetHtml(bundle) {
+    var d = bundle.detail;
+    if (!d || !d.id) return '<div class="terrain-specimen-sheet terrain-specimen-sheet--error"><p>Impossible de charger le spécimen.</p></div>';
+
+    var events = bundle.events || [];
+    var reminders = bundle.reminders || [];
+    var photos = bundle.photos || [];
+    var companions = bundle.companions;
+
+    var org = d.organisme || {};
+    var orgId = org.id != null ? org.id : null;
+    var orgCommun = org.nom_commun || d.organisme_nom || '';
+    var orgLatin = org.nom_latin || d.organisme_nom_latin || '';
+    var orgLine = '';
+    if (orgCommun || orgLatin) {
+      orgLine = '<p class="terrain-specimen-org">' + esc(orgCommun) + (orgLatin ? ' (' + esc(orgLatin) + ')' : '') + '</p>';
+    }
+
+    var statutKey = d.statut || '';
+    var statutLine = '<p class="terrain-specimen-statut">' + esc(labelStatut(statutKey)) + '</p>';
+
+    var gardenNom = (d.garden && d.garden.nom) ? d.garden.nom : (d.garden_nom || '');
+    var infosHtml = '';
+    infosHtml += '<div class="terrain-fiche-row"><span class="terrain-fiche-label">Jardin</span><span class="terrain-fiche-val">' + esc(gardenNom || 'Non assigné') + '</span></div>';
+    if (d.zone_jardin) {
+      infosHtml += '<div class="terrain-fiche-row"><span class="terrain-fiche-label">Zone</span><span class="terrain-fiche-val">' + esc(d.zone_jardin) + '</span></div>';
+    }
+    if (d.date_plantation) {
+      infosHtml += '<div class="terrain-fiche-row"><span class="terrain-fiche-label">Planté le</span><span class="terrain-fiche-val">' + esc(String(d.date_plantation)) + '</span></div>';
+    }
+    var gps = (d.latitude != null && d.longitude != null) ? (Number(d.latitude).toFixed(5) + ', ' + Number(d.longitude).toFixed(5)) : 'Non renseigné';
+    infosHtml += '<div class="terrain-fiche-row"><span class="terrain-fiche-label">GPS</span><span class="terrain-fiche-val">' + esc(gps) + '</span></div>';
+    if (d.notes != null && String(d.notes).trim() !== '') {
+      infosHtml += '<p class="terrain-specimen-notes">' + esc(String(d.notes)) + '</p>';
+    }
+
+    var cal = d.organism_calendrier || [];
+    var phenoHtml = '';
+    if (cal.length > 0) {
+      var rows = '';
+      cal.forEach(function (c) {
+        var disp = c.type_periode_display || c.type_periode || '';
+        var mois = c.mois_debut != null && c.mois_fin != null ? 'Mois ' + c.mois_debut + '–' + c.mois_fin : '—';
+        rows += '<div class="terrain-specimen-pheno-row"><span class="terrain-specimen-pheno-icon">' + esc(phenoIconForType(c.type_periode)) + '</span>' +
+          '<span class="terrain-specimen-pheno-txt">' + esc(disp) + ' — ' + esc(mois) + '</span></div>';
+      });
+      var y = new Date().getFullYear();
+      var yStr = String(y);
+      var obsRows = '';
+      ['floraison', 'fructification', 'recolte'].forEach(function (typeEv) {
+        var ev = events.filter(function (e) { return e.type_event === typeEv && String(e.date || '').indexOf(yStr) === 0; })[0];
+        var txt = ev ? String(ev.date) : 'Pas encore enregistré';
+        obsRows += '<div class="terrain-specimen-pheno-row"><span class="terrain-specimen-pheno-txt">' + esc(labelEventType(typeEv)) + ' : ' + esc(txt) + '</span></div>';
+      });
+      phenoHtml = '<section class="terrain-specimen-section"><h3 class="terrain-specimen-section-title">Stade phénologique</h3>' +
+        '<p class="terrain-specimen-subtitle">Calendrier de référence</p>' + rows +
+        '<p class="terrain-specimen-subtitle terrain-specimen-subtitle--spaced">Observations confirmées (cette année)</p>' + obsRows +
+        '<button type="button" class="terrain-specimen-btn terrain-specimen-btn--primary" id="terrain-specimen-pheno-cta">Confirmer un stade (floraison, fructification, récolte)</button></section>';
+    }
+
+    var pollHtml = '';
+    var pas = d.pollination_associations;
+    if (pas && pas.length) {
+      var blocks = '';
+      pas.forEach(function (assoc) {
+        var gtype = assoc.type_groupe === 'male_female' ? 'Mâle / femelle' : 'Pollinisation croisée';
+        var ghead = gtype + (assoc.role != null && assoc.role !== '' ? ' — Rôle : ' + assoc.role : '');
+        blocks += '<p class="terrain-specimen-pollin-head">' + esc(String(ghead)) + '</p>';
+        (assoc.other_members || []).forEach(function (m) {
+          var alertCls = m.alerte_distance ? ' terrain-specimen-pollin-row--alert' : '';
+          blocks += '<button type="button" class="terrain-specimen-pollin-row' + alertCls + '" data-open-specimen-id="' + esc(String(m.specimen_id)) + '">' +
+            '<span class="terrain-specimen-pollin-main">' + esc(m.nom || '') + '</span>' +
+            (m.organisme_nom ? '<span class="terrain-specimen-pollin-sub">' + esc(m.organisme_nom) + '</span>' : '') +
+            (m.distance_metres != null ? '<span class="terrain-specimen-pollin-dist">' + esc(String(m.distance_metres)) + ' m</span>' : '') +
+            (m.alerte_distance ? '<span class="terrain-specimen-pollin-warn">Zone trop loin</span>' : '') +
+            '<span class="terrain-specimen-pollin-chev">›</span></button>';
+        });
+      });
+      pollHtml = '<section class="terrain-specimen-section"><h3 class="terrain-specimen-section-title">Associé à (pollinisation)</h3>' + blocks + '</section>';
+    }
+
+    var compHtml = '';
+    if (companions) {
+      var bd = companions.benefices_de || { actifs: [], manquants: [] };
+      var aa = companions.aide_a || { actifs: [], manquants: [] };
+      var hasB = (bd.actifs && bd.actifs.length) + (bd.manquants && bd.manquants.length) > 0;
+      var hasA = (aa.actifs && aa.actifs.length) + (aa.manquants && aa.manquants.length) > 0;
+      if (hasB || hasA) {
+        compHtml = '<section class="terrain-specimen-section"><h3 class="terrain-specimen-section-title">Compagnonnage</h3>';
+        if (d.latitude == null || d.longitude == null) {
+          compHtml += '<p class="terrain-specimen-gps-note">Ajoutez les coordonnées GPS pour calculer les distances.</p>';
+        }
+        function companionRow(e, isActive) {
+          var line = (e.specimen_nom || e.organisme_nom || '') +
+            (e.distance_metres != null ? ' à ' + e.distance_metres + ' m' : '') +
+            ' — ' + (e.type_relation_display || e.type_relation) + ' (' + (e.force != null ? e.force : '') + ')';
+          if (isActive && e.specimen_id != null) {
+            return '<div class="terrain-specimen-comp-row"><span>' + esc(line) + '</span>' +
+              '<button type="button" class="terrain-specimen-link-btn" data-open-specimen-id="' + esc(String(e.specimen_id)) + '">›</button></div>';
+          }
+          if (!isActive) {
+            return '<div class="terrain-specimen-comp-row terrain-specimen-comp-row--missing"><span>' +
+              esc('Aucun ' + (e.organisme_nom || '') + (e.distance_optimale != null ? ' dans un rayon de ' + e.distance_optimale + ' m' : ' dans le jardin')) +
+              '</span><a class="terrain-specimen-inline-link" href="/admin/species/organism/">Voir les espèces compatibles →</a></div>';
+          }
+          return '<div class="terrain-specimen-comp-row"><span>' + esc(line) + '</span></div>';
+        }
+        if (hasB) {
+          compHtml += '<p class="terrain-specimen-subtitle">Ce spécimen bénéficie de</p>';
+          (bd.actifs || []).forEach(function (e) { compHtml += companionRow(e, true); });
+          (bd.manquants || []).forEach(function (e) { compHtml += companionRow(e, false); });
+        }
+        if (hasA) {
+          compHtml += '<p class="terrain-specimen-subtitle' + (hasB ? ' terrain-specimen-subtitle--spaced' : '') + '">Ce spécimen aide</p>';
+          (aa.actifs || []).forEach(function (e) { compHtml += companionRow(e, true); });
+          (aa.manquants || []).forEach(function (e) { compHtml += companionRow(e, false); });
+        }
+        compHtml += '</section>';
+      }
+    }
+
+    var photosHtml = '';
+    if (photos.length) {
+      photosHtml += '<div class="terrain-specimen-photo-strip">';
+      photos.forEach(function (p) {
+        var u = p.image_url || '';
+        if (u) {
+          photosHtml += '<a class="terrain-specimen-photo-thumb" href="' + esc(u) + '" target="_blank" rel="noopener"><img src="' + esc(u) + '" alt=""/></a>';
+        }
+      });
+      photosHtml += '</div>';
+    }
+    photosHtml = '<section class="terrain-specimen-section"><h3 class="terrain-specimen-section-title">Photos</h3>' +
+      '<div class="terrain-specimen-photo-actions">' +
+      '<label class="terrain-specimen-btn terrain-specimen-btn--secondary terrain-specimen-file-label">' +
+      '<input type="file" accept="image/*" class="terrain-specimen-photo-input" id="terrain-specimen-photo-file"/>' +
+      'Ajouter une photo</label></div>' + photosHtml + '</section>';
+
+    var remHtml = '<section class="terrain-specimen-section"><h3 class="terrain-specimen-section-title">Rappels</h3>';
+    if (!reminders.length) {
+      remHtml += '<p class="terrain-specimen-empty">Aucun rappel</p>';
+    } else {
+      reminders.forEach(function (r) {
+        remHtml += '<div class="terrain-specimen-list-row">' +
+          '<span class="terrain-specimen-ev-type">' + esc(labelReminderType(r.type_rappel)) + '</span>' +
+          '<span class="terrain-specimen-ev-date">' + esc(r.date_rappel) + ' • ' + esc(labelAlerte(r.type_alerte)) + '</span>' +
+          (r.titre ? '<span class="terrain-specimen-ev-titre">' + esc(r.titre) + '</span>' : '') +
+          '</div>';
+      });
+    }
+    remHtml += '</section>';
+
+    var evList = '';
+    events.slice(0, 10).forEach(function (ev) {
+      evList += '<a class="terrain-specimen-list-row terrain-specimen-list-row--link" href="' + esc(adminEventChange(ev.id)) + '" target="_blank" rel="noopener">' +
+        '<span class="terrain-specimen-ev-type">' + esc(labelEventType(ev.type_event)) + '</span>' +
+        '<span class="terrain-specimen-ev-date">' + esc(String(ev.date)) + '</span>' +
+        (ev.titre ? '<span class="terrain-specimen-ev-titre">' + esc(ev.titre) + '</span>' : '') +
+        '</a>';
+    });
+    var eventsWithPhoto = events.slice(0, 10).map(function (ev) {
+      var ph = photos.filter(function (p) { return p.event_id === ev.id; })[0];
+      return ph ? { ev: ev, ph: ph } : null;
+    }).filter(Boolean);
+    var evStrip = '';
+    eventsWithPhoto.forEach(function (o) {
+      var u = o.ph.image_url || '';
+      if (!u) return;
+      evStrip += '<a class="terrain-specimen-ev-thumb" href="' + esc(adminEventChange(o.ev.id)) + '" target="_blank" rel="noopener">' +
+        '<img src="' + esc(u) + '" alt=""/>' +
+        '<span class="terrain-specimen-ev-thumb-cap">' + esc(labelEventType(o.ev.type_event)) + ' — ' + esc(String(o.ev.date)) + '</span></a>';
+    });
+
+    var eventsSection = '<section class="terrain-specimen-section terrain-specimen-events" id="terrain-specimen-events-wrap">' +
+      '<div class="terrain-specimen-events-head">' +
+      '<h3 class="terrain-specimen-section-title">Événements récents</h3>' +
+      '<div class="terrain-specimen-view-toggle">' +
+      '<button type="button" class="terrain-specimen-icon-btn' + (!bundle.eventsImageMode ? ' is-active' : '') + '" id="terrain-specimen-ev-mode-list" title="Liste">≡</button>' +
+      '<button type="button" class="terrain-specimen-icon-btn' + (bundle.eventsImageMode ? ' is-active' : '') + '" id="terrain-specimen-ev-mode-img" title="Images">▦</button>' +
+      '</div></div>';
+    if (!events.length) {
+      eventsSection += '<p class="terrain-specimen-empty">Aucun événement</p>';
+    } else {
+      eventsSection += '<div class="terrain-specimen-ev-panel" id="terrain-specimen-ev-list"' + (bundle.eventsImageMode ? ' style="display:none"' : '') + '>' + evList + '</div>';
+      eventsSection += '<div class="terrain-specimen-ev-strip-wrap" id="terrain-specimen-ev-strip"' + (!bundle.eventsImageMode ? ' style="display:none"' : '') + '>';
+      if (!evStrip && bundle.eventsImageMode) {
+        eventsSection += '<p class="terrain-specimen-empty">Aucune photo dans les événements récents</p>';
+      } else {
+        eventsSection += evStrip;
+      }
+      eventsSection += '</div>';
+    }
+    eventsSection += '<form class="terrain-specimen-add-ev" id="terrain-specimen-add-ev-form">' +
+      '<label class="terrain-specimen-sr-only" for="terrain-specimen-ev-type">Type</label>' +
+      '<select id="terrain-specimen-ev-type" name="type_event" required>' +
+      '<option value="">Type d’événement</option>' +
+      '<option value="observation">Observation</option><option value="arrosage">Arrosage</option><option value="taille">Taille</option>' +
+      '<option value="floraison">Floraison</option><option value="fructification">Fructification</option><option value="recolte">Récolte</option>' +
+      '<option value="plantation">Plantation</option><option value="autre">Autre</option></select>' +
+      '<input type="date" name="date" id="terrain-specimen-ev-date" required />' +
+      '<button type="submit" class="terrain-specimen-btn terrain-specimen-btn--primary terrain-specimen-btn--compact">Ajouter</button></form>';
+    eventsSection += '</section>';
+
+    var fav = d.is_favori ? ' is-favori' : '';
+    var header = '<header class="terrain-specimen-header">' +
+      '<div class="terrain-specimen-title-row">' +
+      '<h2 class="terrain-fiche-title terrain-specimen-title">' + esc(d.nom || 'Spécimen') + '</h2>' +
+      '<div class="terrain-specimen-header-actions">' +
+      '<a class="terrain-specimen-icon-btn" href="' + esc(adminSpecimenChange(d.id)) + '" target="_blank" rel="noopener" title="Modifier">✎</a>' +
+      '<button type="button" class="terrain-specimen-fav-btn' + fav + '" id="terrain-specimen-fav-btn" title="Favori">★</button>' +
+      '</div></div>' + orgLine +
+      (orgId != null ? '<a class="terrain-specimen-species-link" href="' + esc(adminOrganismChange(orgId)) + '" target="_blank" rel="noopener">← Retour à la fiche espèce</a>' : '') +
+      statutLine + '</header>';
+
+    var infosSection = '<section class="terrain-specimen-section"><h3 class="terrain-specimen-section-title">Infos</h3><div class="terrain-specimen-infos">' + infosHtml + '</div></section>';
+
+    var dup = '<button type="button" class="terrain-specimen-btn terrain-specimen-btn--dup" id="terrain-specimen-dup-btn">Dupliquer ce spécimen</button>';
+
+    return '<div class="terrain-panel-detail-fiche terrain-specimen-sheet" data-specimen-id="' + esc(String(d.id)) + '">' +
+      header + '<div class="terrain-specimen-sheet-body">' +
+      infosSection + phenoHtml + pollHtml + compHtml + photosHtml + remHtml + eventsSection + dup +
+      '</div></div>';
+  }
+
+  function wireSpecimenSheetActions(rootEl, bundle) {
+    var d = bundle.detail;
+    if (!d || !rootEl) return;
+    var sid = d.id;
+
+    var favBtn = rootEl.querySelector('#terrain-specimen-fav-btn');
+    if (favBtn) {
+      favBtn.addEventListener('click', function () {
+        var del = favBtn.classList.contains('is-favori');
+        fetchApi('specimens/' + sid + '/favoris/', { method: del ? 'DELETE' : 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+          .then(function (r) {
+            if (r.status === 200 || r.status === 201 || r.status === 204) {
+              favBtn.classList.toggle('is-favori', !del);
+            }
+          });
+      });
+    }
+
+    var phenoBtn = rootEl.querySelector('#terrain-specimen-pheno-cta');
+    if (phenoBtn) {
+      phenoBtn.addEventListener('click', function () {
+        var form = rootEl.querySelector('#terrain-specimen-add-ev-form');
+        if (form) form.scrollIntoView({ behavior: 'smooth' });
+        var sel = rootEl.querySelector('#terrain-specimen-ev-type');
+        if (sel) { sel.focus(); }
+      });
+    }
+
+    rootEl.querySelectorAll('[data-open-specimen-id]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var oid = btn.getAttribute('data-open-specimen-id');
+        var sp = specimens.filter(function (x) { return String(x.id) === String(oid); })[0];
+        if (sp) {
+          if (window.terrainCesiumFlyToSpecimen && sp.longitude != null && sp.latitude != null) {
+            window.terrainCesiumFlyToSpecimen({ lng: sp.longitude, lat: sp.latitude, specimenId: sp.id });
+          }
+          openSpecimenOverlay(sp);
+        } else {
+          fetchSpecimenDetailBundle(oid, function (err, b) {
+            if (!err && b && b.detail) {
+              openSpecimenOverlay(
+                { id: b.detail.id, nom: b.detail.nom, longitude: b.detail.longitude, latitude: b.detail.latitude, statut: b.detail.statut },
+                b
+              );
+            }
+          });
+        }
+      });
+    });
+
+    var modeList = rootEl.querySelector('#terrain-specimen-ev-mode-list');
+    var modeImg = rootEl.querySelector('#terrain-specimen-ev-mode-img');
+    var panelList = rootEl.querySelector('#terrain-specimen-ev-list');
+    var panelStrip = rootEl.querySelector('#terrain-specimen-ev-strip');
+    function setEvMode(img) {
+      if (panelList) panelList.style.display = img ? 'none' : 'block';
+      if (panelStrip) panelStrip.style.display = img ? 'block' : 'none';
+      if (modeList) modeList.classList.toggle('is-active', !img);
+      if (modeImg) modeImg.classList.toggle('is-active', !!img);
+    }
+    if (modeList) modeList.addEventListener('click', function () { setEvMode(false); });
+    if (modeImg) modeImg.addEventListener('click', function () { setEvMode(true); });
+
+    var form = rootEl.querySelector('#terrain-specimen-add-ev-form');
+    if (form) {
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var fd = new FormData(form);
+        var typeEvent = fd.get('type_event');
+        var date = fd.get('date');
+        if (!typeEvent || !date) return;
+        fetchApi('specimens/' + sid + '/events/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type_event: typeEvent, date: date }),
+        })
+          .then(function (r) {
+            if (!r.ok) return;
+            fetchSpecimenDetailBundle(sid, function (err2, b2) {
+              if (err2 || !b2) return;
+              b2.eventsImageMode = modeImg && modeImg.classList.contains('is-active');
+              rootEl.innerHTML = buildSpecimenMobileSheetHtml(b2);
+              wireSpecimenSheetActions(rootEl, b2);
+            });
+          });
+      });
+    }
+
+    var dup = rootEl.querySelector('#terrain-specimen-dup-btn');
+    if (dup) {
+      dup.addEventListener('click', function () {
+        dup.disabled = true;
+        fetchApi('specimens/' + sid + '/duplicate/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+          .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+          .then(function (x) {
+            dup.disabled = false;
+            if (x.ok && x.j && x.j.id) {
+              window.location.href = adminSpecimenChange(x.j.id);
+            }
+          })
+          .catch(function () { dup.disabled = false; });
+      });
+    }
+
+    var fileIn = rootEl.querySelector('#terrain-specimen-photo-file');
+    if (fileIn) {
+      fileIn.addEventListener('change', function () {
+        var f = fileIn.files && fileIn.files[0];
+        if (!f) return;
+        var fd = new FormData();
+        fd.append('image', f);
+        fd.append('type_photo', 'autre');
+        fd.append('titre', 'Photo du spécimen');
+        fetchApi('specimens/' + sid + '/photos/', { method: 'POST', body: fd, headers: {} })
+          .then(function (r) {
+            fileIn.value = '';
+            if (!r.ok) return;
+            fetchSpecimenDetailBundle(sid, function (err2, b2) {
+              if (err2 || !b2) return;
+              b2.eventsImageMode = modeImg && modeImg.classList.contains('is-active');
+              rootEl.innerHTML = buildSpecimenMobileSheetHtml(b2);
+              wireSpecimenSheetActions(rootEl, b2);
+            });
+          });
+      });
+    }
+  }
+
   function ficheRow(label, value) {
     if (value == null || value === '') return '';
     return '<div class="terrain-fiche-row"><span class="terrain-fiche-label">' + esc(label) + '</span><span class="terrain-fiche-val">' + esc(value) + '</span></div>';
@@ -1196,7 +2701,7 @@
     return 'terrain-badge-statut terrain-badge-statut--etabli';
   }
 
-  function buildSpecimenDetailHtml(s) {
+  function buildSpecimenPopupMiniHtml(s) {
     var latin = s.organisme_nom_latin ? '<p class="terrain-fiche-latin">' + esc(s.organisme_nom_latin) + '</p>' : '';
     var statutLabel = s.statut_display || s.statut || '';
     var badgeParts = '';
@@ -1250,14 +2755,14 @@
       '<div class="terrain-fiche-body">' + cards + '</div></div>';
   }
 
-  function wireFicheActions(s, rootEl) {
+  function wireSpecimenPopupActions(s, rootEl) {
     var openFullBtn = rootEl.querySelector('#terrain-panel-detail-open-full');
     if (openFullBtn) {
       openFullBtn.addEventListener('click', function () {
         if (window.postToRN) {
           window.postToRN({ type: 'SPECIMEN_OPEN_FICHE', payload: { specimenId: s.id } });
         } else {
-          window.location.href = '/species/specimen/' + s.id + '/';
+          window.location.href = adminSpecimenChange(s.id);
         }
       });
     }
@@ -1265,22 +2770,40 @@
 
   function showPopup(s) {
     if (!popupEl) return;
-    var mini = buildSpecimenDetailHtml(s);
+    var mini = buildSpecimenPopupMiniHtml(s);
     popupEl.innerHTML = '<div class="terrain-popup-inner">' + mini + '</div>';
     popupEl.style.display = 'block';
-    wireFicheActions(s, popupEl);
+    wireSpecimenPopupActions(s, popupEl);
   }
 
-  function openSpecimenOverlay(s) {
+  function openSpecimenOverlay(s, preloadedBundle) {
     addToRecents(s);
-    var ficheHtml = buildSpecimenDetailHtml(s);
+    selectedSpecimenId = s.id;
+
+    function applyBundle(bundle, rootEl) {
+      if (!bundle || !bundle.detail) return;
+      bundle.detail = mergeListIntoDetail(s, bundle.detail);
+      if (bundle.eventsImageMode !== true) bundle.eventsImageMode = false;
+      rootEl.innerHTML = buildSpecimenMobileSheetHtml(bundle);
+      wireSpecimenSheetActions(rootEl, bundle);
+    }
 
     if (panelDetailEl) {
       setPanelMode('detail');
       var detailTitleEl = panelRoot && panelRoot.querySelector('.terrain-panel-detail-title');
       if (detailTitleEl) detailTitleEl.textContent = s.nom || 'Spécimen';
-      panelDetailEl.innerHTML = ficheHtml;
-      wireFicheActions(s, panelDetailEl);
+      if (preloadedBundle && preloadedBundle.detail) {
+        applyBundle(preloadedBundle, panelDetailEl);
+        return;
+      }
+      panelDetailEl.innerHTML = '<div class="terrain-specimen-sheet terrain-specimen-sheet--loading"><p>Chargement…</p></div>';
+      fetchSpecimenDetailBundle(String(s.id), function (err, bundle) {
+        if (err || !bundle) {
+          panelDetailEl.innerHTML = '<div class="terrain-specimen-sheet terrain-specimen-sheet--error"><p>Impossible de charger le détail. Êtes-vous connecté ?</p></div>';
+          return;
+        }
+        applyBundle(bundle, panelDetailEl);
+      });
       return;
     }
 
@@ -1298,8 +2821,18 @@
     }
     var body = byId('terrain-overlay-body');
     if (body) {
-      body.innerHTML = ficheHtml;
-      wireFicheActions(s, body);
+      if (preloadedBundle && preloadedBundle.detail) {
+        applyBundle(preloadedBundle, body);
+      } else {
+        body.innerHTML = '<div class="terrain-specimen-sheet terrain-specimen-sheet--loading"><p>Chargement…</p></div>';
+        fetchSpecimenDetailBundle(String(s.id), function (err, bundle) {
+          if (err || !bundle) {
+            body.innerHTML = '<div class="terrain-specimen-sheet terrain-specimen-sheet--error"><p>Impossible de charger le détail.</p></div>';
+            return;
+          }
+          applyBundle(bundle, body);
+        });
+      }
     }
     overlayEl.classList.add('terrain-overlay-visible');
   }
@@ -1560,7 +3093,7 @@
   renderPopup();
   renderControlsRight();
 
-  if (window.INITIAL_SPECIMENS && Array.isArray(window.INITIAL_SPECIMENS) && window.INITIAL_SPECIMENS.length > 0) {
+  if (window.INITIAL_SPECIMENS && Array.isArray(window.INITIAL_SPECIMENS)) {
     specimens = window.INITIAL_SPECIMENS;
     updateSpecimenList(null);
   }
