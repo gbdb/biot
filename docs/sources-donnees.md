@@ -1,5 +1,7 @@
 # Sources de données (espèces)
 
+> **Où exécuter les commandes** — Les exemples `python manage.py import_*` ci‑dessous concernent le dépôt **Radix Sylva** (répertoire du projet Django Radix, venv activé), pas le dépôt Jardin bIOT. Après chargement sur Radix, BIOT met à jour son cache avec `sync_radixsylva`. Guide opérationnel détaillé : [`radixsylva/docs/gestion-des-donnees.md`](../../radixsylva/docs/gestion-des-donnees.md). Vue d’ensemble des données et des sources : [`radixsylva/docs/donnees-sources-et-modele.md`](../../radixsylva/docs/donnees-sources-et-modele.md).
+
 Ce document liste les **sources** utilisées pour alimenter la base espèces (tableaux, liens, licences) et rappelle les **commandes d’import** et l’ordre recommandé. Pour le pipeline complet (purification, fusion multi-sources, choix techniques, référence des champs), voir [Import des espèces : purification, spécialisation et enrichissement](import-especes-et-fusion-sources.md).
 
 | Source | Contenu principal | Conditions / Licence | Lien |
@@ -37,21 +39,23 @@ En résumé : ordre libre pour les imports ; terminer par un merge des doublons 
 ## Création vs enrichissement : avoir plus que ~1700 espèces
 
 - **Qui crée des organismes ?** Seules certaines commandes **créent** de nouveaux organismes : **Hydro-Québec** (≈ 1700 arbres/arbustes), **import_vascan --file** (liste de noms), **import_pfaf --file**, **import_arbres_quebec** / **import_arbres_montreal** (avec fichier).
-- **Enrichissement uniquement :** Les boutons « Import VASCAN » et « Import USDA » dans l’app utilisent le mode **--enrich** : ils ne font qu’ajouter `vascan_id` / `tsn` aux organismes **déjà en base**. Ils ne créent pas de nouvelles espèces. Donc si tu n’as que des espèces créées par Hydro-Québec, tu restes à environ 1700.
+- **Enrichissement uniquement :** En ligne de commande sur Radix, `import_vascan --enrich` et `import_usda --enrich` n’ajoutent `vascan_id` / `tsn` qu’aux organismes **déjà en base** ; ils ne créent pas de nouvelles espèces. Donc si tu n’as que des espèces créées par Hydro-Québec, tu restes à environ 1700 tant que tu n’utilises pas `--file` ou d’autres imports créateurs.
 
 **Pour avoir plus d’espèces (ex. toute la flore vasculaire du Canada, ~33 000 noms dans VASCAN) :**
 
 1. Va sur le **Checklist builder VASCAN** : [data.canadensys.net/vascan/checklist](https://data.canadensys.net/vascan/checklist).
 2. Choisis tes critères (rangs : espèces, sous-espèces, variétés ; province, statut, etc.) puis génère la liste.
 3. Télécharge l’export en **fichier texte tab-delimited**.
-4. En ligne de commande :  
+4. En ligne de commande **sur le projet Radix** :  
    `python manage.py import_vascan --file chemin/vers/fichier_telecharge.txt`  
    (La commande accepte un nom par ligne ou un fichier tab-delimited ; la première colonne est utilisée comme nom scientifique.)
 5. Ensuite tu peux lancer **Import USDA** (enrichissement) pour ajouter le TSN à ces organismes.
 
 Tu peux aussi combiner : d’abord Hydro-Québec (1700), puis import_vascan --file avec une grosse liste VASCAN pour ajouter des milliers d’espèces supplémentaires (les doublons seront fusionnés par nom).
 
-## Commandes d'import
+## Commandes d'import (Radix Sylva)
+
+Toutes les commandes suivantes s’exécutent dans l’environnement **Radix** ; voir [`../../radixsylva/docs/gestion-des-donnees.md`](../../radixsylva/docs/gestion-des-donnees.md).
 
 - `python manage.py import_vascan --enrich --limit 50` : enrichit les organismes existants avec VASCAN.
 - `python manage.py import_vascan --file noms.txt` : **crée** des organismes à partir d’un fichier (un nom latin par ligne, ou export tab-delimited VASCAN). Permet de dépasser les ~1700 espèces d’Hydro-Québec.

@@ -13,6 +13,14 @@
   var LIDAR_ASSET_ID = (typeof window !== 'undefined' && window.LIDAR_ASSET_ID != null) ? Number(window.LIDAR_ASSET_ID) : 4510919;
   var QUEBEC_TMS_ORTHOS_URL = 'https://geoegl.msp.gouv.qc.ca/apis/carto/tms/1.0.0/orthos@EPSG_3857/{z}/{x}/{reverseY}.jpeg';
   var specimenEntities = {};
+  /** Cercles de rayon adulte (m) par id spécimen */
+  var specimenCircleEntities = {};
+  /** Visibilité calques (UI terrain) */
+  var layerSpecimensVisible = true;
+  var layerMaturityCirclesVisible = true;
+  var layerBoundaryVisible = true;
+  /** null = tous ; tableau d'id = filtre recherche */
+  var visibleSpecimenFilterIds = null;
   var boundaryEntity = null;
   var sunRayEntity = null;
   var sunShadowEntity = null;
@@ -118,6 +126,7 @@
           })
         }
       });
+      boundaryEntity.show = layerBoundaryVisible;
       return;
     }
     Cesium.sampleTerrainMostDetailed(terrainProvider, cartographics).then(function (updated) {
@@ -135,6 +144,7 @@
           })
         }
       });
+      boundaryEntity.show = layerBoundaryVisible;
     }).catch(function () {
       var positions = coords.map(function (c) {
         return Cesium.Cartesian3.fromDegrees(c[0], c[1], BOUNDARY_OFFSET_M);
@@ -149,6 +159,7 @@
           })
         }
       });
+      boundaryEntity.show = layerBoundaryVisible;
     });
   }
 
@@ -186,12 +197,32 @@
     return canvas.toDataURL('image/png');
   }
 
+  function applySpecimenLayerVisibility() {
+    if (!viewer) return;
+    Object.keys(specimenEntities).forEach(function (key) {
+      var id = parseInt(key, 10);
+      var passFilter = visibleSpecimenFilterIds == null || visibleSpecimenFilterIds.indexOf(id) >= 0;
+      var showMarker = layerSpecimensVisible && passFilter;
+      var ent = specimenEntities[key];
+      if (ent) ent.show = showMarker;
+      var cEnt = specimenCircleEntities[key];
+      if (cEnt) {
+        cEnt.show = showMarker && layerMaturityCirclesVisible;
+      }
+    });
+    if (viewer.scene) viewer.scene.requestRender();
+  }
+
   function addSpecimenMarkers(specimens) {
     if (!viewer || !Array.isArray(specimens)) return;
     Object.keys(specimenEntities).forEach(function (id) {
       viewer.entities.remove(specimenEntities[id]);
     });
+    Object.keys(specimenCircleEntities).forEach(function (id) {
+      viewer.entities.remove(specimenCircleEntities[id]);
+    });
     specimenEntities = {};
+    specimenCircleEntities = {};
     var valid = specimens.filter(function (s) { return s.latitude != null && s.longitude != null; });
     if (valid.length === 0) return;
 
@@ -216,7 +247,24 @@
           }
         });
         specimenEntities[s.id] = entity;
+        var rayonM = s.rayon_adulte_m != null ? Number(s.rayon_adulte_m) : NaN;
+        if (Number.isFinite(rayonM) && rayonM > 0) {
+          var circleEnt = viewer.entities.add({
+            position: position,
+            ellipse: {
+              semiMajorAxis: rayonM,
+              semiMinorAxis: rayonM,
+              material: Cesium.Color.fromCssColorString('#4a7c59').withAlpha(0.22),
+              outline: true,
+              outlineColor: Cesium.Color.fromCssColorString('#6db383'),
+              outlineWidth: 1,
+              heightReference: Cesium.HeightReference.CLAMP_TO_GROUND
+            }
+          });
+          specimenCircleEntities[s.id] = circleEnt;
+        }
       });
+      applySpecimenLayerVisibility();
     }
 
     if (terrainProvider && terrainProvider.availability) {
@@ -230,6 +278,27 @@
       addEntitiesAtHeights(valid.map(function () { return 0; }));
     }
   }
+
+  window.terrainCesiumSetVisibleSpecimens = function (ids) {
+    visibleSpecimenFilterIds = ids;
+    applySpecimenLayerVisibility();
+  };
+
+  window.terrainCesiumSetSpecimensLayerVisible = function (visible) {
+    layerSpecimensVisible = !!visible;
+    applySpecimenLayerVisibility();
+  };
+
+  window.terrainCesiumSetMaturityCirclesVisible = function (visible) {
+    layerMaturityCirclesVisible = !!visible;
+    applySpecimenLayerVisibility();
+  };
+
+  window.terrainCesiumSetBoundaryVisible = function (visible) {
+    layerBoundaryVisible = !!visible;
+    if (boundaryEntity) boundaryEntity.show = layerBoundaryVisible;
+    if (viewer && viewer.scene) viewer.scene.requestRender();
+  };
 
   function createQuebecOrthosProvider() {
     return new Cesium.UrlTemplateImageryProvider({

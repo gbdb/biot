@@ -14,6 +14,8 @@ Référence pour la **phase 3** (nettoyage) : ce qui est encore dans le dépôt 
 
 Non exposés sur la page « Gestion des données » (Pass C). Les **imports de masse** côté prod sont attendus sur **Radix Sylva**.
 
+> **Double dépôt** — Les fichiers `import_*.py` listés ci‑dessous existent encore sous `species/management/commands/` dans BIOT pour alignement historique ou scripts ponctuels ; le **flux officiel** et la doc à jour des commandes sont le dépôt **Radix** (`radixsylva/botanique/management/commands/`). Ne pas traiter les deux arborescences comme des sources de vérité indépendantes : privilégier Radix puis `sync_radixsylva`. Voir [`radixsylva/docs/gestion-des-donnees.md`](../../radixsylva/docs/gestion-des-donnees.md).
+
 | Fichier | Thème |
 |---------|--------|
 | `import_hydroquebec.py` | Hydro-Québec |

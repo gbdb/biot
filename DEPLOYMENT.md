@@ -1,8 +1,10 @@
 # 🌳 Guide de déploiement Jardin bIOT — Serveur Proxmox (Production locale)
 
-> **Objectif** : Déployer Jardin bIOT sur une machine virtuelle Proxmox dans un environnement local, pour une instance de production toujours disponible et les tests de l'été 2026.
+> **Production actuelle (mars 2026)** : Jardin bIOT et Radix Sylva sont déployés sur **DigitalOcean** (`https://jardinbiot.ca`, `https://radix.jardinbiot.ca`) avec **GitHub Actions**. Voir **[`docs/deploy-production-digitalocean-github.md`](docs/deploy-production-digitalocean-github.md)**.
 
-> **Radix Sylva (base botanique en ligne)** : hébergement prévu sur **DigitalOcean** + sous-domaine **`*.jardinbiot.ca`** — voir [`docs/plan-radix-biot-phases.md`](docs/plan-radix-biot-phases.md) et [`docs/hebergement-radix-digitalocean.md`](docs/hebergement-radix-digitalocean.md). Ce fichier `DEPLOYMENT.md` couvre surtout **Jardin bIOT** sur Proxmox.
+> **Objectif (ce document)** : Déployer Jardin bIOT sur une machine virtuelle Proxmox dans un environnement local, pour une instance de production toujours disponible et les tests de l'été 2026.
+
+> **Radix Sylva** : hébergement **`*.jardinbiot.ca`** sur DigitalOcean — voir [`docs/plan-radix-biot-phases.md`](docs/plan-radix-biot-phases.md) et [`docs/hebergement-radix-digitalocean.md`](docs/hebergement-radix-digitalocean.md). Ce fichier `DEPLOYMENT.md` couvre surtout **Jardin bIOT** sur Proxmox.
 
 ---
 

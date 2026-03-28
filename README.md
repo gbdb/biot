@@ -11,6 +11,8 @@
 
 De la gestion de votre potager urbain à la conception de forêts comestibles multi-strates, Jardin bIOT vous accompagne dans la création d'écosystèmes nourriciers résilients et autonomes.
 
+**Production** : application déployée sur **`https://jardinbiot.ca`** (DigitalOcean, GitHub Actions) — voir [`docs/deploy-production-digitalocean-github.md`](docs/deploy-production-digitalocean-github.md).
+
 **Radix Sylva** (source de vérité botanique) : dépôt séparé [`radixsylva/`](radixsylva/README.md) — imports de masse (Hydro, VASCAN, PFAF, etc.), enrichissement, API publique **`https://radix.jardinbiot.ca/api/v1`**. **Jardin bIOT** garde une **copie locale** des tables `species_*` (jardins, spécimens, semences, etc.) mise à jour par **`python manage.py sync_radixsylva`** selon `RADIX_SYLVA_API_URL` dans `.env` (voir `.env.example`). Ce n’est pas une deuxième base « maîtresse » pour le catalogue espèces. **Plan des phases** : [`docs/plan-radix-biot-phases.md`](docs/plan-radix-biot-phases.md) · flux détaillé : [`docs/radix-biot-pass-c.md`](docs/radix-biot-pass-c.md).
 
 ---

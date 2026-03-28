@@ -2,6 +2,8 @@
 
 > **Où vivent les imports de masse (2025–2026)** — Les **imports botaniques lourds** (Hydro-Québec, PFAF, VASCAN, etc.) s’exécutent sur le projet **Radix Sylva** (API **`https://radix.jardinbiot.ca/api/v1`** en production). **Jardin bIOT** synchronise une copie locale via **`sync_radixsylva`** (`RADIX_SYLVA_API_URL` dans `.env`). Ne pas lancer ces imports en masse depuis BIOT ; voir **`docs/radix-biot-pass-c.md`**.
 
+**Documentation canonique (dépôt Radix)** — Structure des tables, liste des sources, espèce vs cultivar, conflits multi-sources et détails par import : [`radixsylva/docs/donnees-sources-et-modele.md`](../../radixsylva/docs/donnees-sources-et-modele.md). Guide opérationnel (`manage.py`, enchaînements) : [`radixsylva/docs/gestion-des-donnees.md`](../../radixsylva/docs/gestion-des-donnees.md). Le présent fichier BIOT reste la référence pour le **pipeline conceptuel** (purification, stratégies A/B) et pour la page **Gestion des données** côté BIOT.
+
 Ce document décrit comment le système transforme les données brutes des sources en une base d’espèces et de cultivars **exploitable** (logique métier, fusion multi-sources). Il sert de **référence technique** ou pour expliquer la construction de la base. L’**interface** « Gestion des données » sur BIOT est décrite au §1.1 dans sa forme **actuelle** (Pass C).
 
 ---
@@ -46,7 +48,7 @@ Cette section détaille les décisions d’architecture : où sont stockées les
 
 - **Une espèce = un enregistrement Organism.** Toutes les sources (Hydro-Québec, PFAF, VASCAN, USDA, une future source « Akène », etc.) alimentent ou enrichissent le même enregistrement. Le matching se fait par identifiants (TSN, VASCAN) ou par nom latin / nom commun (voir §5).
 - **Avantage** : une seule fiche à maintenir, pas de doublons, fusion explicite par champ ou par source.
-- **Implémentation** : les commandes d’import utilisent `find_or_match_organism` / `find_organism_and_cultivar` dans `species/source_rules.py` pour retrouver ou créer l’Organism, puis mettent à jour ses champs et `data_sources[source_id]`.
+- **Implémentation** : les commandes d’import utilisent `find_or_match_organism` / `find_organism_and_cultivar` dans `radixsylva/botanique/source_rules.py` pour retrouver ou créer l’Organism, puis mettent à jour ses champs et `data_sources[source_id]`.
 
 ### 2.2 Données brutes par source : `data_sources` (JSON)
 
@@ -101,7 +103,7 @@ Sans règle claire, on pourrait se demander : « Quand j’importe une nouvelle 
 
 - **Mode overwrite** (défaut Hydro-Québec) : les champs sont écrasés par les valeurs de la source courante.
 - **Mode fill_gaps** (défaut PFAF) : on ne remplit que les champs actuellement vides ; on préserve les données déjà présentes (ex. ne pas écraser la rusticité Hydro par PFAF).
-- **Priorité par champ** (`species/source_rules.py`, `FIELD_PRIMARY_SOURCE`) : pour l’affichage ou la prise de décision « quelle valeur montrer », une source est privilégiée par champ (ex. rusticité/sol → Hydro-Québec, description/usages → PFAF, indigène → VASCAN). Utilisé notamment quand on fusionne après un merge de doublons ou pour cohérence d’affichage.
+- **Priorité par champ** (`radixsylva/botanique/source_rules.py`, `FIELD_PRIMARY_SOURCE`) : pour l’affichage ou la prise de décision « quelle valeur montrer », une source est privilégiée par champ (ex. rusticité/sol → Hydro-Québec, description/usages → PFAF, indigène → VASCAN). Utilisé notamment quand on fusionne après un merge de doublons ou pour cohérence d’affichage.
 
 ### 2.7 Zones de rusticité : format JSON multi-sources
 
@@ -125,7 +127,7 @@ Pour éviter doublons et permettre le bon rattachement espèce/cultivar, le syst
 2. **Retire les cultivars** indiqués en guillemets en fin de chaîne (ex. *Vaccinium corymbosum* 'Bluecrop' → espèce *Vaccinium corymbosum* + cultivar Bluecrop).
 3. **Ignore les parenthèses de variante** en fin (ex. *Amelanchier alnifolia* 'Smokey' (*Amelanchier alnifolia* 'Smoky') → on ne garde que la première forme pour le parsing).
 
-Ces règles sont implémentées dans `species/source_rules.py` (fonctions `parse_cultivar_from_latin`, `latin_name_without_author`, et les regex associées). Le but est d’obtenir un **nom de base stable** pour l’espèce et, le cas échéant, un **nom de cultivar** propre.
+Ces règles sont implémentées dans `radixsylva/botanique/source_rules.py` (fonctions `parse_cultivar_from_latin`, `latin_name_without_author`, et les regex associées). Le but est d’obtenir un **nom de base stable** pour l’espèce et, le cas échéant, un **nom de cultivar** propre.
 
 ---
 
@@ -182,7 +184,7 @@ Cela évite les doublons quand plusieurs sources décrivent la même espèce.
 
 - **Mode fill_gaps** : ne remplir que les champs actuellement vides (ne pas écraser ce qui existe). Utilisé par défaut pour PFAF pour préserver les données Hydro-Québec.
 - **Mode overwrite** : écraser les champs avec les valeurs de la source courante (défaut pour Hydro-Québec).
-- **Priorité par champ** : lorsqu’une même information peut venir de plusieurs sources, une source « principale » peut être privilégiée (ex. zone de rusticité et sol → Hydro ; description et usages → PFAF). Ces règles sont définies dans `species/source_rules.py` (`FIELD_PRIMARY_SOURCE`).
+- **Priorité par champ** : lorsqu’une même information peut venir de plusieurs sources, une source « principale » peut être privilégiée (ex. zone de rusticité et sol → Hydro ; description et usages → PFAF). Ces règles sont définies dans `radixsylva/botanique/source_rules.py` (`FIELD_PRIMARY_SOURCE`).
 
 ### Zones de rusticité
 

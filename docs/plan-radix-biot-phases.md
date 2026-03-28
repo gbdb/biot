@@ -11,9 +11,9 @@ Ordre recommandé des phases (mis à jour quand une étape est terminée).
 | **1.5** — Données Radix + sync BIOT | **Fait** | Données prod sur Radix ; `sync_radixsylva --full` depuis BIOT vers `https://radix.jardinbiot.ca/api/v1` validé (**559 organismes**, **1010 cultivars**) ; search vectors reconstruits |
 | **3** — Sync catalogue BIOT ← Radix | **Fait** | Boucle opérationnelle : `RADIX_SYLVA_API_URL` + `sync_radixsylva` / `--full` — voir [`sync_radixsylva.py`](../species/management/commands/sync_radixsylva.py) |
 | **3 suite** — BIOT read-only / nettoyage code & doc | **Fait** | Doc + inventaire + UI `/admin/gestion-donnees/` (bandeau Radix prod) — [checklist-phase-3-nettoyage-biot.md](checklist-phase-3-nettoyage-biot.md) |
-| **4** — E2E, déploiement BIOT, mobile prod, hors-ligne | **À faire** | [checklist-phase-4-biot-prod.md](checklist-phase-4-biot-prod.md) |
+| **4** — E2E, déploiement BIOT, mobile prod, hors-ligne | **Fait (cœur prod)** | BIOT sur **`https://jardinbiot.ca`** ; DO + Gunicorn + Nginx + TLS ; GitHub Actions (`main` → `/srv/jardinbiot/`) ; sync Radix validée — [deploy-production-digitalocean-github.md](deploy-production-digitalocean-github.md) |
 
-**Prochaine priorité du plan : [phase 4](#phase-4--e2e-déploiement-biot-mobile-prod-hors-ligne-optionnel)** — tests, mise en ligne Jardin bIOT, app mobile, option hors-ligne.
+**Suite (optionnel)** : tests E2E automatisés, builds mobile release, stratégie hors-ligne — [checklist-phase-4-biot-prod.md](checklist-phase-4-biot-prod.md).
 
 ## Domaine public Radix (décision actuelle)
 
@@ -89,19 +89,30 @@ En bref :
 
 Objectif : même niveau de **maturité prod** pour **Jardin bIOT** que pour Radix (ou proche), avec une app mobile utilisable en conditions réelles.
 
-Pistes (à prioriser selon ton infra) :
+### Livré (mars 2026)
 
-1. **Tests E2E** — Parcours critiques : auth, jardins, spécimens, sync Radix (staff), recherche espèces. Manuel ou outillage (Playwright, etc.) si tu en ajoutes.
-2. **Déploiement backend BIOT** — Serveur, `DATABASE_URL`, `SECRET_KEY`, `ALLOWED_HOSTS`, HTTPS, `CORS` pour l’app mobile, `RADIX_SYLVA_API_URL` vers prod Radix. Voir **[DEPLOYMENT.md](../DEPLOYMENT.md)**.
-3. **Mobile prod** — `EXPO_PUBLIC_API_URL` (ou override utilisateur) vers l’URL HTTPS du BIOT déployé ; build release iOS/Android ; tests sur appareil.
-4. **Hors-ligne (optionnel)** — Stratégie cache / file d’attente si tu veux l’explorer plus tard.
+- **Jardin bIOT en production** : `https://jardinbiot.ca` (DigitalOcean, même droplet que Radix : `137.184.169.255`).
+- **Radix Sylva** : déjà en prod `https://radix.jardinbiot.ca` ; PostgreSQL local sur le droplet ; Gunicorn + Nginx + Let’s Encrypt pour **les deux** apps.
+- **GitHub Actions** : push **`main`** → déploiement SSH vers `/srv/jardinbiot/` (BIOT) et `/srv/radixsylva/` (Radix) ; secrets `DROPLET_IP`, `SSH_PRIVATE_KEY`.
+- **Config Django** : `STATIC_ROOT = BASE_DIR / 'staticfiles'` dans le dépôt ; **pas** de modification manuelle de `settings.py` sur le serveur — tout passe par Git.
+- **Serveur** : `git config --global --add safe.directory` pour `/srv/jardinbiot` et `/srv/radixsylva` si nécessaire (ownership Git).
+- **Sync** : `sync_radixsylva --full` validé (**559** organismes, **1010** cultivars).
 
-**Statut : non démarré** — checklist opérationnelle : **[checklist-phase-4-biot-prod.md](checklist-phase-4-biot-prod.md)**.
+Document consolidé : **[deploy-production-digitalocean-github.md](deploy-production-digitalocean-github.md)**.
+
+### Optionnel (à poursuivre)
+
+1. **Tests E2E automatisés** — Playwright / autre si tu l’ajoutes.
+2. **Mobile prod** — `EXPO_PUBLIC_API_URL` vers `https://jardinbiot.ca` ; builds release ; tests appareil.
+3. **Hors-ligne** — stratégie cache / file d’attente.
+
+Checklist détaillée : **[checklist-phase-4-biot-prod.md](checklist-phase-4-biot-prod.md)**.
 
 ---
 
 ## Références
 
+- **Prod DigitalOcean + GitHub Actions (BIOT + Radix)** : [deploy-production-digitalocean-github.md](deploy-production-digitalocean-github.md)
 - **Checklist phase 4 (prod BIOT, mobile, tests)** : [checklist-phase-4-biot-prod.md](checklist-phase-4-biot-prod.md)
 - **Checklist phase 3 suite** : [checklist-phase-3-nettoyage-biot.md](checklist-phase-3-nettoyage-biot.md)
 - **Inventaire commandes `species/management/commands/`** : [species-management-commands-inventory.md](species-management-commands-inventory.md)

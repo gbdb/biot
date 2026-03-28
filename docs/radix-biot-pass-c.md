@@ -7,6 +7,8 @@
 | **Radix Sylva** (`radixsylva/`) | Source de vérité botanique : imports (`import_*`), enrichissement, merge doublons, `wipe_species`, etc. |
 | **Jardin bIOT** (racine) | Cache lecture des mêmes tables `species_*` + jardins, spécimens, semences, utilisateurs. Mise à jour botanique via **`sync_radixsylva`**. |
 
+**Documentation Radix (imports et modèle)** : [`../../radixsylva/docs/gestion-des-donnees.md`](../../radixsylva/docs/gestion-des-donnees.md) (commandes, enchaînements), [`../../radixsylva/docs/donnees-sources-et-modele.md`](../../radixsylva/docs/donnees-sources-et-modele.md) (structure, sources, cultivars, conflits).
+
 ## Environnements Python
 
 Utiliser **deux venv** :

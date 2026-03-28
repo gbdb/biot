@@ -1,107 +1,101 @@
-# Checklist — Phase 4 (Jardin bIOT : prod, mobile, tests)
+# Checklist — Phase 4 (suite) : mobile, tests, exploitation
 
-À cocher au fur et à mesure. **Prérequis** : Radix en prod (`https://radix.jardinbiot.ca`) et sync BIOT validés (phases 1.5 + 3).
+**Déploiement serveur (DO + GitHub Actions + HTTPS)** : déjà fait — voir **[deploy-production-digitalocean-github.md](deploy-production-digitalocean-github.md)** et le bloc « Réalisé » ci‑dessous.
 
 **Plan global** : [plan-radix-biot-phases.md](plan-radix-biot-phases.md)
 
 ---
 
-## 0. Cible d’hébergement BIOT
+## Ta liste rapide (à cocher de ton côté)
 
-Choisir et noter ici (une ligne suffit) :
+Coche au fur et à mesure ; rien d’obligatoire sauf ce que **toi** tu veux pour « prod complète » (mobile, durcissement, sauvegardes).
 
-- [ ] **Où** : ex. VM Proxmox locale · DigitalOcean · autre : _______________
-- [ ] **URL publique prévue** (HTTPS) : `https://________________/`
-- [ ] **Nom DNS** (sous-domaine `jardinbiot.ca` ou autre) : _______________
+### Vérifications prod (une fois)
 
-Guide détaillé (ex. Proxmox) : **[DEPLOYMENT.md](../DEPLOYMENT.md)**.
+- [ ] **`.env` sur le serveur** (`/srv/jardinbiot/.env`) : `DEBUG=False`, `SECRET_KEY` unique, `ALLOWED_HOSTS` contient `jardinbiot.ca`, `DATABASE_URL` correct, `RADIX_SYLVA_API_URL=https://radix.jardinbiot.ca/api/v1`.
+- [ ] **`CORS`** : adapté à l’app mobile / domaines réels (pas `CORS_ALLOW_ALL_ORIGINS=True` en prod si tu peux éviter).
+- [ ] **Pare-feu / Postgres** : port 5432 **non** exposé sur Internet (localhost sur le droplet).
+- [ ] **`sync_radixsylva`** lancé **sur le serveur BIOT** après un gros changement Radix (ou cron plus tard) — pas seulement depuis ton Mac.
 
----
+### Application mobile (Expo)
 
-## 1. Backend Django (production)
+- [ ] **`mobile/.env`** (local) : `EXPO_PUBLIC_API_URL=https://jardinbiot.ca` (ou sans slash final selon ton `config.ts`).
+- [ ] Test **sur téléphone** (4G ou WiFi) : login, liste jardins, une requête API qui touche le catalogue espèces.
+- [ ] **Build** preview ou production (EAS ou autre) si tu distribues hors Expo Go.
+- [ ] (Optionnel) **Stores** — fiches App Store / Play Store.
 
-### 1.1 Secrets & configuration
+### Tests manuels « fumée » sur `https://jardinbiot.ca`
 
-- [ ] **`SECRET_KEY`** : unique, jamais celle du dev ; pas dans Git.
-- [ ] **`DEBUG=False`** en prod.
-- [ ] **`ALLOWED_HOSTS`** : inclut le domaine public (et éventuellement l’IP interne si besoin).
-- [ ] **`DATABASE_URL`** : PostgreSQL prod (même logique qu’en dev, instance dédiée).
-- [ ] **`RADIX_SYLVA_API_URL=https://radix.jardinbiot.ca/api/v1`** (cache espèces aligné sur Radix prod).
-- [ ] **`RADIX_SYLVA_SYNC_API_KEY`** : si tu actives les clés côté Radix, même valeur côté BIOT.
-- [ ] **`CORS_ALLOW_ALL_ORIGINS`** : `False` en prod si tu listes les origines ; sinon configurer les origines autorisées pour l’app mobile et le web.
+- [ ] Auth (login / JWT).
+- [ ] Jardins + spécimens (parcours utilisateur).
+- [ ] Recherche / fiche espèce (cache Radix).
+- [ ] **Staff** : `/admin/`, `/admin/gestion-donnees/` — sync Radix si besoin.
 
-### 1.2 TLS & réseau
+### Exploitation
 
-- [ ] **HTTPS** (Let’s Encrypt ou certificat géré) — pas d’API mobile en clair contre prod si évitable.
-- [ ] **Pare-feu** : 80/443 ouverts vers le monde ; SSH restreint ; Postgres **non** exposé sur Internet (localhost ou réseau privé).
+- [ ] **Sauvegardes** : `pg_dump` planifié ou snapshot DO ; sauvegarde **médias** si critique.
+- [ ] **Logs** : où lire les erreurs (Nginx + journal systemd `jardinbiot-gunicorn`).
+- [ ] **Comptes** : peu de comptes staff ; accès GitHub / DO sécurisés.
 
-### 1.3 Processus & static
+### Optionnel plus tard
 
-- [ ] **Gunicorn** (ou uwsgi) + **Nginx** (reverse proxy) — voir patterns dans [DEPLOYMENT.md](../DEPLOYMENT.md) / runbook Radix pour analogie.
-- [ ] **`collectstatic`** + fichiers statiques servis par Nginx ou WhiteNoise selon ton choix.
-- [ ] **`systemd`** (ou équivalent) pour redémarrage auto du worker Django.
-
-### 1.4 Déploiement & migrations
-
-- [ ] Script ou procédure : `git pull` → `pip install -r requirements.txt` → `migrate` → `collectstatic` → **restart** service.
-- [ ] **Sauvegardes** : DB (dump planifié ou outil hyperviseur) + médias (`MEDIA_ROOT`) si critique.
+- [ ] **Tests E2E automatisés** (Playwright, etc.).
+- [ ] **Mode hors-ligne** mobile — périmètre à définir.
+- [ ] **Mises à jour** dépendances Python / `requirements.txt` — créneau prévu.
 
 ---
 
-## 2. Tests de validation (avant ou juste après mise en ligne)
+## Réalisé (mars 2026) — rappel
 
-À adapter à ton usage ; cocher ce qui est critique pour toi.
-
-### 2.1 API / web
-
-- [ ] **Auth** : login, JWT refresh, inscription si ouverte.
-- [ ] **Jardins** : liste, détail, création, terrain si utilisé.
-- [ ] **Spécimens** : CRUD basique, scan NFC si matériel dispo.
-- [ ] **Espèces** : recherche / fiche (données issues du cache post–`sync_radixsylva`).
-- [ ] **Staff** : `/admin/` et éventuellement `/admin/gestion-donnees/` (sync Radix en prod).
-
-### 2.2 Intégration Radix
-
-- [ ] **`sync_radixsylva`** sur le serveur BIOT (ou depuis ta machine contre l’API BIOT si exposée aux staff) — pas d’erreur réseau vers `https://radix.jardinbiot.ca`.
+- [x] DigitalOcean — droplet `137.184.169.255`, PostgreSQL local (`jardinbiot`, `radixsylva` + staging selon config).
+- [x] URLs — `https://jardinbiot.ca`, `https://radix.jardinbiot.ca` ; Gunicorn + Nginx + Let’s Encrypt.
+- [x] GitHub Actions — `main` → `/srv/jardinbiot/` et `/srv/radixsylva/` ; secrets `DROPLET_IP`, `SSH_PRIVATE_KEY`.
+- [x] `STATIC_ROOT` + `collectstatic` ; pas de `settings.py` édité à la main sur le serveur.
+- [x] `git safe.directory` si nécessaire.
+- [x] `sync_radixsylva --full` validé (559 organismes, 1010 cultivars).
 
 ---
 
-## 3. Application mobile (Expo)
+## Détail (référence — si tu veux plus de granularité)
 
-### 3.1 Configuration
+### 1. Backend Django (production)
 
-- [ ] **`mobile/.env`** (ou variables EAS) : **`EXPO_PUBLIC_API_URL=https://<ton-domaine-biot>`** (URL HTTPS du backend déployé).
-- [ ] Test sur **appareil physique** : même WiFi ou réseau accessible ; CORS / HTTPS OK.
+**Si tout est déjà en place sur le serveur, tu peux cocher d’un coup « vérifié ».**
 
-### 3.2 Build & distribution
+- [ ] `SECRET_KEY` unique, pas dans Git.
+- [ ] `DEBUG=False` en prod.
+- [ ] `ALLOWED_HOSTS` inclut `jardinbiot.ca`.
+- [ ] `DATABASE_URL` → base prod sur le droplet.
+- [ ] `RADIX_SYLVA_API_URL=https://radix.jardinbiot.ca/api/v1`.
+- [ ] `RADIX_SYLVA_SYNC_API_KEY` si clés activées côté Radix.
+- [ ] `CORS` aligné mobile + web.
 
-- [ ] Build **preview** / **production** (EAS Build ou pipeline maison).
-- [ ] Tests sur **iOS** et **Android** (au moins un parcours login + liste jardins).
-- [ ] (Optionnel) Soumission **App Store** / **Play Store** — hors scope technique minimal.
+### 2. TLS & réseau
 
-Référence : [mobile/README.md](../mobile/README.md).
+- [ ] HTTPS partout pour l’API utilisée par l’app.
+- [ ] Pare-feu : 80/443 publics ; SSH restreint ; Postgres non exposé.
 
----
+### 3. Processus & static
 
-## 4. Sécurité & exploitation (minimum)
+- [ ] Gunicorn + Nginx + `collectstatic` + systemd (déjà en place si tu déploies comme documenté).
 
-- [ ] Comptes **staff** : peu d’utilisateurs ; MFA sur l’hébergeur si possible.
-- [ ] **Logs** : accès Nginx + journal applicatif pour diagnostiquer les 500.
-- [ ] **Mises à jour** : Django / dépendances — prévoir un créneau (voir `requirements.txt`).
+### 4. Déploiement & sauvegardes
 
----
+- [ ] GitHub Actions : `pull` → `pip` → `migrate` → `collectstatic` → restart (déjà en place).
+- [ ] Sauvegardes DB + médias selon criticité.
 
-## 5. Hors-ligne (optionnel — plus tard)
+### 5. Tests API / web (fumée)
 
-- [ ] Définir le périmètre (lecture cache ? file d’attente d’actions ?).
-- [ ] Pas bloquant pour une première prod « en ligne requise ».
+Voir la **liste rapide** en haut.
 
----
+### 6. Mobile (Expo)
 
-## 6. Fin de phase 4
+Voir la **liste rapide** en haut. Référence : [mobile/README.md](../mobile/README.md).
 
-- [ ] Documenter l’**URL prod BIOT** dans le README ou un `docs/` interne (sans secrets).
-- [ ] Mettre à jour **[plan-radix-biot-phases.md](plan-radix-biot-phases.md)** : phase **4** → **Fait** (ou **Partiel** si mobile build reporté).
+### 7. Documentation
+
+- [x] URL prod documentée — README + [deploy-production-digitalocean-github.md](deploy-production-digitalocean-github.md).
+- [ ] (Optionnel) Noter pour ton équipe **où** sont les secrets et qui a accès au droplet.
 
 ---
 
@@ -109,7 +103,8 @@ Référence : [mobile/README.md](../mobile/README.md).
 
 | Sujet | Fichier |
 |--------|---------|
-| Déploiement serveur (Proxmox) | [DEPLOYMENT.md](../DEPLOYMENT.md) |
-| Radix prod (référence TLS / DO) | `radixsylva/docs/env-et-deploiement.md` (repo Radix) |
+| Prod DO + GitHub Actions | [deploy-production-digitalocean-github.md](deploy-production-digitalocean-github.md) |
+| Déploiement Proxmox (autre cible) | [DEPLOYMENT.md](../DEPLOYMENT.md) |
+| Radix prod | `radixsylva/docs/env-et-deploiement.md` |
 | Sync catalogue | [radix-biot-pass-c.md](radix-biot-pass-c.md) |
-| Perf dev | [performance-django-startup.md](performance-django-startup.md) |
+| Perf dev local | [performance-django-startup.md](performance-django-startup.md) |
