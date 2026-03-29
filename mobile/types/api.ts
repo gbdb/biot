@@ -4,6 +4,16 @@
  */
 
 // --- Organism ---
+/** Réponse POST /api/organisms/missing-species-request/ (demande d’espèce vers Radix). */
+export interface MissingSpeciesResponse {
+  id: number;
+  radix_organism_id: number;
+  organism: { id: number; nom_latin: string; nom_commun: string } | null;
+  message: string;
+  radix?: unknown;
+  sync_error?: boolean;
+}
+
 export interface OrganismMinimal {
   id: number;
   nom_commun: string;

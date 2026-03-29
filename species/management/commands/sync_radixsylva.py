@@ -9,9 +9,11 @@ Usage:
   python manage.py sync_radixsylva --full
   python manage.py sync_radixsylva --dry-run
   python manage.py sync_radixsylva --only organisms
+  python manage.py sync_radixsylva --organism-id 123
 """
 from __future__ import annotations
 
+import threading
 import requests
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
@@ -130,6 +132,75 @@ def _iter_sync_pages(base: str, subpath: str, since_iso: str | None):
         payload = r.json()
         yield payload
         url = payload.get('next')
+
+
+def _iter_organism_id_pages(base: str, organism_id: int):
+    """Pagination sync/organisms avec organism_id (Radix ignore since)."""
+    url = f'{base.rstrip("/")}/sync/organisms/'
+    params = {'organism_id': organism_id}
+    first = True
+    while url:
+        r = requests.get(url, headers=_headers(), params=params if first else None, timeout=180)
+        if r.status_code != 200:
+            raise CommandError(f'HTTP {r.status_code} {url}: {r.text[:500]}')
+        first = False
+        params = {}
+        payload = r.json()
+        yield payload
+        url = payload.get('next')
+
+
+def fetch_and_apply_organism(
+    organism_id: int,
+    *,
+    dry_run: bool = False,
+    stdout=None,
+) -> tuple[bool, str | None]:
+    """
+    Télécharge un seul organisme depuis Radix (GET sync/organisms/?organism_id=) et l’applique localement.
+    Ne met pas à jour RadixSyncState. Retourne (True, None) ou (False, message d’erreur).
+    """
+    base = getattr(settings, 'RADIX_SYLVA_API_URL', '') or ''
+    if not base:
+        return False, 'RADIX_SYLVA_API_URL manquant dans les settings.'
+    total_rows = 0
+    try:
+        for payload in _iter_organism_id_pages(base, organism_id):
+            rows = payload.get('results') or []
+            if not rows:
+                continue
+            try:
+                with transaction.atomic():
+                    for row in rows:
+                        _apply_organism(row, dry_run)
+                total_rows += len(rows)
+            except Exception as e:
+                return False, str(e)[:500]
+            if stdout:
+                stdout.write(f'  organismes +{len(rows)} (total {total_rows})')
+    except CommandError as e:
+        return False, str(e)
+
+    if total_rows == 0:
+        return False, f'Aucun organisme Radix pour organism_id={organism_id}.'
+    return True, None
+
+
+def schedule_rebuild_search_vectors_async() -> None:
+    """Lance rebuild_search_vectors dans un thread daemon (ferme les connexions DB)."""
+
+    def _run() -> None:
+        from django.core.management import call_command
+        from django.db import close_old_connections
+        from io import StringIO
+
+        close_old_connections()
+        try:
+            call_command('rebuild_search_vectors', stdout=StringIO())
+        finally:
+            close_old_connections()
+
+    threading.Thread(target=_run, daemon=True).start()
 
 
 def _apply_amendment(data: dict, dry_run: bool) -> None:
@@ -362,11 +433,32 @@ class Command(BaseCommand):
             choices=('amendments', 'organisms', 'cultivars', 'companions'),
             help='Ne traiter qu’une ressource (le filigrane n’est mis à jour que si tout le flux normal est respecté).',
         )
+        parser.add_argument(
+            '--organism-id',
+            type=int,
+            default=None,
+            metavar='ID',
+            help='Synchroniser un seul organisme (GET sync/organisms/?organism_id=). Ne met pas à jour le filigrane.',
+        )
 
     def handle(self, *args, **options):
         base = getattr(settings, 'RADIX_SYLVA_API_URL', '') or ''
         if not base:
             raise CommandError('RADIX_SYLVA_API_URL manquant dans les settings.')
+
+        organism_id = options.get('organism_id')
+        if organism_id is not None:
+            dry_run = options['dry_run']
+            rebuild = not options['no_rebuild_search']
+            self.stdout.write(f'--- organismes (ciblé id={organism_id}) ---')
+            ok, err = fetch_and_apply_organism(organism_id, dry_run=dry_run, stdout=self.stdout)
+            if not ok:
+                raise CommandError(err)
+            self.stdout.write(self.style.SUCCESS(f'Sync OK — organism {organism_id}'))
+            if rebuild and not dry_run:
+                self.stdout.write('rebuild_search_vectors (arrière-plan)…')
+                schedule_rebuild_search_vectors_async()
+            return
 
         dry_run = options['dry_run']
         full = options['full']

@@ -364,11 +364,15 @@ export default function SpeciesLibraryScreen() {
       <View style={styles.createHint}>
         <TouchableOpacity
           style={styles.createLink}
-          onPress={() => router.push('/species/create')}
+          onPress={() =>
+            router.push(
+              `/species/missing-request?search_query=${encodeURIComponent(search.trim())}`
+            )
+          }
           activeOpacity={0.7}
         >
           <Ionicons name="add-circle-outline" size={20} color="#1a3c27" />
-          <Text style={styles.createLinkText}>Espèce introuvable ? Créer une espèce</Text>
+          <Text style={styles.createLinkText}>Espèce introuvable ? Proposer une espèce</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.createLink, { marginTop: 8 }]}

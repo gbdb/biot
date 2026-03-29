@@ -79,6 +79,10 @@ function RootLayoutNav() {
           options={{ title: 'Nouvelle espèce' }}
         />
         <Stack.Screen
+          name="species/missing-request"
+          options={{ title: 'Demander une espèce' }}
+        />
+        <Stack.Screen
           name="species/[id]"
           options={{ title: 'Fiche espèce' }}
         />

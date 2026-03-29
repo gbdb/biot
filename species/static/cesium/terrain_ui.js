@@ -1926,7 +1926,7 @@
   function buildMissingSpeciesEmptyHtml(searchVal) {
     return '<div class="terrain-especes-empty terrain-missing-species">' +
       '<p class="terrain-especes-empty-title">Aucune espèce ne correspond à « ' + esc(searchVal) + ' ».</p>' +
-      '<p class="terrain-missing-species-hint">Proposez une espèce absente du catalogue. Elle sera disponible dans l’app après la prochaine synchronisation avec Radix Sylva.</p>' +
+      '<p class="terrain-missing-species-hint">Proposez une espèce absente du catalogue. Après envoi, elle est ajoutée au catalogue (copie depuis Radix Sylva) ; la fiche peut encore s’enrichir (VASCAN, etc.).</p>' +
       '<div class="terrain-missing-species-fields">' +
       '<label class="terrain-missing-label">Nom latin <span class="req">*</span>' +
       '<input type="text" id="terrain-missing-nom-latin" class="terrain-missing-input" value="' + esc(searchVal) + '" autocomplete="off"/></label>' +
@@ -2002,7 +2002,14 @@
           if (msg) {
             msg.style.display = 'block';
             msg.className = 'terrain-missing-msg terrain-missing-msg--ok';
-            msg.textContent = j.message || 'Demande enregistrée.';
+            var parts = [];
+            if (j.organism && j.organism.nom_latin) {
+              parts.push('« ' + j.organism.nom_latin + ' » a été ajouté au catalogue.');
+            }
+            if (j.message) {
+              parts.push(j.message);
+            }
+            msg.textContent = parts.length ? parts.join(' ') : 'Demande enregistrée.';
           }
         })
         .catch(function (e) {

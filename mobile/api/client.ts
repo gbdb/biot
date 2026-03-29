@@ -19,6 +19,7 @@ import type {
   OrganismMinimal,
   OrganismDetail,
   OrganismUpdate,
+  MissingSpeciesResponse,
   GardenMinimal,
   GardenCreate,
   GardenGCP,
@@ -700,6 +701,18 @@ export async function setOrganismDefaultPhoto(organismId: number, photoId: numbe
 }
 
 // --- Organisms ---
+export async function postMissingSpeciesRequest(payload: {
+  nom_latin: string;
+  nom_commun?: string;
+  search_query?: string;
+}): Promise<MissingSpeciesResponse> {
+  const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.organisms}missing-species-request/`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  return handleResponse<MissingSpeciesResponse>(res);
+}
+
 export async function getOrganismInconnu(): Promise<OrganismMinimal> {
   const res = await fetchWithAuth(`${getApiBaseUrl()}${ENDPOINTS.organisms}inconnu/`);
   return handleResponse<OrganismMinimal>(res);

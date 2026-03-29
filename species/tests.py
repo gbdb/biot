@@ -188,8 +188,10 @@ class MissingSpeciesRequestAPITestCase(TestCase):
         )
         self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)
 
+    @patch("species.management.commands.sync_radixsylva.schedule_rebuild_search_vectors_async")
+    @patch("species.management.commands.sync_radixsylva.fetch_and_apply_organism")
     @patch("species.api_views.requests.post")
-    def test_success_returns_message_and_saves(self, mock_post):
+    def test_success_returns_organism_and_saves(self, mock_post, mock_fetch, _mock_sched):
         mock_post.return_value.status_code = 200
         mock_post.return_value.json.return_value = {
             "organism_id": 4242,
@@ -198,6 +200,13 @@ class MissingSpeciesRequestAPITestCase(TestCase):
             "enrichment": {"vascan": {"ok": True, "message": "ok"}},
             "organism": {"id": 4242, "nom_latin": "Abies sp."},
         }
+        mock_fetch.return_value = (True, None)
+        Organism.objects.create(
+            id=4242,
+            nom_commun="Sapin baumier",
+            nom_latin="Abies balsamea",
+            type_organisme="vivace",
+        )
         self.client.force_authenticate(user=self.user)
         resp = self.client.post(
             "/api/organisms/missing-species-request/",
@@ -210,12 +219,33 @@ class MissingSpeciesRequestAPITestCase(TestCase):
         )
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
         self.assertEqual(resp.data["radix_organism_id"], 4242)
-        self.assertIn("prochaine synchronisation", resp.data["message"])
-        self.assertIn("Radix Sylva", resp.data["message"])
+        self.assertEqual(resp.data["organism"]["id"], 4242)
+        self.assertEqual(resp.data["organism"]["nom_latin"], "Abies balsamea")
+        self.assertEqual(resp.data["organism"]["nom_commun"], "Sapin baumier")
+        self.assertIn("catalogue", resp.data["message"])
+        self.assertNotIn("sync_error", resp.data)
         rec = MissingSpeciesRequest.objects.get(pk=resp.data["id"])
         self.assertEqual(rec.status, "ok")
         self.assertEqual(rec.radix_organism_id, 4242)
         self.assertEqual(rec.search_query, "sapin")
+        mock_fetch.assert_called_once()
+
+    @patch("species.management.commands.sync_radixsylva.schedule_rebuild_search_vectors_async")
+    @patch("species.management.commands.sync_radixsylva.fetch_and_apply_organism")
+    @patch("species.api_views.requests.post")
+    def test_sync_failure_returns_201_with_sync_error(self, mock_post, mock_fetch, _mock_sched):
+        mock_post.return_value.status_code = 200
+        mock_post.return_value.json.return_value = {"organism_id": 4242, "organism": {}}
+        mock_fetch.return_value = (False, "HTTP 500")
+        self.client.force_authenticate(user=self.user)
+        resp = self.client.post(
+            "/api/organisms/missing-species-request/",
+            {"nom_latin": "Xyzzy plantae"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        self.assertIsNone(resp.data["organism"])
+        self.assertTrue(resp.data["sync_error"])
 
     @patch("species.api_views.requests.post")
     def test_radix_error_saves_erreur_radix(self, mock_post):

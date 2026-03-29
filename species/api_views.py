@@ -1451,7 +1451,7 @@ class ImportVascanFileView(APIView):
 # --- Commandes admin (paramètres avancés, staff uniquement) ---
 # Pass C : les imports botaniques bulk vivent sur **Radix Sylva** ; BIOT ne garde que sync + maintenance locale.
 ALLOWED_ADMIN_COMMANDS = {
-    'sync_radixsylva': {'full': bool, 'dry_run': bool, 'no_rebuild_search': bool},
+    'sync_radixsylva': {'full': bool, 'dry_run': bool, 'no_rebuild_search': bool, 'organism_id': int},
     'rebuild_search_vectors': {},
     'wipe_db_and_media': {'no_input': bool},
 }
@@ -1520,8 +1520,8 @@ class RunAdminCommandView(APIView):
 
 
 MISSING_SPECIES_USER_MESSAGE = (
-    "La fiche sera disponible dans le catalogue après la prochaine synchronisation "
-    "avec la base botanique (Radix Sylva)."
+    "L'espèce a été ajoutée au catalogue. La fiche Radix Sylva sera enrichie progressivement "
+    "(VASCAN et autres sources)."
 )
 
 
@@ -1639,12 +1639,36 @@ class MissingSpeciesRequestView(APIView):
             status='ok',
             radix_response=radix_json if isinstance(radix_json, dict) else {},
         )
-        return Response(
-            {
-                'id': rec.pk,
-                'radix_organism_id': oid,
-                'message': MISSING_SPECIES_USER_MESSAGE,
-                'radix': radix_json,
-            },
-            status=status.HTTP_201_CREATED,
+
+        from species.management.commands.sync_radixsylva import (
+            fetch_and_apply_organism,
+            schedule_rebuild_search_vectors_async,
         )
+
+        sync_ok, _sync_err = fetch_and_apply_organism(oid, dry_run=False, stdout=None)
+        organism_payload = None
+        sync_error = False
+        if sync_ok:
+            schedule_rebuild_search_vectors_async()
+            org = Organism.objects.filter(pk=oid).first()
+            if org:
+                organism_payload = {
+                    'id': org.id,
+                    'nom_latin': org.nom_latin or '',
+                    'nom_commun': org.nom_commun or '',
+                }
+            else:
+                sync_error = True
+        else:
+            sync_error = True
+
+        body = {
+            'id': rec.pk,
+            'radix_organism_id': oid,
+            'organism': organism_payload,
+            'message': MISSING_SPECIES_USER_MESSAGE,
+            'radix': radix_json,
+        }
+        if sync_error:
+            body['sync_error'] = True
+        return Response(body, status=status.HTTP_201_CREATED)
