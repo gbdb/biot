@@ -24,7 +24,21 @@
     minus: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></svg>',
     chevronLeft: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>',
     chevronRight: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>',
-    xIcon: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>'
+    xIcon: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>',
+    panelLeft: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></svg>',
+    arrowLeft: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>'
+  };
+
+  var TAB_TITLES = {
+    accueil: 'Home',
+    recherche: 'Recherche',
+    especes: 'Espèces',
+    vue: 'Vue',
+    jardin: 'Spécimens',
+    rappels: 'Calendrier',
+    admin: 'Configuration',
+    meteo: 'Météo',
+    partenaires: 'Radix'
   };
 
   function initTheme() {
@@ -307,6 +321,7 @@
 
   function switchTab(tabId) {
     currentTab = tabId;
+    setPanelTitle(TAB_TITLES[tabId] || tabId);
     if (panelMode === 'detail') {
       setPanelMode('open');
       if (panelDetailEl) panelDetailEl.innerHTML = '';
@@ -364,9 +379,16 @@
   function updateSidebarChevron() {
     var btn = byId('terrain-sidebar-toggle');
     if (!btn) return;
-    btn.innerHTML = sidebarExpanded ? IC.chevronLeft : IC.chevronRight;
+    btn.innerHTML = IC.panelLeft;
     btn.title = sidebarExpanded ? 'Replier la barre latérale' : 'Développer la barre latérale';
     btn.setAttribute('aria-expanded', sidebarExpanded ? 'true' : 'false');
+  }
+
+  function setPanelTitle(title, showBack) {
+    var titleEl = byId('terrain-panel-main-title');
+    if (titleEl) titleEl.textContent = title || '';
+    var backBtn = byId('terrain-panel-back');
+    if (backBtn) backBtn.style.display = showBack ? 'flex' : 'none';
   }
 
   function setPanelMode(mode) {
@@ -380,7 +402,7 @@
     panelRoot.innerHTML =
       '<div class="terrain-panel-icons">' +
       '<div class="terrain-panel-header">' +
-      '<button type="button" class="terrain-sidebar-toggle" id="terrain-sidebar-toggle" title="Développer la barre latérale" aria-expanded="false">' + IC.chevronRight + '</button>' +
+      '<button type="button" class="terrain-sidebar-toggle" id="terrain-sidebar-toggle" title="Développer la barre latérale" aria-expanded="false">' + IC.panelLeft + '</button>' +
       '</div>' +
       '<span class="terrain-panel-logo" aria-hidden="true">Jardin <strong>bIOT</strong></span>' +
       '<nav class="terrain-panel-tabs" role="tablist">' +
@@ -402,6 +424,8 @@
       '</div>' +
       '<div class="terrain-panel-body">' +
       '<div class="terrain-panel-main-header">' +
+      '<button type="button" class="terrain-panel-back" id="terrain-panel-back" title="Retour" style="display:none">' + IC.arrowLeft + '</button>' +
+      '<span id="terrain-panel-main-title" class="terrain-panel-main-title">Spécimens</span>' +
       '<button type="button" class="terrain-panel-close" id="terrain-panel-close" title="Fermer le panneau">' + IC.xIcon + '</button>' +
       '</div>' +
       '<div class="terrain-panel-content" id="terrain-panel-content"></div>' +
@@ -578,6 +602,15 @@
       '<div class="terrain-admin-field"><label>Unité</label><span id="terrain-admin-unite">' + (GARDEN_DATA.distance_unit === 'ft' ? 'Pieds' : 'Mètres') + '</span> <em>(défaut jardin)</em></div>' +
       '<div class="terrain-admin-field"><label>Cesium</label><span id="terrain-admin-cesium">Token et asset en lecture seule (config serveur)</span></div>' +
       radixAdminHtml +
+      '<div class="terrain-admin-field terrain-admin-field--advanced">' +
+      '<label>Mode avancé</label>' +
+      '<p class="terrain-admin-hint">Accès à l\'interface d\'administration complète — gestion des espèces, spécimens et réglages avancés. S\'ouvre dans un nouvel onglet.</p>' +
+      '<div class="terrain-admin-buttons-row">' +
+      '<a class="terrain-panel-btn" href="/admin/species/specimen/" target="_blank" rel="noopener">Spécimens ↗</a>' +
+      '<a class="terrain-panel-btn" href="/admin/species/organism/" target="_blank" rel="noopener">Espèces ↗</a>' +
+      '<a class="terrain-panel-btn" href="/admin/" target="_blank" rel="noopener">Administration ↗</a>' +
+      '</div>' +
+      '</div>' +
       '</div>';
 
     var contentMeteo =
@@ -673,6 +706,13 @@
         sidebarExpanded = !sidebarExpanded;
         updateSidebarChevron();
         syncLayoutClasses();
+      });
+    }
+
+    var panelBackBtn = byId('terrain-panel-back');
+    if (panelBackBtn) {
+      panelBackBtn.addEventListener('click', function () {
+        closeSpecimenCreateForm();
       });
     }
 
@@ -1329,11 +1369,18 @@
       return;
     }
     toShow.forEach(function (s) {
-      var item = el('div', 'terrain-specimen-item' + (selectedSpecimenId === s.id ? ' selected' : ''));
+      var item = el('div', 'terrain-specimen-item');
+      item.className = 'terrain-specimen-item terrain-specimen-item--' + (s.statut || 'planifie') +
+        (selectedSpecimenId === s.id ? ' selected' : '');
       item.dataset.specimenId = s.id;
+      var orgNom = s.organisme_nom_commun || s.organisme_nom || '';
+      var statutLabel = SPECIMEN_STATUT_LABELS[s.statut] || s.statut || '';
       item.innerHTML =
+        '<div class="terrain-specimen-item-body">' +
         '<span class="terrain-specimen-name">' + esc(s.nom || '') + '</span>' +
-        '<span class="terrain-specimen-badge">' + esc(s.statut || '') + '</span>';
+        (orgNom ? '<span class="terrain-specimen-species">' + esc(orgNom) + '</span>' : '') +
+        '</div>' +
+        '<span class="terrain-specimen-badge terrain-specimen-badge--' + esc(s.statut || 'planifie') + '">' + esc(statutLabel) + '</span>';
       item.addEventListener('click', function () {
         selectedSpecimenId = s.id;
         if (window.terrainCesiumViewer && window.terrainCesiumFlyToSpecimen) {
@@ -1600,9 +1647,6 @@
 
   function buildSpecimenCreateFormHtml() {
     return '<div class="terrain-specimen-create">' +
-      '<div class="terrain-specimen-create-head">' +
-      '<button type="button" class="terrain-specimen-create-back" id="terrain-specimen-create-cancel" aria-label="Retour">←</button>' +
-      '<span class="terrain-specimen-create-title">Nouveau spécimen</span></div>' +
       '<p class="terrain-specimen-create-intro">Choisissez l’espèce, donnez un nom au plant : il apparaîtra sur la carte après positionnement GPS.</p>' +
       '<label class="terrain-specimen-create-label" for="terrain-create-org-search">Espèce *</label>' +
       '<input type="search" class="terrain-specimen-create-input" id="terrain-create-org-search" placeholder="Rechercher (nom commun ou latin)…" autocomplete="off" />' +
@@ -1645,12 +1689,13 @@
     function clearOrg() {
       if (orgIdIn) orgIdIn.value = '';
       if (pickedEl) { pickedEl.hidden = true; pickedEl.textContent = ''; }
-      if (searchIn) searchIn.value = '';
+      if (searchIn) { searchIn.value = ''; searchIn.style.display = ''; }
     }
 
     function pickOrg(org) {
       if (!org || !org.id) return;
       if (orgIdIn) orgIdIn.value = String(org.id);
+      if (searchIn) searchIn.style.display = 'none';
       if (pickedEl) {
         pickedEl.hidden = false;
         pickedEl.innerHTML = '<span class="terrain-create-picked-name">' + esc(org.nom_commun || '') + '</span>' +
@@ -1778,6 +1823,7 @@
     var pickedEl = byId('terrain-create-org-picked');
     var searchIn = byId('terrain-create-org-search');
     if (orgIdIn) orgIdIn.value = String(org.id);
+    if (searchIn) { searchIn.style.display = 'none'; searchIn.value = ''; }
     if (pickedEl) {
       pickedEl.hidden = false;
       pickedEl.innerHTML = '<span class="terrain-create-picked-name">' + esc(org.nom_commun || '') + '</span>' +
@@ -1789,11 +1835,10 @@
           if (orgIdIn) orgIdIn.value = '';
           pickedEl.hidden = true;
           pickedEl.textContent = '';
-          if (searchIn) searchIn.value = '';
+          if (searchIn) { searchIn.style.display = ''; searchIn.value = ''; }
         });
       }
     }
-    if (searchIn) searchIn.value = '';
   }
 
   function openSpecimenCreateForm(presetOrg) {
@@ -1806,12 +1851,14 @@
     }
     setPanelMode('open');
     switchTab('jardin');
+    setPanelTitle('Nouveau spécimen', true);
     listEl.innerHTML = buildSpecimenCreateFormHtml();
     wireSpecimenCreateForm();
     if (presetOrg && presetOrg.id) applyPresetOrganismToCreateForm(presetOrg);
   }
 
   function closeSpecimenCreateForm() {
+    setPanelTitle(TAB_TITLES[currentTab] || currentTab);
     updateSpecimenList(null);
   }
 
@@ -2010,6 +2057,28 @@
               parts.push(j.message);
             }
             msg.textContent = parts.length ? parts.join(' ') : 'Demande enregistrée.';
+
+            // Bouton "Créer un spécimen" si l'organisme est dispo immédiatement
+            var oldCta = byId('terrain-missing-cta-specimen');
+            if (oldCta) oldCta.parentNode.removeChild(oldCta);
+            if (j.organism && j.organism.id && !j.sync_error) {
+              var ctaBtn = document.createElement('button');
+              ctaBtn.type = 'button';
+              ctaBtn.id = 'terrain-missing-cta-specimen';
+              ctaBtn.className = 'terrain-panel-btn terrain-missing-cta';
+              ctaBtn.textContent = '+ Créer un spécimen';
+              var capturedOrg = { id: j.organism.id, nom_commun: j.organism.nom_commun || j.organism.nom_latin, nom_latin: j.organism.nom_latin };
+              ctaBtn.addEventListener('click', function () {
+                // On ouvre le formulaire sans preset, puis on applique l'organisme
+                // dans le prochain cycle de rendu pour être sûr que les éléments
+                // terrain-create-org-* sont dans le DOM.
+                openSpecimenCreateForm();
+                requestAnimationFrame(function () {
+                  applyPresetOrganismToCreateForm(capturedOrg);
+                });
+              });
+              msg.parentNode.insertBefore(ctaBtn, msg.nextSibling);
+            }
           }
         })
         .catch(function (e) {
@@ -2547,26 +2616,168 @@
       '<div class="terrain-specimen-title-row">' +
       '<h2 class="terrain-fiche-title terrain-specimen-title">' + esc(d.nom || 'Spécimen') + '</h2>' +
       '<div class="terrain-specimen-header-actions">' +
-      '<a class="terrain-specimen-icon-btn" href="' + esc(adminSpecimenChange(d.id)) + '" target="_blank" rel="noopener" title="Modifier">✎</a>' +
+      '<button type="button" class="terrain-specimen-icon-btn" id="terrain-specimen-edit-btn" title="Modifier">✎</button>' +
       '<button type="button" class="terrain-specimen-fav-btn' + fav + '" id="terrain-specimen-fav-btn" title="Favori">★</button>' +
       '</div></div>' + orgLine +
-      (orgId != null ? '<a class="terrain-specimen-species-link" href="' + esc(adminOrganismChange(orgId)) + '" target="_blank" rel="noopener">← Retour à la fiche espèce</a>' : '') +
+      (orgId != null ? '<button type="button" class="terrain-specimen-species-link" id="terrain-specimen-back-org">← Retour à la fiche espèce</button>' : '') +
       statutLine + '</header>';
 
     var infosSection = '<section class="terrain-specimen-section"><h3 class="terrain-specimen-section-title">Infos</h3><div class="terrain-specimen-infos">' + infosHtml + '</div></section>';
 
     var dup = '<button type="button" class="terrain-specimen-btn terrain-specimen-btn--dup" id="terrain-specimen-dup-btn">Dupliquer ce spécimen</button>';
+    var del = '<button type="button" class="terrain-specimen-btn terrain-specimen-btn--danger" id="terrain-specimen-delete-btn">Supprimer ce spécimen…</button>';
 
     return '<div class="terrain-panel-detail-fiche terrain-specimen-sheet" data-specimen-id="' + esc(String(d.id)) + '">' +
       header + '<div class="terrain-specimen-sheet-body">' +
-      infosSection + phenoHtml + pollHtml + compHtml + photosHtml + remHtml + eventsSection + dup +
+      infosSection + phenoHtml + pollHtml + compHtml + photosHtml + remHtml + eventsSection + dup + del +
       '</div></div>';
+  }
+
+  function openSpecimenDeleteDialog(d, rootEl) {
+    var nom = esc(d.nom || 'ce spécimen');
+    var dlg = document.createElement('div');
+    dlg.className = 'terrain-delete-dialog-backdrop';
+    dlg.innerHTML =
+      '<div class="terrain-delete-dialog" role="dialog" aria-modal="true">' +
+      '<h3 class="terrain-delete-dialog-title">Supprimer ' + nom + ' ?</h3>' +
+      '<p class="terrain-delete-dialog-desc">Choisissez comment retirer ce spécimen :</p>' +
+      '<button type="button" class="terrain-panel-btn terrain-panel-btn--secondary terrain-delete-dialog-btn" id="terrain-del-retire">Marquer comme Enlevé <span class="terrain-delete-dialog-sub">Conserve l\'historique, retire de la carte</span></button>' +
+      '<button type="button" class="terrain-panel-btn terrain-delete-btn--hard terrain-delete-dialog-btn" id="terrain-del-hard">Supprimer définitivement <span class="terrain-delete-dialog-sub">Irréversible — efface toutes les données</span></button>' +
+      '<p class="terrain-delete-dialog-error" id="terrain-del-error" hidden></p>' +
+      '<button type="button" class="terrain-panel-btn terrain-panel-btn--secondary" id="terrain-del-cancel">Annuler</button>' +
+      '</div>';
+    document.body.appendChild(dlg);
+
+    function close() { document.body.removeChild(dlg); }
+
+    dlg.querySelector('#terrain-del-cancel').addEventListener('click', close);
+    dlg.addEventListener('click', function (e) { if (e.target === dlg) close(); });
+
+    var errEl = dlg.querySelector('#terrain-del-error');
+
+    dlg.querySelector('#terrain-del-retire').addEventListener('click', function () {
+      var btn = dlg.querySelector('#terrain-del-retire');
+      btn.disabled = true;
+      fetchApi('specimens/' + d.id + '/retire/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+        .then(function (r) {
+          if (!r.ok) throw new Error();
+          close();
+          reloadSpecimensFromApi(function () { setPanelMode('open'); });
+        })
+        .catch(function () {
+          btn.disabled = false;
+          if (errEl) { errEl.textContent = 'Erreur — veuillez réessayer.'; errEl.hidden = false; }
+        });
+    });
+
+    var hardBtn = dlg.querySelector('#terrain-del-hard');
+    var confirmed = false;
+    hardBtn.addEventListener('click', function () {
+      if (!confirmed) {
+        confirmed = true;
+        hardBtn.textContent = '⚠ Confirmer la suppression définitive';
+        hardBtn.classList.add('terrain-delete-btn--hard--confirm');
+        return;
+      }
+      hardBtn.disabled = true;
+      fetchApi('specimens/' + d.id + '/', { method: 'DELETE' })
+        .then(function (r) {
+          if (!r.ok && r.status !== 204) throw new Error();
+          close();
+          reloadSpecimensFromApi(function () { setPanelMode('open'); });
+        })
+        .catch(function () {
+          hardBtn.disabled = false;
+          if (errEl) { errEl.textContent = 'Erreur lors de la suppression — veuillez réessayer.'; errEl.hidden = false; }
+        });
+    });
+  }
+
+  function buildSpecimenEditFormHtml(d) {
+    var statutOptions = '';
+    Object.keys(SPECIMEN_STATUT_LABELS).forEach(function (k) {
+      statutOptions += '<option value="' + esc(k) + '"' + (k === d.statut ? ' selected' : '') + '>' + esc(SPECIMEN_STATUT_LABELS[k]) + '</option>';
+    });
+    return '<div class="terrain-specimen-sheet terrain-specimen-edit">' +
+      '<header class="terrain-specimen-header">' +
+      '<h2 class="terrain-fiche-title terrain-specimen-title">Modifier le spécimen</h2>' +
+      '</header>' +
+      '<form class="terrain-specimen-edit-form" id="terrain-specimen-edit-form">' +
+      '<div class="terrain-edit-row"><label class="terrain-fiche-label" for="terrain-edit-nom">Nom</label>' +
+      '<input class="terrain-edit-input" id="terrain-edit-nom" name="nom" type="text" value="' + esc(d.nom || '') + '" required /></div>' +
+      '<div class="terrain-edit-row"><label class="terrain-fiche-label" for="terrain-edit-statut">Statut</label>' +
+      '<select class="terrain-edit-input terrain-edit-select" id="terrain-edit-statut" name="statut">' + statutOptions + '</select></div>' +
+      '<div class="terrain-edit-row"><label class="terrain-fiche-label" for="terrain-edit-sante">Santé (0–10)</label>' +
+      '<input class="terrain-edit-input" id="terrain-edit-sante" name="sante" type="number" min="0" max="10" step="0.5" value="' + esc(d.sante != null ? String(d.sante) : '') + '" /></div>' +
+      '<div class="terrain-edit-row"><label class="terrain-fiche-label" for="terrain-edit-date">Date plantation</label>' +
+      '<input class="terrain-edit-input" id="terrain-edit-date" name="date_plantation" type="date" value="' + esc(d.date_plantation || '') + '" /></div>' +
+      '<div class="terrain-edit-row"><label class="terrain-fiche-label" for="terrain-edit-hauteur">Hauteur actuelle (m)</label>' +
+      '<input class="terrain-edit-input" id="terrain-edit-hauteur" name="hauteur_actuelle" type="number" min="0" step="0.1" value="' + esc(d.hauteur_actuelle != null ? String(d.hauteur_actuelle) : '') + '" /></div>' +
+      '<div class="terrain-edit-row"><label class="terrain-fiche-label" for="terrain-edit-zone">Zone jardin</label>' +
+      '<input class="terrain-edit-input" id="terrain-edit-zone" name="zone_jardin" type="text" value="' + esc(d.zone_jardin || '') + '" /></div>' +
+      '<div class="terrain-edit-row"><label class="terrain-fiche-label" for="terrain-edit-notes">Notes</label>' +
+      '<textarea class="terrain-edit-input terrain-edit-textarea" id="terrain-edit-notes" name="notes" rows="4">' + esc(d.notes || '') + '</textarea></div>' +
+      '<p class="terrain-edit-error" id="terrain-edit-error" hidden></p>' +
+      '<div class="terrain-specimen-edit-actions">' +
+      '<button type="submit" class="terrain-panel-btn terrain-panel-btn--primary" id="terrain-edit-submit">Enregistrer</button>' +
+      '<button type="button" class="terrain-panel-btn terrain-panel-btn--secondary" id="terrain-edit-cancel">Annuler</button>' +
+      '</div>' +
+      '</form></div>';
+  }
+
+  function openSpecimenEditForm(bundle, rootEl) {
+    var d = bundle.detail;
+    if (!d || !rootEl) return;
+    rootEl.innerHTML = buildSpecimenEditFormHtml(d);
+    var cancelBtn = rootEl.querySelector('#terrain-edit-cancel');
+    var errEl = rootEl.querySelector('#terrain-edit-error');
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', function () {
+        rootEl.innerHTML = buildSpecimenMobileSheetHtml(bundle);
+        wireSpecimenSheetActions(rootEl, bundle);
+      });
+    }
+    var form = rootEl.querySelector('#terrain-specimen-edit-form');
+    if (form) {
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var fd = new FormData(form);
+        var payload = {};
+        fd.forEach(function (v, k) { if (String(v).trim() !== '') payload[k] = v; });
+        var submitBtn = rootEl.querySelector('#terrain-edit-submit');
+        if (submitBtn) submitBtn.disabled = true;
+        if (errEl) errEl.hidden = true;
+        fetchApi('specimens/' + d.id + '/', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+          .then(function (r) {
+            if (!r.ok) throw new Error();
+            reloadSpecimensFromApi(null);
+            fetchSpecimenDetailBundle(String(d.id), function (err2, b2) {
+              if (err2 || !b2) {
+                if (submitBtn) submitBtn.disabled = false;
+                return;
+              }
+              rootEl.innerHTML = buildSpecimenMobileSheetHtml(b2);
+              wireSpecimenSheetActions(rootEl, b2);
+            });
+          })
+          .catch(function () {
+            if (submitBtn) submitBtn.disabled = false;
+            if (errEl) { errEl.textContent = 'Erreur lors de l\'enregistrement. Vérifiez vos données.'; errEl.hidden = false; }
+          });
+      });
+    }
   }
 
   function wireSpecimenSheetActions(rootEl, bundle) {
     var d = bundle.detail;
     if (!d || !rootEl) return;
     var sid = d.id;
+    var org = d.organisme || {};
+    var orgId = org.id != null ? org.id : null;
 
     var favBtn = rootEl.querySelector('#terrain-specimen-fav-btn');
     if (favBtn) {
@@ -2578,6 +2789,20 @@
               favBtn.classList.toggle('is-favori', !del);
             }
           });
+      });
+    }
+
+    var backOrgBtn = rootEl.querySelector('#terrain-specimen-back-org');
+    if (backOrgBtn && orgId != null) {
+      backOrgBtn.addEventListener('click', function () {
+        openOrganismDetailDrawer(orgId);
+      });
+    }
+
+    var editBtn = rootEl.querySelector('#terrain-specimen-edit-btn');
+    if (editBtn) {
+      editBtn.addEventListener('click', function () {
+        openSpecimenEditForm(bundle, rootEl);
       });
     }
 
@@ -2660,10 +2885,19 @@
           .then(function (x) {
             dup.disabled = false;
             if (x.ok && x.j && x.j.id) {
-              window.location.href = adminSpecimenChange(x.j.id);
+              reloadSpecimensFromApi(function () {
+                openSpecimenOverlay({ id: x.j.id, nom: x.j.nom, statut: x.j.statut });
+              });
             }
           })
           .catch(function () { dup.disabled = false; });
+      });
+    }
+
+    var delBtn = rootEl.querySelector('#terrain-specimen-delete-btn');
+    if (delBtn) {
+      delBtn.addEventListener('click', function () {
+        openSpecimenDeleteDialog(d, rootEl);
       });
     }
 
@@ -2769,7 +3003,7 @@
         if (window.postToRN) {
           window.postToRN({ type: 'SPECIMEN_OPEN_FICHE', payload: { specimenId: s.id } });
         } else {
-          window.location.href = adminSpecimenChange(s.id);
+          openSpecimenOverlay(s);
         }
       });
     }

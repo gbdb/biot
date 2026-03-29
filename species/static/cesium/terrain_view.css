@@ -448,8 +448,8 @@ html, body {
 
 .terrain-sidebar-toggle svg {
   display: block;
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
 }
 
 .terrain-panel-icons .terrain-panel-tabs {
@@ -612,10 +612,42 @@ html, body {
 .terrain-panel-main-header {
   flex-shrink: 0;
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: center;
-  padding: 8px 8px 4px;
+  padding: 6px 8px;
   border-bottom: 1px solid var(--color-border);
+  gap: 4px;
+}
+
+.terrain-panel-main-title {
+  flex: 1;
+  font-size: 15px;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 4px;
+}
+
+.terrain-panel-back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  line-height: 0;
+}
+
+.terrain-panel-back:hover {
+  background: var(--color-bg-card);
 }
 
 .terrain-panel-close {
@@ -1293,39 +1325,87 @@ html, body {
 }
 
 .terrain-specimen-item {
-  padding: 8px 10px;
+  padding: 9px 10px 9px 12px;
   border-radius: 10px;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
   display: flex;
   align-items: center;
   gap: 8px;
   cursor: pointer;
+  border-left: 3px solid transparent;
+  transition: background 0.12s, border-color 0.12s;
 }
 
-.terrain-specimen-item:hover,
-.terrain-specimen-item.selected {
-  background: rgba(255,255,255,0.08);
+.terrain-specimen-item:hover {
+  background: rgba(255,255,255,0.07);
 }
+
+.terrain-specimen-item.selected {
+  background: rgba(255,255,255,0.10);
+}
+
+/* Barre colorée gauche selon statut */
+.terrain-specimen-item--planifie   { border-left-color: #8e8e93; }
+.terrain-specimen-item--commande   { border-left-color: #ff9f0a; }
+.terrain-specimen-item--transplanter { border-left-color: #6db383; }
+.terrain-specimen-item--jeune      { border-left-color: #5ac8fa; }
+.terrain-specimen-item--etabli     { border-left-color: var(--color-accent, #4a7c59); }
+.terrain-specimen-item--mature     { border-left-color: #30d158; }
+.terrain-specimen-item--declin     { border-left-color: #ffd60a; }
+.terrain-specimen-item--mort       { border-left-color: #ff453a; }
+.terrain-specimen-item--enleve     { border-left-color: #3a3a3c; }
 
 .terrain-specimen-item .terrain-specimen-emoji {
-  font-size: 20px;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.terrain-specimen-item-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .terrain-specimen-item .terrain-specimen-name {
   font-size: 13px;
-  color: var(--terrain-cream);
-  flex: 1;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terrain-specimen-species {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .terrain-specimen-item .terrain-specimen-badge {
+  flex-shrink: 0;
   font-size: 10px;
-  padding: 2px 6px;
-  border-radius: 6px;
-  background: rgba(255,255,255,0.15);
-  color: var(--terrain-warm);
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-weight: var(--font-weight-medium);
+  background: rgba(255,255,255,0.08);
+  color: var(--color-text-secondary);
+  border: 1px solid transparent;
 }
+
+/* Couleurs des badges selon statut */
+.terrain-specimen-badge--planifie    { color: #8e8e93; border-color: rgba(142,142,147,0.3); background: rgba(142,142,147,0.1); }
+.terrain-specimen-badge--commande    { color: #ff9f0a; border-color: rgba(255,159,10,0.3);  background: rgba(255,159,10,0.1); }
+.terrain-specimen-badge--transplanter { color: #6db383; border-color: rgba(109,179,131,0.3); background: rgba(109,179,131,0.1); }
+.terrain-specimen-badge--jeune       { color: #5ac8fa; border-color: rgba(90,200,250,0.3);  background: rgba(90,200,250,0.1); }
+.terrain-specimen-badge--etabli      { color: #4a7c59; border-color: rgba(74,124,89,0.4);   background: rgba(74,124,89,0.12); }
+.terrain-specimen-badge--mature      { color: #30d158; border-color: rgba(48,209,88,0.3);   background: rgba(48,209,88,0.1); }
+.terrain-specimen-badge--declin      { color: #ffd60a; border-color: rgba(255,214,10,0.3);  background: rgba(255,214,10,0.1); }
+.terrain-specimen-badge--mort        { color: #ff453a; border-color: rgba(255,69,58,0.3);   background: rgba(255,69,58,0.1); }
+.terrain-specimen-badge--enleve      { color: #636366; border-color: rgba(99,99,102,0.3);   background: rgba(99,99,102,0.08); }
 
 .terrain-panel-footer {
   padding: 8px 12px;
@@ -2289,6 +2369,17 @@ html, body {
   border: 1px solid var(--color-border);
 }
 
+.terrain-specimen-btn--danger {
+  background: transparent;
+  color: var(--color-danger, #ff453a);
+  border: 1px solid rgba(255, 69, 58, 0.35);
+}
+
+.terrain-specimen-btn--danger:hover {
+  background: rgba(255, 69, 58, 0.1);
+  border-color: var(--color-danger, #ff453a);
+}
+
 .terrain-specimen-btn--compact {
   width: auto;
   margin-top: 0;
@@ -2994,6 +3085,15 @@ button.terrain-specimen-add-first {
   color: var(--color-danger, #c33);
 }
 
+.terrain-missing-cta {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  background: var(--color-primary, #1a3c27);
+  color: #fff;
+  font-weight: 600;
+}
+
 /* Fiche espèce (drawer) */
 .terrain-organism-cta-top {
   display: flex;
@@ -3065,4 +3165,189 @@ button.terrain-specimen-add-first {
 
 .terrain-organism-specimen-link:hover {
   background: var(--color-bg-secondary, rgba(0, 0, 0, 0.04));
+}
+
+/* Bouton "← Retour à la fiche espèce" (anciennement <a>, maintenant <button>) */
+button.terrain-specimen-species-link {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+/* Bouton d'action principal (ex: Enregistrer dans formulaire d'édition) */
+.terrain-panel-btn--primary {
+  background: var(--color-accent);
+  border-color: var(--color-accent-light);
+  color: #fff;
+}
+
+.terrain-panel-btn--primary:hover {
+  background: var(--color-accent-light);
+  border-color: var(--color-accent-light);
+}
+
+/* Formulaire d'édition inline du spécimen */
+.terrain-specimen-edit {
+  padding: 12px 16px 24px;
+}
+
+.terrain-specimen-edit-form {
+  margin-top: 16px;
+}
+
+.terrain-edit-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 14px;
+}
+
+.terrain-edit-row .terrain-fiche-label {
+  font-size: var(--font-size-label);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.terrain-edit-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg-card);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-body);
+  box-sizing: border-box;
+  transition: border-color 0.15s;
+}
+
+.terrain-edit-input:focus {
+  outline: none;
+  border-color: var(--color-accent-light);
+}
+
+.terrain-edit-textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.terrain-specimen-edit-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+}
+
+.terrain-specimen-edit-actions .terrain-panel-btn {
+  flex: 1;
+  text-align: center;
+  margin: 0;
+}
+
+.terrain-edit-error {
+  margin: 8px 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(255, 69, 58, 0.12);
+  border: 1px solid var(--color-danger, #ff453a);
+  color: var(--color-danger, #ff453a);
+  font-size: var(--font-size-label);
+}
+
+/* Section Mode Avancé dans l'onglet Config */
+.terrain-admin-field--advanced {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+}
+
+/* Dialog de suppression de spécimen */
+.terrain-delete-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  backdrop-filter: blur(4px);
+}
+
+.terrain-delete-dialog {
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-card);
+  padding: 24px 20px 20px;
+  max-width: 360px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+
+.terrain-delete-dialog-title {
+  font-size: 17px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  margin: 0 0 4px;
+}
+
+.terrain-delete-dialog-desc {
+  font-size: var(--font-size-label);
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.terrain-delete-dialog-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+  width: 100%;
+  margin: 0;
+  line-height: 1.3;
+}
+
+.terrain-delete-dialog-sub {
+  font-size: 11px;
+  opacity: 0.75;
+  font-weight: var(--font-weight-regular);
+}
+
+.terrain-delete-btn--hard {
+  background: rgba(255, 69, 58, 0.12);
+  color: var(--color-danger, #ff453a);
+  border: 1px solid rgba(255, 69, 58, 0.4);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font: inherit;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.terrain-delete-btn--hard:hover {
+  background: rgba(255, 69, 58, 0.22);
+  border-color: var(--color-danger, #ff453a);
+}
+
+.terrain-delete-btn--hard--confirm {
+  background: var(--color-danger, #ff453a);
+  color: #fff;
+  border-color: var(--color-danger, #ff453a);
+}
+
+.terrain-delete-dialog-error {
+  font-size: var(--font-size-label);
+  color: var(--color-danger, #ff453a);
+  margin: 0;
 }

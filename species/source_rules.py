@@ -293,8 +293,8 @@ def find_organism_by_latin_fuzzy(Organism, nom_latin: str):
     if not nom_latin or not nom_latin.strip():
         return None
     
-    # Essai 1: Exact match (case-insensitive)
-    exact = Organism.objects.filter(nom_latin__iexact=nom_latin.strip()).first()
+    # Essai 1: Exact match (insensible à la casse et aux accents)
+    exact = Organism.objects.filter(nom_latin__unaccent__iexact=nom_latin.strip()).first()
     if exact:
         return exact
     
@@ -323,13 +323,13 @@ def find_organism_by_latin_fuzzy(Organism, nom_latin: str):
 
 def find_organism_by_common_name(Organism, nom_commun: str):
     """
-    Cherche un organisme par nom_commun (exact match case-insensitive).
+    Cherche un organisme par nom_commun (exact match insensible à la casse et aux accents).
     Retourne le premier match trouvé ou None.
     """
     if not nom_commun or not nom_commun.strip():
         return None
-    
-    return Organism.objects.filter(nom_commun__iexact=nom_commun.strip()).first()
+
+    return Organism.objects.filter(nom_commun__unaccent__iexact=nom_commun.strip()).first()
 
 
 def get_unique_slug_latin(Organism, nom_latin: str) -> str:

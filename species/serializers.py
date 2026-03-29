@@ -288,11 +288,11 @@ def find_similar_organisms(nom_commun: str, nom_latin: str, limit: int = 5):
     exact = None
     similar_ids = set()
 
-    # 1. Doublon exact : même nom_commun ET nom_latin (insensible à la casse)
+    # 1. Doublon exact : même nom_commun ET nom_latin (insensible à la casse et aux accents)
     if nc and nl:
         exact = Organism.objects.filter(
-            nom_commun__iexact=nc,
-            nom_latin__iexact=nl,
+            nom_commun__unaccent__iexact=nc,
+            nom_latin__unaccent__iexact=nl,
         ).first()
         if exact:
             return exact, []
@@ -311,10 +311,9 @@ def find_similar_organisms(nom_commun: str, nom_latin: str, limit: int = 5):
 
     # 4. Similaires : nom_commun contient ou est contenu (ex: "Pommier" vs "Pommier Dolgo")
     if nc and len(nc) >= 3:
-        # Chercher où nom_commun contient notre terme ou inversement
         from django.db.models import Q
         qs = Organism.objects.filter(
-            Q(nom_commun__icontains=nc) | Q(nom_commun__istartswith=nc)
+            Q(nom_commun__unaccent__icontains=nc) | Q(nom_commun__unaccent__istartswith=nc)
         ).exclude(id__in=similar_ids)[:limit]
         for org in qs:
             similar_ids.add(org.id)
@@ -637,6 +636,19 @@ class SpecimenCreateUpdateSerializer(serializers.ModelSerializer):
             return None
         s = str(value).strip()
         return s if s else None
+
+    def validate(self, attrs):
+        garden = attrs.get('garden', getattr(self.instance, 'garden', None))
+        nom = attrs.get('nom', getattr(self.instance, 'nom', None))
+        if garden and nom:
+            qs = Specimen.objects.filter(garden=garden, nom=nom)
+            if self.instance:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise serializers.ValidationError(
+                    {'nom': f'Un spécimen nommé « {nom} » existe déjà dans ce jardin.'}
+                )
+        return attrs
 
 
 # --- Event ---

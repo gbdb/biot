@@ -539,13 +539,28 @@ class SpecimenViewSet(viewsets.ModelViewSet):
         return Response({'detail': 'Photo par défaut définie'}, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'])
+    def retire(self, request, pk=None):
+        """POST /api/specimens/{id}/retire/ → marque le spécimen comme enlevé (retrait doux)."""
+        specimen = self.get_object()
+        specimen.statut = 'enleve'
+        specimen.save(update_fields=['statut', 'date_modification'])
+        _invalidate_warnings_cache_for_garden(specimen.garden_id)
+        return Response({'detail': 'Spécimen marqué comme enlevé.'}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'])
     def duplicate(self, request, pk=None):
         """POST /api/specimens/{id}/duplicate/ → crée une copie avec les mêmes données (sans tag/code)."""
         specimen = self.get_object()
+        base_nom = f"{specimen.nom} (copie)"
+        nom = base_nom
+        counter = 2
+        while Specimen.objects.filter(garden=specimen.garden, nom=nom).exists():
+            nom = f"{base_nom} {counter}"
+            counter += 1
         data = {
             'organisme': specimen.organisme_id,
             'garden': specimen.garden_id,
-            'nom': f"{specimen.nom} (copie)",
+            'nom': nom,
             'zone_jardin': specimen.zone_jardin,
             'latitude': specimen.latitude,
             'longitude': specimen.longitude,
@@ -593,20 +608,20 @@ def filter_organisms_queryset_by_search(qs, search):
         q = Q()
         for w in words:
             q &= (
-                Q(nom_commun__icontains=w)
-                | Q(nom_latin__icontains=w)
-                | Q(genus__icontains=w)
-                | Q(noms__nom__icontains=w)
+                Q(nom_commun__unaccent__icontains=w)
+                | Q(nom_latin__unaccent__icontains=w)
+                | Q(genus__unaccent__icontains=w)
+                | Q(noms__nom__unaccent__icontains=w)
             )
         return qs.filter(q).distinct()
     term = words[0] if words else search
     return qs.filter(
-        Q(nom_commun__icontains=search)
-        | Q(nom_latin__icontains=search)
-        | Q(nom_commun__icontains=term)
-        | Q(nom_latin__icontains=term)
-        | Q(genus__icontains=term)
-        | Q(noms__nom__icontains=term)
+        Q(nom_commun__unaccent__icontains=search)
+        | Q(nom_latin__unaccent__icontains=search)
+        | Q(nom_commun__unaccent__icontains=term)
+        | Q(nom_latin__unaccent__icontains=term)
+        | Q(genus__unaccent__icontains=term)
+        | Q(noms__nom__unaccent__icontains=term)
     ).distinct()
 
 
