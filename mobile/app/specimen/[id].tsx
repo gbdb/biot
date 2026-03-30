@@ -892,8 +892,15 @@ export default function SpecimenDetailScreen() {
       } else {
         await addSpecimenFavorite(specimen.id);
       }
-    } catch {
+    } catch (err) {
       setIsFavori(wasFavori);
+      const msg = err instanceof Error ? err.message : 'Erreur inconnue';
+      Alert.alert(
+        wasFavori ? 'Erreur' : 'Erreur',
+        wasFavori
+          ? `Impossible de retirer des favoris : ${msg}`
+          : `Impossible d'ajouter aux favoris : ${msg}`
+      );
     } finally {
       setFavoriToggling(false);
     }

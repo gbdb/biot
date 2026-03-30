@@ -2,9 +2,12 @@
 Vues API REST pour l'app mobile Jardin Biot.
 Endpoints: specimens, events, reminders, photos, organisms, gardens, NFC lookup.
 """
+import logging
 import re
 from datetime import date, timedelta
 from math import radians, sin, cos, sqrt, atan2
+
+logger = logging.getLogger(__name__)
 
 import csv
 import io
@@ -143,7 +146,16 @@ class SpecimenViewSet(viewsets.ModelViewSet):
             )
         favoris = self.request.query_params.get('favoris')
         if favoris and self.request.user.is_authenticated:
-            fav_ids = SpecimenFavorite.objects.filter(user=self.request.user).values_list('specimen_id', flat=True)
+            # Forcer l'évaluation en liste pour éviter tout problème de sous-requête lazy
+            fav_ids = list(
+                SpecimenFavorite.objects.filter(user=self.request.user)
+                .values_list('specimen_id', flat=True)
+            )
+            logger.debug(
+                'Favoris filter: user=%s fav_ids=%s',
+                self.request.user.pk,
+                fav_ids,
+            )
             qs = qs.filter(pk__in=fav_ids)
         sante = self.request.query_params.get('sante')
         if sante:
@@ -298,6 +310,35 @@ class SpecimenViewSet(viewsets.ModelViewSet):
         for i, (_, dist) in enumerate(with_dist):
             data[i]['distance_km'] = round(dist, 4)
         return Response(data)
+
+    @action(detail=False, methods=['get'], url_path='debug-favoris')
+    def debug_favoris(self, request):
+        """GET /api/specimens/debug-favoris/ — Diagnostic favoris (temporaire)."""
+        if not request.user.is_authenticated:
+            return Response({'detail': 'Non authentifié'}, status=status.HTTP_401_UNAUTHORIZED)
+        fav_records = list(
+            SpecimenFavorite.objects.filter(user=request.user)
+            .values('id', 'specimen_id', 'user_id')
+        )
+        fav_ids = [f['specimen_id'] for f in fav_records]
+        # Vérifier chaque spécimen favori dans la base, sans aucun filtre extra
+        raw_specimens = list(
+            Specimen.objects.filter(pk__in=fav_ids).values('id', 'nom', 'statut', 'organisme_id')
+        )
+        # Même requête que get_queryset() avec select_related
+        qs_specimens = list(
+            Specimen.objects.select_related('organisme', 'cultivar', 'garden', 'photo_principale')
+            .filter(pk__in=fav_ids)
+            .values('id', 'nom', 'statut')
+        )
+        return Response({
+            'user_id': request.user.id,
+            'username': request.user.username,
+            'favorite_records': fav_records,
+            'fav_ids': fav_ids,
+            'raw_specimens_in_db': raw_specimens,
+            'specimens_with_select_related': qs_specimens,
+        })
 
     @action(detail=True, methods=['post', 'delete'], url_path='favoris')
     def favoris(self, request, pk=None):
@@ -665,7 +706,10 @@ class OrganismViewSet(
             qs = qs.filter(type_organisme=type_org)
         favoris = self.request.query_params.get('favoris')
         if favoris and self.request.user.is_authenticated:
-            fav_ids = OrganismFavorite.objects.filter(user=self.request.user).values_list('organism_id', flat=True)
+            fav_ids = list(
+                OrganismFavorite.objects.filter(user=self.request.user)
+                .values_list('organism_id', flat=True)
+            )
             qs = qs.filter(pk__in=fav_ids)
         soleil = self.request.query_params.get('soleil')
         if soleil:

@@ -75,6 +75,8 @@
   var especesWired = false;
   var especesScrollRaf = null;
   var especesState = { page: 1, hasMore: true, loading: false, loadingMore: false, organisms: [] };
+  var rechercheQuery = '';
+  var specimenQuery = '';
 
   function byId(id) { return document.getElementById(id); }
 
@@ -339,6 +341,7 @@
     if (tabId === 'recherche') {
       var si = byId('terrain-search-input');
       if (si) setTimeout(function () { si.focus(); }, 50);
+      if (vueZonesListCache.length === 0) loadVueZonesContent();
     }
     if (tabId === 'vue') loadVueZonesContent();
     if (tabId === 'partenaires') loadPartnersContent();
@@ -346,6 +349,7 @@
     if (tabId === 'rappels') loadRappelsContent();
     if (tabId === 'admin') loadAdminContent();
     if (tabId === 'meteo') loadMeteoContent();
+    applySearchAndFilters();
   }
 
   function syncLayoutMetrics() {
@@ -465,12 +469,11 @@
 
     var contentRecherche =
       '<div id="terrain-content-recherche" class="terrain-panel-tab-content" style="display:none">' +
-      '<label class="terrain-search-label" for="terrain-search-input">Rechercher dans le jardin</label>' +
       '<div class="terrain-search-wrap">' +
       '<span class="terrain-search-icon" aria-hidden="true">' + IC.search + '</span>' +
-      '<input type="search" class="terrain-search-input" id="terrain-search-input" placeholder="Nom, espèce…" autocomplete="off"/>' +
+      '<input type="search" class="terrain-search-input" id="terrain-search-input" placeholder="Spécimen, espèce, zone…" autocomplete="off"/>' +
       '</div>' +
-      '<p class="terrain-search-hint">Les résultats filtrent la liste Spécimens et les marqueurs sur la carte.</p>' +
+      '<div id="terrain-recherche-results"><p class="terrain-search-hint">Tapez pour rechercher dans vos spécimens, espèces et zones.</p></div>' +
       '</div>';
 
     var contentVue =
@@ -550,6 +553,10 @@
 
     var contentJardin =
       '<div id="terrain-content-jardin" class="terrain-panel-tab-content">' +
+      '<div class="terrain-search-wrap terrain-jardin-search-wrap">' +
+      '<span class="terrain-search-icon" aria-hidden="true">' + IC.search + '</span>' +
+      '<input type="search" class="terrain-search-input" id="terrain-jardin-search" placeholder="Filtrer les spécimens…" autocomplete="off"/>' +
+      '</div>' +
       '<div class="terrain-panel-filters" id="terrain-filters"></div>' +
       '<div class="terrain-jardin-toolbar">' +
       '<button type="button" class="terrain-panel-btn terrain-jardin-add-specimen" id="terrain-jardin-add-specimen">+ Ajouter un spécimen</button>' +
@@ -680,7 +687,16 @@
     }
 
     var searchInput = byId('terrain-search-input');
-    if (searchInput) searchInput.addEventListener('input', debounce(applySearchAndFilters, 300));
+    if (searchInput) searchInput.addEventListener('input', debounce(function () {
+      rechercheQuery = (searchInput.value || '').trim().toLowerCase();
+      applySearchAndFilters();
+    }, 300));
+
+    var jardinSearchInput = byId('terrain-jardin-search');
+    if (jardinSearchInput) jardinSearchInput.addEventListener('input', debounce(function () {
+      specimenQuery = (jardinSearchInput.value || '').trim().toLowerCase();
+      applySearchAndFilters();
+    }, 300));
 
     if (panelContentRoot) {
       panelContentRoot.addEventListener('click', function (e) {
@@ -1120,6 +1136,7 @@
   function loadVueZonesContent() {
     var listEl = byId('terrain-vue-zones-list');
     if (!listEl) return;
+    if (listEl.dataset.loaded === '1') return;
     var gardenId = GARDEN_DATA.id;
     if (!gardenId) {
       listEl.innerHTML = '<p class="terrain-vue-zones-empty">Aucun jardin.</p>';
@@ -1142,6 +1159,7 @@
         var list = JSON.parse(xhr.responseText);
         if (!Array.isArray(list)) list = list.results || [];
         vueZonesListCache = list;
+        applySearchAndFilters();
         if (list.length === 0) {
           listEl.innerHTML = '<p class="terrain-vue-zones-empty">Aucune zone. Dessinez une nouvelle zone.</p>';
           return;
@@ -1182,8 +1200,10 @@
         return;
       }
       try {
-        var list = JSON.parse(xhrFavoris.responseText);
-        if (!Array.isArray(list) || list.length === 0) {
+        var data = JSON.parse(xhrFavoris.responseText);
+        // L'API DRF retourne { count, results: [...] } (paginé), pas un tableau direct
+        var list = Array.isArray(data) ? data : (data.results || []);
+        if (list.length === 0) {
           favorisEl.textContent = 'Aucun favori.';
           return;
         }
@@ -1324,21 +1344,150 @@
     };
   }
 
+  function activeQuery() {
+    if (currentTab === 'recherche') return rechercheQuery;
+    if (currentTab === 'jardin') return specimenQuery;
+    return null;
+  }
+
+  function specimenMatchesQuery(s, q) {
+    var nom = (s.nom || '').toLowerCase();
+    var org = (s.organisme_nom || '').toLowerCase();
+    var orgCommun = (s.organisme_nom_commun || '').toLowerCase();
+    return nom.indexOf(q) >= 0 || org.indexOf(q) >= 0 || orgCommun.indexOf(q) >= 0;
+  }
+
   function applySearchAndFilters() {
-    var q = (byId('terrain-search-input') && byId('terrain-search-input').value) || '';
-    q = q.trim().toLowerCase();
-    var ids = null;
-    if (q) {
-      ids = specimens.filter(function (s) {
-        var nom = (s.nom || '').toLowerCase();
-        var org = (s.organisme_nom || '').toLowerCase();
-        return nom.indexOf(q) >= 0 || org.indexOf(q) >= 0;
+    var mapQ = activeQuery();
+    var mapIds = null;
+    if (mapQ) {
+      mapIds = specimens.filter(function (s) {
+        return specimenMatchesQuery(s, mapQ);
       }).map(function (s) { return s.id; });
     }
     if (typeof window.terrainCesiumSetVisibleSpecimens === 'function') {
-      window.terrainCesiumSetVisibleSpecimens(ids);
+      window.terrainCesiumSetVisibleSpecimens(mapIds);
     }
-    updateSpecimenList(ids);
+
+    var listIds = null;
+    if (specimenQuery) {
+      listIds = specimens.filter(function (s) {
+        return specimenMatchesQuery(s, specimenQuery);
+      }).map(function (s) { return s.id; });
+    }
+    updateSpecimenList(listIds);
+
+    updateRechercheResults();
+  }
+
+  function updateRechercheResults() {
+    var el = byId('terrain-recherche-results');
+    if (!el) return;
+    var q = rechercheQuery;
+    if (!q) {
+      el.innerHTML = '<p class="terrain-search-hint">Tapez pour rechercher dans vos spécimens, espèces et zones.</p>';
+      return;
+    }
+
+    var matchSpec = specimens.filter(function (s) { return specimenMatchesQuery(s, q); });
+
+    var matchOrg = especesState.organisms.filter(function (o) {
+      var nc = (o.nom_commun || '').toLowerCase();
+      var nl = (o.nom_latin || '').toLowerCase();
+      return nc.indexOf(q) >= 0 || nl.indexOf(q) >= 0;
+    });
+
+    var matchZones = vueZonesListCache.filter(function (z) {
+      return (z.nom || '').toLowerCase().indexOf(q) >= 0;
+    });
+
+    var html = '';
+
+    html += '<div class="terrain-recherche-section">';
+    html += '<div class="terrain-recherche-section-title">Spécimens <span class="terrain-recherche-count">' + matchSpec.length + '</span></div>';
+    if (matchSpec.length === 0) {
+      html += '<p class="terrain-recherche-empty">Aucun spécimen trouvé.</p>';
+    } else {
+      html += '<div class="terrain-recherche-list">';
+      matchSpec.slice(0, 8).forEach(function (s) {
+        var orgNom = s.organisme_nom_commun || s.organisme_nom || '';
+        html += '<div class="terrain-recherche-item" data-type="specimen" data-id="' + s.id + '">' +
+          '<span class="terrain-recherche-item-name">' + esc(s.nom || '—') + '</span>' +
+          (orgNom ? '<span class="terrain-recherche-item-sub">' + esc(orgNom) + '</span>' : '') +
+          '</div>';
+      });
+      if (matchSpec.length > 8) {
+        html += '<p class="terrain-recherche-more">+ ' + (matchSpec.length - 8) + ' autres spécimens</p>';
+      }
+      html += '</div>';
+    }
+    html += '</div>';
+
+    html += '<div class="terrain-recherche-section">';
+    html += '<div class="terrain-recherche-section-title">Espèces <span class="terrain-recherche-count">' + matchOrg.length + '</span></div>';
+    if (matchOrg.length === 0) {
+      html += '<p class="terrain-recherche-empty">Aucune espèce trouvée' + (especesState.organisms.length === 0 ? ' — catalogue non chargé.' : '.') + '</p>';
+    } else {
+      html += '<div class="terrain-recherche-list">';
+      matchOrg.slice(0, 5).forEach(function (o) {
+        html += '<div class="terrain-recherche-item" data-type="organisme" data-id="' + o.id + '">' +
+          '<span class="terrain-recherche-item-name">' + esc(o.nom_commun || '—') + '</span>' +
+          '<span class="terrain-recherche-item-sub">' + esc(o.nom_latin || '') + '</span>' +
+          '</div>';
+      });
+      if (matchOrg.length > 5) {
+        html += '<p class="terrain-recherche-more">+ ' + (matchOrg.length - 5) + ' autres espèces</p>';
+      }
+      html += '</div>';
+    }
+    html += '</div>';
+
+    html += '<div class="terrain-recherche-section">';
+    html += '<div class="terrain-recherche-section-title">Zones <span class="terrain-recherche-count">' + matchZones.length + '</span></div>';
+    if (matchZones.length === 0) {
+      html += '<p class="terrain-recherche-empty">Aucune zone trouvée' + (vueZonesListCache.length === 0 ? ' — ouvrez l\'onglet Vue pour charger les zones.' : '.') + '</p>';
+    } else {
+      html += '<div class="terrain-recherche-list">';
+      matchZones.forEach(function (z) {
+        html += '<div class="terrain-recherche-item" data-type="zone" data-id="' + z.id + '">' +
+          '<span class="terrain-recherche-item-name">' + esc(z.nom || '—') + '</span>' +
+          '</div>';
+      });
+      html += '</div>';
+    }
+    html += '</div>';
+
+    el.innerHTML = html;
+
+    el.querySelectorAll('[data-type="specimen"]').forEach(function (item) {
+      item.addEventListener('click', function () {
+        var id = parseInt(item.dataset.id, 10);
+        var s = specimens.filter(function (x) { return x.id === id; })[0];
+        if (!s) return;
+        switchTab('jardin');
+        if (window.terrainCesiumFlyToSpecimen) {
+          window.terrainCesiumFlyToSpecimen({ lng: s.longitude, lat: s.latitude, specimenId: s.id });
+        }
+        openSpecimenOverlay(s);
+      });
+    });
+
+    el.querySelectorAll('[data-type="organisme"]').forEach(function (item) {
+      item.addEventListener('click', function () {
+        switchTab('especes');
+        var searchEl = byId('terrain-especes-search');
+        if (searchEl) {
+          searchEl.value = rechercheQuery;
+          searchEl.dispatchEvent(new Event('input'));
+        }
+      });
+    });
+
+    el.querySelectorAll('[data-type="zone"]').forEach(function (item) {
+      item.addEventListener('click', function () {
+        switchTab('vue');
+      });
+    });
   }
 
   function updateSpecimenList(visibleIds) {
@@ -1631,7 +1780,7 @@
         if (typeof window.terrainCesiumRefreshSpecimens === 'function') {
           window.terrainCesiumRefreshSpecimens(specimens);
         }
-        updateSpecimenList(null);
+        applySearchAndFilters();
         if (done) done();
       })
       .catch(function () { if (done) done(); });
@@ -1859,7 +2008,7 @@
 
   function closeSpecimenCreateForm() {
     setPanelTitle(TAB_TITLES[currentTab] || currentTab);
-    updateSpecimenList(null);
+    applySearchAndFilters();
   }
 
   var ORGANISM_TYPE_LABELS = {
@@ -2562,11 +2711,11 @@
 
     var evList = '';
     events.slice(0, 10).forEach(function (ev) {
-      evList += '<a class="terrain-specimen-list-row terrain-specimen-list-row--link" href="' + esc(adminEventChange(ev.id)) + '" target="_blank" rel="noopener">' +
+      evList += '<button type="button" class="terrain-specimen-list-row terrain-specimen-list-row--link" data-event-id="' + esc(String(ev.id)) + '">' +
         '<span class="terrain-specimen-ev-type">' + esc(labelEventType(ev.type_event)) + '</span>' +
         '<span class="terrain-specimen-ev-date">' + esc(String(ev.date)) + '</span>' +
         (ev.titre ? '<span class="terrain-specimen-ev-titre">' + esc(ev.titre) + '</span>' : '') +
-        '</a>';
+        '</button>';
     });
     var eventsWithPhoto = events.slice(0, 10).map(function (ev) {
       var ph = photos.filter(function (p) { return p.event_id === ev.id; })[0];
@@ -2576,9 +2725,9 @@
     eventsWithPhoto.forEach(function (o) {
       var u = o.ph.image_url || '';
       if (!u) return;
-      evStrip += '<a class="terrain-specimen-ev-thumb" href="' + esc(adminEventChange(o.ev.id)) + '" target="_blank" rel="noopener">' +
+      evStrip += '<button type="button" class="terrain-specimen-ev-thumb" data-event-id="' + esc(String(o.ev.id)) + '">' +
         '<img src="' + esc(u) + '" alt=""/>' +
-        '<span class="terrain-specimen-ev-thumb-cap">' + esc(labelEventType(o.ev.type_event)) + ' — ' + esc(String(o.ev.date)) + '</span></a>';
+        '<span class="terrain-specimen-ev-thumb-cap">' + esc(labelEventType(o.ev.type_event)) + ' — ' + esc(String(o.ev.date)) + '</span></button>';
     });
 
     var eventsSection = '<section class="terrain-specimen-section terrain-specimen-events" id="terrain-specimen-events-wrap">' +
@@ -2600,15 +2749,7 @@
       }
       eventsSection += '</div>';
     }
-    eventsSection += '<form class="terrain-specimen-add-ev" id="terrain-specimen-add-ev-form">' +
-      '<label class="terrain-specimen-sr-only" for="terrain-specimen-ev-type">Type</label>' +
-      '<select id="terrain-specimen-ev-type" name="type_event" required>' +
-      '<option value="">Type d’événement</option>' +
-      '<option value="observation">Observation</option><option value="arrosage">Arrosage</option><option value="taille">Taille</option>' +
-      '<option value="floraison">Floraison</option><option value="fructification">Fructification</option><option value="recolte">Récolte</option>' +
-      '<option value="plantation">Plantation</option><option value="autre">Autre</option></select>' +
-      '<input type="date" name="date" id="terrain-specimen-ev-date" required />' +
-      '<button type="submit" class="terrain-specimen-btn terrain-specimen-btn--primary terrain-specimen-btn--compact">Ajouter</button></form>';
+    eventsSection += '<button type="button" class="terrain-specimen-btn terrain-specimen-btn--primary" id="terrain-specimen-add-ev-btn" style="margin-top:12px">+ Créer un événement</button>';
     eventsSection += '</section>';
 
     var fav = d.is_favori ? ' is-favori' : '';
@@ -2809,10 +2950,7 @@
     var phenoBtn = rootEl.querySelector('#terrain-specimen-pheno-cta');
     if (phenoBtn) {
       phenoBtn.addEventListener('click', function () {
-        var form = rootEl.querySelector('#terrain-specimen-add-ev-form');
-        if (form) form.scrollIntoView({ behavior: 'smooth' });
-        var sel = rootEl.querySelector('#terrain-specimen-ev-type');
-        if (sel) { sel.focus(); }
+        openAddEventDrawer(sid, bundle, rootEl);
       });
     }
 
@@ -2851,30 +2989,21 @@
     if (modeList) modeList.addEventListener('click', function () { setEvMode(false); });
     if (modeImg) modeImg.addEventListener('click', function () { setEvMode(true); });
 
-    var form = rootEl.querySelector('#terrain-specimen-add-ev-form');
-    if (form) {
-      form.addEventListener('submit', function (e) {
-        e.preventDefault();
-        var fd = new FormData(form);
-        var typeEvent = fd.get('type_event');
-        var date = fd.get('date');
-        if (!typeEvent || !date) return;
-        fetchApi('specimens/' + sid + '/events/', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ type_event: typeEvent, date: date }),
-        })
-          .then(function (r) {
-            if (!r.ok) return;
-            fetchSpecimenDetailBundle(sid, function (err2, b2) {
-              if (err2 || !b2) return;
-              b2.eventsImageMode = modeImg && modeImg.classList.contains('is-active');
-              rootEl.innerHTML = buildSpecimenMobileSheetHtml(b2);
-              wireSpecimenSheetActions(rootEl, b2);
-            });
-          });
+    var addEvBtn = rootEl.querySelector('#terrain-specimen-add-ev-btn');
+    if (addEvBtn) {
+      addEvBtn.addEventListener('click', function () {
+        openAddEventDrawer(sid, bundle, rootEl);
       });
     }
+
+    rootEl.querySelectorAll('[data-event-id]').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var eid = parseInt(btn.getAttribute('data-event-id'), 10);
+        var ev = bundle.events && bundle.events.filter(function (x) { return x.id === eid; })[0];
+        if (ev) openEventDetailDrawer(ev, sid, bundle, rootEl);
+      });
+    });
 
     var dup = rootEl.querySelector('#terrain-specimen-dup-btn');
     if (dup) {
@@ -3016,6 +3145,350 @@
     popupEl.style.display = 'block';
     wireSpecimenPopupActions(s, popupEl);
   }
+
+  // ── Event Drawer (création & visualisation) ───────────────────────────────
+  var evDrawerEl = null;
+
+  var EVENT_TYPES_ORDER = ['plantation', 'observation', 'taille', 'floraison', 'fructification', 'recolte', 'arrosage', 'maladie', 'traitement', 'amendement', 'transplantation', 'protection', 'fertilisation', 'paillage', 'autre'];
+  var REMINDER_TYPES_ORDER = ['arrosage', 'suivi_maladie', 'taille', 'suivi_general', 'cueillette'];
+  var REMINDER_RECURRENCE_LABELS = { none: 'Aucune', biweekly: 'Bihebdo', annual: 'Annuelle', biannual: 'Bisannuelle' };
+
+  function ensureEvDrawer() {
+    if (evDrawerEl) return evDrawerEl;
+    evDrawerEl = el('div', 'terrain-ev-drawer');
+    evDrawerEl.innerHTML =
+      '<div class="terrain-ev-drawer-backdrop"></div>' +
+      '<div class="terrain-ev-drawer-panel">' +
+      '<div class="terrain-ev-drawer-header">' +
+      '<button type="button" class="terrain-ev-drawer-close" id="terrain-ev-drawer-close">×</button>' +
+      '<h2 class="terrain-ev-drawer-title" id="terrain-ev-drawer-title"></h2>' +
+      '</div>' +
+      '<div class="terrain-ev-drawer-body" id="terrain-ev-drawer-body"></div>' +
+      '</div>';
+    document.body.appendChild(evDrawerEl);
+    evDrawerEl.querySelector('.terrain-ev-drawer-backdrop').addEventListener('click', closeEvDrawer);
+    evDrawerEl.querySelector('#terrain-ev-drawer-close').addEventListener('click', closeEvDrawer);
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && evDrawerEl && evDrawerEl.classList.contains('terrain-ev-drawer--visible')) {
+        closeEvDrawer();
+      }
+    });
+    return evDrawerEl;
+  }
+
+  function closeEvDrawer() {
+    if (evDrawerEl) evDrawerEl.classList.remove('terrain-ev-drawer--visible');
+  }
+
+  function buildAddEventFormHtml(mode) {
+    var today = new Date().toISOString().slice(0, 10);
+    var html = '<div class="terrain-ev-tabs">' +
+      '<button type="button" class="terrain-ev-tab' + (mode !== 'reminder' ? ' terrain-ev-tab--active' : '') + '" data-tab="event">Événement</button>' +
+      '<button type="button" class="terrain-ev-tab' + (mode === 'reminder' ? ' terrain-ev-tab--active' : '') + '" data-tab="reminder">Rappel</button>' +
+      '</div>';
+    if (mode !== 'reminder') {
+      html += '<div class="terrain-ev-section-label">Type d\'événement</div>';
+      html += '<div class="terrain-ev-type-grid">';
+      EVENT_TYPES_ORDER.forEach(function (t) {
+        html += '<button type="button" class="terrain-ev-type-btn" data-ev-type="' + esc(t) + '">' + esc(labelEventType(t)) + '</button>';
+      });
+      html += '</div>';
+      html += '<div class="terrain-ev-section-label">Date</div>';
+      html += '<input type="date" id="terrain-ev-add-date" class="terrain-ev-input" value="' + esc(today) + '" />';
+      html += '<div class="terrain-ev-section-label">Titre <span class="terrain-ev-optional">(optionnel)</span></div>';
+      html += '<input type="text" id="terrain-ev-add-titre" class="terrain-ev-input" placeholder="Titre" />';
+      html += '<div class="terrain-ev-section-label">Description <span class="terrain-ev-optional">(optionnel)</span></div>';
+      html += '<textarea id="terrain-ev-add-desc" class="terrain-ev-input terrain-ev-textarea" placeholder="Description" rows="3"></textarea>';
+      html += '<button type="button" class="terrain-specimen-btn terrain-specimen-btn--primary" id="terrain-ev-add-submit" style="margin-top:16px">Enregistrer</button>';
+      html += '<p class="terrain-ev-error" id="terrain-ev-add-error" hidden>Erreur, veuillez réessayer.</p>';
+    } else {
+      html += '<div class="terrain-ev-section-label">Type de rappel</div>';
+      html += '<div class="terrain-ev-type-grid">';
+      REMINDER_TYPES_ORDER.forEach(function (t) {
+        html += '<button type="button" class="terrain-ev-type-btn" data-rem-type="' + esc(t) + '">' + esc(labelReminderType(t)) + '</button>';
+      });
+      html += '</div>';
+      html += '<div class="terrain-ev-section-label">Date du rappel</div>';
+      html += '<input type="date" id="terrain-ev-add-date" class="terrain-ev-input" value="' + esc(today) + '" min="' + esc(today) + '" />';
+      html += '<div class="terrain-ev-section-label">Récurrence</div>';
+      html += '<div class="terrain-ev-type-grid">';
+      ['none', 'biweekly', 'annual', 'biannual'].forEach(function (r) {
+        html += '<button type="button" class="terrain-ev-type-btn" data-rec="' + esc(r) + '">' + esc(REMINDER_RECURRENCE_LABELS[r] || r) + '</button>';
+      });
+      html += '</div>';
+      html += '<div class="terrain-ev-section-label">Alerte</div>';
+      html += '<div class="terrain-ev-type-grid">';
+      ['email', 'popup', 'son'].forEach(function (a) {
+        html += '<button type="button" class="terrain-ev-type-btn" data-alerte="' + esc(a) + '">' + esc(labelAlerte(a)) + '</button>';
+      });
+      html += '</div>';
+      html += '<div class="terrain-ev-section-label">Titre <span class="terrain-ev-optional">(optionnel)</span></div>';
+      html += '<input type="text" id="terrain-ev-add-titre" class="terrain-ev-input" placeholder="Titre" />';
+      html += '<div class="terrain-ev-section-label">Description <span class="terrain-ev-optional">(optionnel)</span></div>';
+      html += '<textarea id="terrain-ev-add-desc" class="terrain-ev-input terrain-ev-textarea" placeholder="Description" rows="3"></textarea>';
+      html += '<button type="button" class="terrain-specimen-btn terrain-specimen-btn--primary" id="terrain-ev-add-submit" style="margin-top:16px">Enregistrer</button>';
+      html += '<p class="terrain-ev-error" id="terrain-ev-add-error" hidden>Erreur, veuillez réessayer.</p>';
+    }
+    return html;
+  }
+
+  function openAddEventDrawer(specimenId, bundle, rootEl) {
+    var drawer = ensureEvDrawer();
+    var titleEl = byId('terrain-ev-drawer-title');
+    var bodyEl = byId('terrain-ev-drawer-body');
+    if (titleEl) titleEl.textContent = 'Créer un événement';
+    drawer.classList.add('terrain-ev-drawer--visible');
+
+    var currentMode = 'event';
+    var selectedType = 'observation';
+    var selectedRemType = 'arrosage';
+    var selectedRec = 'none';
+    var selectedAlerte = 'popup';
+
+    function selectType(t) {
+      selectedType = t;
+      bodyEl.querySelectorAll('[data-ev-type]').forEach(function (b) {
+        b.classList.toggle('terrain-ev-type-btn--active', b.getAttribute('data-ev-type') === t);
+      });
+    }
+    function selectRemType(t) {
+      selectedRemType = t;
+      bodyEl.querySelectorAll('[data-rem-type]').forEach(function (b) {
+        b.classList.toggle('terrain-ev-type-btn--active', b.getAttribute('data-rem-type') === t);
+      });
+    }
+    function selectRec(r) {
+      selectedRec = r;
+      bodyEl.querySelectorAll('[data-rec]').forEach(function (b) {
+        b.classList.toggle('terrain-ev-type-btn--active', b.getAttribute('data-rec') === r);
+      });
+    }
+    function selectAlerte(a) {
+      selectedAlerte = a;
+      bodyEl.querySelectorAll('[data-alerte]').forEach(function (b) {
+        b.classList.toggle('terrain-ev-type-btn--active', b.getAttribute('data-alerte') === a);
+      });
+    }
+
+    function renderAddForm(mode) {
+      currentMode = mode;
+      if (!bodyEl) return;
+      bodyEl.innerHTML = buildAddEventFormHtml(mode);
+
+      bodyEl.querySelectorAll('.terrain-ev-tab').forEach(function (tab) {
+        tab.addEventListener('click', function () {
+          renderAddForm(tab.getAttribute('data-tab') === 'reminder' ? 'reminder' : 'event');
+        });
+      });
+
+      if (mode !== 'reminder') {
+        selectType(selectedType);
+        bodyEl.querySelectorAll('[data-ev-type]').forEach(function (b) {
+          b.addEventListener('click', function () { selectType(b.getAttribute('data-ev-type')); });
+        });
+      } else {
+        selectRemType(selectedRemType);
+        bodyEl.querySelectorAll('[data-rem-type]').forEach(function (b) {
+          b.addEventListener('click', function () { selectRemType(b.getAttribute('data-rem-type')); });
+        });
+        selectRec(selectedRec);
+        bodyEl.querySelectorAll('[data-rec]').forEach(function (b) {
+          b.addEventListener('click', function () { selectRec(b.getAttribute('data-rec')); });
+        });
+        selectAlerte(selectedAlerte);
+        bodyEl.querySelectorAll('[data-alerte]').forEach(function (b) {
+          b.addEventListener('click', function () { selectAlerte(b.getAttribute('data-alerte')); });
+        });
+      }
+
+      var submitBtn = byId('terrain-ev-add-submit');
+      var errEl = byId('terrain-ev-add-error');
+      if (submitBtn) {
+        submitBtn.addEventListener('click', function () {
+          submitBtn.disabled = true;
+          if (errEl) errEl.hidden = true;
+          var dateEl = byId('terrain-ev-add-date');
+          var titreEl = byId('terrain-ev-add-titre');
+          var descEl = byId('terrain-ev-add-desc');
+          var dateVal = dateEl ? dateEl.value : '';
+          var titreVal = titreEl ? titreEl.value.trim() : '';
+          var descVal = descEl ? descEl.value.trim() : '';
+          var url, payload;
+          if (currentMode !== 'reminder') {
+            url = 'specimens/' + specimenId + '/events/';
+            payload = { type_event: selectedType };
+            if (dateVal) payload.date = dateVal;
+            if (titreVal) payload.titre = titreVal;
+            if (descVal) payload.description = descVal;
+          } else {
+            url = 'specimens/' + specimenId + '/reminders/';
+            payload = { type_rappel: selectedRemType, date_rappel: dateVal, type_alerte: selectedAlerte, recurrence_rule: selectedRec };
+            if (titreVal) payload.titre = titreVal;
+            if (descVal) payload.description = descVal;
+          }
+          fetchApi(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          }).then(function (r) {
+            if (!r.ok) throw new Error();
+            closeEvDrawer();
+            fetchSpecimenDetailBundle(String(specimenId), function (err2, b2) {
+              if (err2 || !b2) return;
+              b2.eventsImageMode = bundle.eventsImageMode;
+              rootEl.innerHTML = buildSpecimenMobileSheetHtml(b2);
+              wireSpecimenSheetActions(rootEl, b2);
+            });
+          }).catch(function () {
+            submitBtn.disabled = false;
+            if (errEl) errEl.hidden = false;
+          });
+        });
+      }
+    }
+
+    renderAddForm(currentMode);
+  }
+
+  function openEventDetailDrawer(ev, specimenId, bundle, rootEl) {
+    var drawer = ensureEvDrawer();
+    var titleEl = byId('terrain-ev-drawer-title');
+    var bodyEl = byId('terrain-ev-drawer-body');
+    if (titleEl) titleEl.textContent = 'Événement';
+    drawer.classList.add('terrain-ev-drawer--visible');
+
+    var isStaff = window.TERRAIN_USER_IS_STAFF || false;
+
+    function buildDetailHtml(currentEv) {
+      var evPhotos = (bundle.photos || []).filter(function (p) { return p.event_id === currentEv.id; });
+      var html = '<div class="terrain-ev-detail-header">' +
+        '<span class="terrain-ev-detail-type">' + esc(labelEventType(currentEv.type_event)) + '</span>' +
+        '<span class="terrain-ev-detail-date">' + esc(String(currentEv.date)) + '</span>' +
+        '</div>';
+      if (currentEv.titre) html += '<p class="terrain-ev-detail-titre">' + esc(currentEv.titre) + '</p>';
+      if (currentEv.description) html += '<p class="terrain-ev-detail-desc">' + esc(currentEv.description) + '</p>';
+      if (evPhotos.length) {
+        html += '<div class="terrain-ev-detail-photos">';
+        evPhotos.forEach(function (p) {
+          if (p.image_url) html += '<img class="terrain-ev-detail-photo" src="' + esc(p.image_url) + '" alt="" loading="lazy" />';
+        });
+        html += '</div>';
+      }
+      html += '<div class="terrain-ev-detail-actions">';
+      html += '<button type="button" class="terrain-specimen-btn terrain-specimen-btn--secondary" id="terrain-ev-detail-edit-btn">Modifier</button>';
+      html += '<button type="button" class="terrain-specimen-btn terrain-specimen-btn--danger" id="terrain-ev-detail-delete-btn">Supprimer</button>';
+      if (isStaff) {
+        html += '<a href="' + esc(adminEventChange(currentEv.id)) + '" target="_blank" rel="noopener" class="terrain-ev-detail-admin-link">Ouvrir dans l\'admin</a>';
+      }
+      html += '</div>';
+      html += '<p class="terrain-ev-error" id="terrain-ev-detail-error" hidden>Erreur, veuillez réessayer.</p>';
+      return html;
+    }
+
+    function buildEditHtml(currentEv) {
+      var html = '<div class="terrain-ev-section-label">Type d\'événement</div>';
+      html += '<div class="terrain-ev-type-grid">';
+      EVENT_TYPES_ORDER.forEach(function (t) {
+        html += '<button type="button" class="terrain-ev-type-btn' + (currentEv.type_event === t ? ' terrain-ev-type-btn--active' : '') + '" data-ev-type="' + esc(t) + '">' + esc(labelEventType(t)) + '</button>';
+      });
+      html += '</div>';
+      html += '<div class="terrain-ev-section-label">Titre <span class="terrain-ev-optional">(optionnel)</span></div>';
+      html += '<input type="text" id="terrain-ev-edit-titre" class="terrain-ev-input" value="' + esc(currentEv.titre || '') + '" placeholder="Titre" />';
+      html += '<div class="terrain-ev-section-label">Description <span class="terrain-ev-optional">(optionnel)</span></div>';
+      html += '<textarea id="terrain-ev-edit-desc" class="terrain-ev-input terrain-ev-textarea" rows="3">' + esc(currentEv.description || '') + '</textarea>';
+      html += '<div class="terrain-ev-detail-actions">';
+      html += '<button type="button" class="terrain-specimen-btn terrain-specimen-btn--primary" id="terrain-ev-edit-submit" style="margin-top:16px">Enregistrer</button>';
+      html += '<button type="button" class="terrain-specimen-btn terrain-specimen-btn--secondary" id="terrain-ev-edit-cancel">Annuler</button>';
+      html += '</div>';
+      html += '<p class="terrain-ev-error" id="terrain-ev-edit-error" hidden>Erreur, veuillez réessayer.</p>';
+      return html;
+    }
+
+    function showDetail(currentEv) {
+      if (!bodyEl) return;
+      bodyEl.innerHTML = buildDetailHtml(currentEv);
+
+      var editBtn = byId('terrain-ev-detail-edit-btn');
+      var delBtn = byId('terrain-ev-detail-delete-btn');
+      var errEl = byId('terrain-ev-detail-error');
+
+      if (editBtn) {
+        editBtn.addEventListener('click', function () {
+          bodyEl.innerHTML = buildEditHtml(currentEv);
+          var selectedType = currentEv.type_event;
+          bodyEl.querySelectorAll('[data-ev-type]').forEach(function (b) {
+            b.addEventListener('click', function () {
+              selectedType = b.getAttribute('data-ev-type');
+              bodyEl.querySelectorAll('[data-ev-type]').forEach(function (x) {
+                x.classList.toggle('terrain-ev-type-btn--active', x.getAttribute('data-ev-type') === selectedType);
+              });
+            });
+          });
+          var submitBtn = byId('terrain-ev-edit-submit');
+          var cancelBtn = byId('terrain-ev-edit-cancel');
+          var editErrEl = byId('terrain-ev-edit-error');
+          if (cancelBtn) cancelBtn.addEventListener('click', function () { showDetail(currentEv); });
+          if (submitBtn) {
+            submitBtn.addEventListener('click', function () {
+              submitBtn.disabled = true;
+              if (editErrEl) editErrEl.hidden = true;
+              var titreEl = byId('terrain-ev-edit-titre');
+              var descEl = byId('terrain-ev-edit-desc');
+              var payload = {
+                type_event: selectedType,
+                titre: titreEl ? titreEl.value.trim() : '',
+                description: descEl ? descEl.value.trim() : '',
+              };
+              fetchApi('specimens/' + specimenId + '/events/' + currentEv.id + '/', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+              }).then(function (r) {
+                if (!r.ok) throw new Error();
+                return r.json();
+              }).then(function (updated) {
+                closeEvDrawer();
+                fetchSpecimenDetailBundle(String(specimenId), function (err2, b2) {
+                  if (err2 || !b2) return;
+                  b2.eventsImageMode = bundle.eventsImageMode;
+                  rootEl.innerHTML = buildSpecimenMobileSheetHtml(b2);
+                  wireSpecimenSheetActions(rootEl, b2);
+                });
+              }).catch(function () {
+                submitBtn.disabled = false;
+                if (editErrEl) editErrEl.hidden = false;
+              });
+            });
+          }
+        });
+      }
+
+      if (delBtn) {
+        delBtn.addEventListener('click', function () {
+          if (!confirm('Supprimer cet événement ?')) return;
+          delBtn.disabled = true;
+          if (errEl) errEl.hidden = true;
+          fetchApi('specimens/' + specimenId + '/events/' + currentEv.id + '/', { method: 'DELETE' })
+            .then(function (r) {
+              if (!r.ok && r.status !== 204) throw new Error();
+              closeEvDrawer();
+              fetchSpecimenDetailBundle(String(specimenId), function (err2, b2) {
+                if (err2 || !b2) return;
+                b2.eventsImageMode = bundle.eventsImageMode;
+                rootEl.innerHTML = buildSpecimenMobileSheetHtml(b2);
+                wireSpecimenSheetActions(rootEl, b2);
+              });
+            }).catch(function () {
+              delBtn.disabled = false;
+              if (errEl) errEl.hidden = false;
+            });
+        });
+      }
+    }
+
+    showDetail(ev);
+  }
+  // ── Fin Event Drawer ──────────────────────────────────────────────────────
 
   function openSpecimenOverlay(s, preloadedBundle) {
     addToRecents(s);
@@ -3320,7 +3793,7 @@
     var payload = msg.payload || {};
     if (type === 'LOAD_SPECIMENS') {
       specimens = payload.specimens || [];
-      updateSpecimenList(null);
+      applySearchAndFilters();
     }
     if (type === 'LOAD_WARNINGS') {
       warnings = payload;
@@ -3336,6 +3809,6 @@
 
   if (window.INITIAL_SPECIMENS && Array.isArray(window.INITIAL_SPECIMENS)) {
     specimens = window.INITIAL_SPECIMENS;
-    updateSpecimenList(null);
+    applySearchAndFilters();
   }
 })();

@@ -22,6 +22,7 @@ from .models import (
     Cultivar, CultivarPollinator, CultivarPorteGreffe,
     UserTag, CompanionRelation, Amendment, OrganismAmendment,
     Specimen, SpecimenGroup, SpecimenGroupMember,
+    SpecimenFavorite, OrganismFavorite,
     Event, Reminder, Photo,
     SeedSupplier, SeedCollection, SemisBatch,
     Garden, WeatherRecord, SprinklerZone,
@@ -1406,3 +1407,24 @@ class DataImportRunAdmin(admin.ModelAdmin):
 
     def has_change_permission(self, request, obj=None):
         return False
+
+
+@admin.register(SpecimenFavorite)
+class SpecimenFavoriteAdmin(admin.ModelAdmin):
+    list_display = ['user', 'specimen', 'specimen_statut']
+    list_filter = ['user']
+    search_fields = ['user__username', 'specimen__nom']
+    autocomplete_fields = ['specimen']
+    ordering = ['user__username', 'specimen__nom']
+
+    def specimen_statut(self, obj):
+        return obj.specimen.statut
+    specimen_statut.short_description = 'Statut spécimen'
+
+
+@admin.register(OrganismFavorite)
+class OrganismFavoriteAdmin(admin.ModelAdmin):
+    list_display = ['user', 'organism']
+    list_filter = ['user']
+    search_fields = ['user__username', 'organism__nom_commun']
+    ordering = ['user__username']

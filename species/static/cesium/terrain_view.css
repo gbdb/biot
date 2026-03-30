@@ -1992,6 +1992,96 @@ html, body {
   line-height: 1.4;
 }
 
+/* Barre de recherche Spécimens (jardin) */
+.terrain-jardin-search-wrap {
+  margin-bottom: 8px;
+}
+
+/* Résultats catégorisés — onglet Recherche */
+#terrain-recherche-results {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.terrain-recherche-section {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.terrain-recherche-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  font-size: var(--font-size-label);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.terrain-recherche-count {
+  background: var(--color-accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 10px;
+  padding: 1px 6px;
+  min-width: 18px;
+  text-align: center;
+}
+
+.terrain-recherche-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.terrain-recherche-item {
+  display: flex;
+  flex-direction: column;
+  padding: 9px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--color-border);
+  transition: background 0.15s;
+}
+.terrain-recherche-item:last-child {
+  border-bottom: none;
+}
+.terrain-recherche-item:hover {
+  background: var(--color-bg-hover, rgba(0,0,0,0.04));
+}
+
+.terrain-recherche-item-name {
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.terrain-recherche-item-sub {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  margin-top: 1px;
+}
+
+.terrain-recherche-empty {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  padding: 10px 12px;
+  margin: 0;
+}
+
+.terrain-recherche-more {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  padding: 6px 12px;
+  margin: 0;
+  border-top: 1px solid var(--color-border);
+}
+
 /* Config — thème */
 .terrain-admin-select {
   width: 100%;
@@ -3350,4 +3440,277 @@ button.terrain-specimen-species-link {
   font-size: var(--font-size-label);
   color: var(--color-danger, #ff453a);
   margin: 0;
+}
+
+/* ── Event / Reminder Drawer ─────────────────────────────────────────────── */
+.terrain-ev-drawer {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 300;
+  display: flex;
+  justify-content: flex-end;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.terrain-ev-drawer--visible {
+  pointer-events: auto;
+  opacity: 1;
+  visibility: visible;
+}
+
+.terrain-ev-drawer-backdrop {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.45);
+  cursor: pointer;
+}
+
+.terrain-ev-drawer-panel {
+  position: relative;
+  width: 420px;
+  max-width: 95vw;
+  height: 100%;
+  background: var(--terrain-glass-panel);
+  backdrop-filter: blur(var(--terrain-blur-panel));
+  -webkit-backdrop-filter: blur(var(--terrain-blur-panel));
+  box-shadow: -4px 0 24px rgba(0,0,0,0.4);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.terrain-ev-drawer-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.terrain-ev-drawer-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: var(--color-bg-card);
+  color: var(--color-text-secondary);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+}
+
+.terrain-ev-drawer-close:hover {
+  background: var(--color-border);
+}
+
+.terrain-ev-drawer-title {
+  flex: 1;
+  margin: 0;
+  font-size: 16px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.terrain-ev-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Tabs */
+.terrain-ev-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.terrain-ev-tab {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-bg-card);
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+
+.terrain-ev-tab--active {
+  background: var(--color-accent);
+  color: #fff;
+  border-color: var(--color-accent);
+}
+
+/* Section labels */
+.terrain-ev-section-label {
+  font-size: 13px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  margin: 14px 0 8px;
+}
+
+.terrain-ev-section-label:first-child {
+  margin-top: 0;
+}
+
+.terrain-ev-optional {
+  font-weight: normal;
+  color: var(--color-text-secondary);
+}
+
+/* Type grid */
+.terrain-ev-type-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.terrain-ev-type-btn {
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg-card);
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.terrain-ev-type-btn:hover {
+  background: var(--color-accent);
+  color: #fff;
+  border-color: var(--color-accent);
+}
+
+.terrain-ev-type-btn--active {
+  background: var(--color-accent);
+  color: #fff;
+  border-color: var(--color-accent);
+}
+
+/* Inputs */
+.terrain-ev-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.terrain-ev-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.terrain-ev-textarea {
+  resize: vertical;
+  min-height: 72px;
+}
+
+.terrain-ev-error {
+  color: var(--color-danger, #ff453a);
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+/* Event detail view */
+.terrain-ev-detail-header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.terrain-ev-detail-type {
+  font-size: 18px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.terrain-ev-detail-date {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.terrain-ev-detail-titre {
+  font-size: 15px;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-accent);
+  margin: 0 0 8px;
+}
+
+.terrain-ev-detail-desc {
+  font-size: 14px;
+  color: var(--color-text-primary);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  margin: 0 0 12px;
+}
+
+.terrain-ev-detail-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.terrain-ev-detail-photo {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.terrain-ev-detail-actions {
+  display: flex;
+  flex-direction: column;
+}
+
+.terrain-ev-detail-admin-link {
+  display: block;
+  margin-top: 16px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  text-align: center;
+  text-decoration: underline;
+}
+
+/* Fix: event list row as button */
+button.terrain-specimen-list-row {
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
+/* Fix: image strip thumb as button */
+button.terrain-specimen-ev-thumb {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
 }

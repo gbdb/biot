@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Image,
+  Alert,
   useWindowDimensions,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -210,24 +211,31 @@ export default function SpecimensScreen() {
 
   const handleToggleFavori = useCallback(async (item: SpecimenList) => {
     const wasFavori = item.is_favori ?? false;
+    // Mise à jour optimiste locale
+    setSpecimens((prev) =>
+      prev.map((s) => (s.id === item.id ? { ...s, is_favori: !wasFavori } : s))
+    );
     try {
       if (wasFavori) {
         await removeSpecimenFavorite(item.id);
         if (filter.type === 'favoris') {
           setSpecimens((prev) => prev.filter((s) => s.id !== item.id));
-        } else {
-          setSpecimens((prev) =>
-            prev.map((s) => (s.id === item.id ? { ...s, is_favori: false } : s))
-          );
         }
       } else {
         await addSpecimenFavorite(item.id);
-        setSpecimens((prev) =>
-          prev.map((s) => (s.id === item.id ? { ...s, is_favori: true } : s))
-        );
       }
-    } catch {
-      /* ignore */
+    } catch (err) {
+      // Annuler la mise à jour optimiste en cas d'erreur
+      setSpecimens((prev) =>
+        prev.map((s) => (s.id === item.id ? { ...s, is_favori: wasFavori } : s))
+      );
+      const msg = err instanceof Error ? err.message : 'Erreur inconnue';
+      Alert.alert(
+        'Erreur',
+        wasFavori
+          ? `Impossible de retirer des favoris : ${msg}`
+          : `Impossible d'ajouter aux favoris : ${msg}`
+      );
     }
   }, [filter.type]);
 

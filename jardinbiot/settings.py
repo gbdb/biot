@@ -196,6 +196,24 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 20,
 }
 
+# Logging — DEBUG pour species.api_views (diagnose favoris)
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'loggers': {
+        'species.api_views': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+    },
+}
+
 # JWT : durée de vie plus longue pour éviter reconnexion fréquente
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),

@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   useWindowDimensions,
   ScrollView,
+  RefreshControl,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
@@ -38,6 +39,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { width: screenWidth } = useWindowDimensions();
   const [favoris, setFavoris] = useState<SpecimenList[]>([]);
+  const [favorisError, setFavorisError] = useState<string | null>(null);
   const [nearby, setNearby] = useState<SpecimenList[]>([]);
   const [loadingNearby, setLoadingNearby] = useState(true);
   const [nearbyError, setNearbyError] = useState<string | null>(null);
@@ -57,6 +59,7 @@ export default function HomeScreen() {
   const [warningsRefreshTrigger, setWarningsRefreshTrigger] = useState(0);
   const [viewMode, setViewMode] = useState<'dashboard' | 'cesium'>('dashboard');
   const [cesiumUri, setCesiumUri] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const fetchNearby = useCallback(async () => {
     setLoadingNearby(true);
@@ -93,11 +96,13 @@ export default function HomeScreen() {
 
   const fetchFavoris = useCallback(async () => {
     setLoadingFavoris(true);
+    setFavorisError(null);
     try {
       const list = await getSpecimens({ favoris: true });
       setFavoris(list);
-    } catch {
+    } catch (err) {
       setFavoris([]);
+      setFavorisError(err instanceof Error ? err.message : 'Impossible de charger les favoris');
     } finally {
       setLoadingFavoris(false);
     }
@@ -142,6 +147,23 @@ export default function HomeScreen() {
       setLoadingRecentEvents(false);
     }
   }, []);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const ok = await ensureValidToken();
+      if (!ok) return;
+      await Promise.allSettled([
+        fetchFavoris(),
+        fetchNearby(),
+        fetchReminders(),
+        fetchWeatherAlerts(),
+        fetchRecentEvents(),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [fetchFavoris, fetchNearby, fetchReminders, fetchWeatherAlerts, fetchRecentEvents]);
 
   useFocusEffect(
     useCallback(() => {
@@ -238,7 +260,18 @@ export default function HomeScreen() {
   }
 
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
+    <ScrollView
+      style={styles.scroll}
+      contentContainerStyle={styles.container}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          tintColor="#1a3c27"
+          colors={['#1a3c27']}
+        />
+      }
+    >
       {toggleSegment}
       <Text style={styles.title}>🌳 Jardin Biot</Text>
 
@@ -406,12 +439,16 @@ export default function HomeScreen() {
         </View>
       ) : null}
 
-      {/* Favoris */}
-      {loadingFavoris ? (
-        <ActivityIndicator size="small" color="#1a3c27" style={styles.favorisLoader} />
-      ) : favoris.length > 0 ? (
-        <View style={styles.favorisSection}>
-          <Text style={styles.favorisTitle}>Favoris</Text>
+      {/* Favoris — toujours visible pour que l'utilisateur voie la section */}
+      <View style={styles.favorisSection}>
+        <Text style={styles.favorisTitle}>Favoris</Text>
+        {loadingFavoris ? (
+          <ActivityIndicator size="small" color="#1a3c27" style={styles.favorisLoader} />
+        ) : favorisError ? (
+          <Text style={styles.recentEventsErrorText}>{favorisError}</Text>
+        ) : favoris.length === 0 ? (
+          <Text style={styles.recentEventsEmptyText}>Aucun favori — ajoutez des spécimens en favoris depuis leur fiche</Text>
+        ) : (
           <View style={[styles.favorisGrid, { width: containerWidth }]}>
             {favoris.map((s) => (
               <TouchableOpacity
@@ -437,8 +474,8 @@ export default function HomeScreen() {
               </TouchableOpacity>
             ))}
           </View>
-        </View>
-      ) : null}
+        )}
+      </View>
 
       {/* Événements récents — toujours visible pour que l’utilisateur voie la section */}
       <View style={styles.recentEventsSection}>
